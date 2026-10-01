@@ -1,0 +1,2 @@
+<?php
+span>{{ $trangThai ?? '' }}</span>
