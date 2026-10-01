@@ -1,13 +1,10 @@
 <?php
 namespace Tests\Feature;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class KhungDuAnTest extends TestCase
 {
-    use RefreshDatabase;
-
     public function test_guest_is_redirected_to_login(): void
     {
         $response = $this->get('/');

@@ -1,3 +1,32 @@
+# Truy xuất nguồn gốc dược phẩm
+
+## Database và test
+
+Ứng dụng đang cấu hình Laravel `DB_CONNECTION=mysql`, nhưng server XAMPP hiện tại là MariaDB 10.4.32. MariaDB tương thích giao thức MySQL và được Laravel kết nối qua PDO MySQL; tên driver `mysql` không xác định nhà cung cấp server.
+
+### Cơ sở dữ liệu
+
+- Database phát triển: `truyxuatthuoc` trên `127.0.0.1:3306`.
+- Database kiểm thử MariaDB: `truyxuatthuoc_test` trên cùng XAMPP instance, được import riêng từ schema SQL.
+- Schema nguồn hiện tại là [`truyxuatthuoc v3.sql`](./truyxuatthuoc%20v3.sql). Project chưa có Laravel migrations phản ánh schema này; bảng `migrations` hiện có trong DB phát triển nhưng không có bản ghi migration.
+- Cho đến khi có migrations đầy đủ, không chạy `php artisan migrate:fresh` hoặc `php artisan migrate:refresh` trên database phát triển. Cập nhật schema phải giữ SQL làm nguồn chuẩn, sao lưu dữ liệu và thử trước trên database kiểm thử riêng.
+
+### Chạy kiểm thử
+
+Kiểm thử thông thường dùng SQLite in-memory, nên không tạo file database và không kiểm tra khả năng tương thích MariaDB:
+
+```powershell
+php artisan test
+```
+
+Kiểm thử tích hợp database dùng cấu hình riêng, chỉ kết nối tới `truyxuatthuoc_test`:
+
+```powershell
+vendor\bin\phpunit --configuration=phpunit.mariadb.xml --no-coverage
+```
+
+Không đổi database trong [`phpunit.mariadb.xml`](./phpunit.mariadb.xml) thành `truyxuatthuoc`. Khi bổ sung test nghiệp vụ có ghi dữ liệu, dùng transaction/fixture cô lập; không dùng `RefreshDatabase` hoặc lệnh `migrate:fresh` vì schema hiện được quản lý bằng file SQL chứ chưa được tái tạo từ Laravel migrations.
+
 <p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
 
 <p align="center">
