@@ -1,0 +1,8 @@
+/* Tùy chỉnh hiệu ứng tương tác cho các dòng tiếp nhận */
+.dong-tiep-nhan:hover {
+  background-color: #f2faf5 !important;
+}
+
+.dong-tiep-nhan:hover .btn-nhan-hang-row {
+  box-shadow: 0 4px 12px rgba(14, 116, 144, 0.25);
+}

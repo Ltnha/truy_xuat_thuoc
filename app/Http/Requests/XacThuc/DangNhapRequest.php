@@ -9,7 +9,7 @@ class DangNhapRequest extends BaseRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'email'],
+            'tenDangNhap' => ['required', 'string'],
             'matKhau' => ['required', 'string', 'min:8'],
         ];
     }

@@ -8,7 +8,7 @@ class FakeBlockchainGateway implements BlockchainGateway
         logger()->warning('Using fake blockchain gateway for '.$tenNghiepVu, ['duLieu' => $duLieu]);
 
         return [
-            'txHash' => '0xfake'.bin2hex(random_bytes(8)),
+            'txHash' => '0x'.bin2hex(random_bytes(32)),
             'chainId' => ChainId::tu($tenNghiepVu),
             'status' => 'submitted',
         ];

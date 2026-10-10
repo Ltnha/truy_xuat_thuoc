@@ -1,0 +1,1 @@
+// Footer logic chung nếu có

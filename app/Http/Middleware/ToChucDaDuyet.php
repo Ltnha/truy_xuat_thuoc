@@ -1,6 +1,7 @@
 <?php
 namespace App\Http\Middleware;
 
+use App\Enums\OrganizationApprovalStatus;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -13,7 +14,7 @@ class ToChucDaDuyet
             return redirect()->route('dangNhap');
         }
 
-        if ($request->user()->toChuc && $request->user()->toChuc->trangThaiDuyet !== 'DA_DUYET') {
+        if ($request->user()->toChuc && $request->user()->toChuc->trangThaiDuyet !== OrganizationApprovalStatus::daDuyet) {
             abort(403, 'Tổ chức của bạn chưa được duyệt.');
         }
 

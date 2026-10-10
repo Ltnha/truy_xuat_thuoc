@@ -10,9 +10,10 @@ class LoThuocRequest extends BaseRequest
     {
         return [
             'sanPhamId' => ['required', 'integer', 'exists:sanPham,id'],
+            'maLoNghiepVu' => ['required', 'string', 'max:50', 'unique:loThuoc,maLoNghiepVu'],
             'soLuong' => ['required', 'integer', 'min:1'],
             'ngaySanXuat' => ['required', 'date'],
-            'hanSuDung' => ['required', 'date'],
+            'hanSuDung' => ['required', 'date', 'after:ngaySanXuat'],
         ];
     }
 }

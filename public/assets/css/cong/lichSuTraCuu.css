@@ -1,0 +1,14 @@
+/* Hiệu ứng tương tác cho các dòng trong bảng lịch sử tra cứu */
+.dong-lich-su {
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+}
+
+.dong-lich-su:hover {
+  background-color: #f2faf5 !important;
+}
+
+.dong-lich-su:hover .nut-xem-chi-tiet {
+  background-color: #047857; /* emerald-700 */
+  color: #ffffff;
+}

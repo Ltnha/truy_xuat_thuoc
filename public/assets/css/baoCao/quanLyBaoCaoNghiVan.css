@@ -1,0 +1,14 @@
+/* Hiệu ứng tương tác danh sách báo cáo */
+.dong-bao-cao-dn {
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+}
+
+.dong-bao-cao-dn:hover {
+  background-color: #f2faf5 !important;
+}
+
+.dong-bao-cao-dn:hover .btn-xem-bc {
+  background-color: #047857;
+  color: #ffffff;
+}

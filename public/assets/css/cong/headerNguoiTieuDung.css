@@ -1,0 +1,22 @@
+:root {
+  --nen-chinh: #f2faf5; /* Biến CSS thuần dùng khi viết file .css riêng */
+}
+
+/* Lớp đổ bóng xanh đen y tế trầm ấm cho thẻ và khối nội dung */
+.bong-xanh {
+  box-shadow:
+    0 8px 24px rgba(12, 32, 22, 0.08),
+    0 2px 6px rgba(12, 32, 22, 0.04);
+}
+
+/* Hiệu ứng nổi lên nhẹ khi di chuột */
+.bong-xanh-hover {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bong-xanh-hover:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 14px 30px rgba(12, 32, 22, 0.13),
+    0 4px 10px rgba(12, 32, 22, 0.06);
+}

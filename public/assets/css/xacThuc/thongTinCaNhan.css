@@ -1,0 +1,6 @@
+/* Tùy chỉnh hiệu ứng đổ bóng xanh đen */
+.bong-xanh {
+  box-shadow:
+    0 8px 24px rgba(12, 32, 22, 0.08),
+    0 2px 6px rgba(12, 32, 22, 0.04);
+}

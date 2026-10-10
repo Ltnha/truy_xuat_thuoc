@@ -1,0 +1,14 @@
+/* Tùy chỉnh tương tác dòng bảng lịch sử báo cáo */
+.dong-bao-cao {
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+}
+
+.dong-bao-cao:hover {
+  background-color: #f2faf5 !important;
+}
+
+.dong-bao-cao:hover .nut-chi-tiet-bc {
+  background-color: #047857; /* emerald-700 */
+  color: #ffffff;
+}

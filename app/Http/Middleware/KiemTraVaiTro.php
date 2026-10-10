@@ -15,7 +15,11 @@ class KiemTraVaiTro
 
         $taiKhoan = $request->user();
 
-        if ($vaiTro !== [] && ! in_array($taiKhoan->vaiTro, $vaiTro, true)) {
+        $vaiTroTaiKhoan = $taiKhoan->vaiTro instanceof \BackedEnum
+            ? $taiKhoan->vaiTro->value
+            : $taiKhoan->vaiTro;
+
+        if ($vaiTro !== [] && ! in_array($vaiTroTaiKhoan, $vaiTro, true)) {
             abort(403, 'Bạn không có quyền truy cập chức năng này.');
         }
 

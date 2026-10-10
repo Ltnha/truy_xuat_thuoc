@@ -1,0 +1,6 @@
+/* Styling chọn thẻ loại tổ chức */
+.the-loai-to-chuc.selected {
+  border-color: #047857; /* emerald-700 */
+  background-color: #ecfdf5; /* emerald-50 */
+  box-shadow: 0 4px 16px rgba(12, 32, 22, 0.08);
+}

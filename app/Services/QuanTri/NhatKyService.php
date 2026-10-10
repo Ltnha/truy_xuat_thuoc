@@ -5,13 +5,14 @@ use App\Models\NhatKyHeThong;
 
 class NhatKyService
 {
-    public function ghi(string $hanhDong, ?int $taiKhoanId = null, ?string $noiDung = null): void
+    public function ghi(int $taiKhoanId, string $hanhDong, ?string $noiDung = null, ?string $diaChiIP = null): void
     {
         NhatKyHeThong::create([
             'taiKhoanId' => $taiKhoanId,
             'hanhDong' => $hanhDong,
             'noiDung' => $noiDung,
             'thoiGian' => now(),
+            'diaChiIP' => $diaChiIP,
         ]);
     }
 }
