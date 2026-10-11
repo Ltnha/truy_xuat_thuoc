@@ -114,6 +114,8 @@ class TraCuuController extends Controller
         $batchTxHash = DB::table('blockchainTransaction')
             ->where('loThuocId', $lo->id)
             ->where('eventName', 'BatchRegistered')
+            ->where('network', config('truyXuat.blockchain.mang'))
+            ->latest('id')
             ->value('txHash');
         $steps = DB::table('lichSuLoThuoc')
             ->where('loThuocId', $lo->id)

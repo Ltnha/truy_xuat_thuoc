@@ -68,6 +68,11 @@ Route::middleware(['auth', 'taiKhoanHoatDong'])->group(function () {
         Route::delete('/sanPham/{sanPham}', [\App\Http\Controllers\NhaSanXuat\SanPhamController::class, 'destroy'])->name('sanPham.destroy');
         Route::get('/loThuoc', [\App\Http\Controllers\LoThuoc\LoThuocController::class, 'index'])->name('loThuoc.index');
         Route::post('/loThuoc', [\App\Http\Controllers\LoThuoc\LoThuocController::class, 'store'])->name('loThuoc.store');
+        Route::get('/loThuoc/{loThuoc}/blockchain', [\App\Http\Controllers\Blockchain\SepoliaTransactionController::class, 'show'])
+            ->name('loThuoc.blockchain');
+        Route::post('/loThuoc/{loThuoc}/blockchain', [\App\Http\Controllers\Blockchain\SepoliaTransactionController::class, 'synchronize'])
+            ->middleware('throttle:10,1')
+            ->name('loThuoc.blockchain.sync');
     });
 
     Route::prefix('chuoiCungUng')->name('chung.')->middleware('toChucDaDuyet')->group(function () {

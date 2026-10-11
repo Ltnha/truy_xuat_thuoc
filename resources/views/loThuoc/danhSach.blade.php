@@ -41,7 +41,7 @@
             <thead class="bg-white text-[11px] uppercase text-slate-500">
                 <tr>
                     <th class="px-4 py-3">Mã lô</th><th class="px-4 py-3">Sản phẩm</th><th class="px-4 py-3">Số lượng</th>
-                    <th class="px-4 py-3">Ngày sản xuất</th><th class="px-4 py-3">Hạn sử dụng</th><th class="px-4 py-3">Trạng thái</th>
+                    <th class="px-4 py-3">Ngày sản xuất</th><th class="px-4 py-3">Hạn sử dụng</th><th class="px-4 py-3">Trạng thái</th><th class="px-4 py-3">Blockchain</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
@@ -53,9 +53,10 @@
                         <td class="px-4 py-3">{{ $loThuoc->ngaySanXuat->format('d/m/Y') }}</td>
                         <td class="px-4 py-3">{{ $loThuoc->hanSuDung->format('d/m/Y') }}</td>
                         <td class="px-4 py-3">{{ $loThuoc->trangThai->value }}</td>
+                        <td class="px-4 py-3"><a class="font-semibold text-emerald-800 hover:underline" href="{{ route('nsx.loThuoc.blockchain', $loThuoc) }}">Đồng bộ Sepolia</a></td>
                     </tr>
                 @empty
-                    <tr><td colspan="6" class="px-4 py-8 text-center text-slate-500">Chưa có lô thuốc.</td></tr>
+                    <tr><td colspan="7" class="px-4 py-8 text-center text-slate-500">Chưa có lô thuốc.</td></tr>
                 @endforelse
             </tbody>
         </table>
