@@ -1,5 +1,0 @@
-/* Tùy chỉnh tương tác bảng quản lý lô hàng nhà phân phối */
-.dong-hang-pending:hover,
-.dong-hang-kho:hover {
-  background-color: #f2faf5 !important;
-}

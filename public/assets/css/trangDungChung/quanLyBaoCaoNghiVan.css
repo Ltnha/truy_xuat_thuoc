@@ -1,0 +1,20 @@
+/* Tùy chỉnh tương tác danh sách báo cáo */
+.dong-bao-cao-dn {
+  cursor: pointer;
+  transition: all 0.18s ease-in-out;
+}
+
+.dong-bao-cao-dn:hover {
+  background-color: #f2faf5 !important;
+}
+
+/* CLASS KHÓA CỨNG GIAO DIỆN NHÃN (BADGE) CHỐNG VỠ NỀN & KHÔNG RỚT CHỮ */
+.badge-chuan {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  gap: 0.375rem !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}

@@ -1,0 +1,32 @@
+/* Tương tác dòng bảng báo cáo */
+.dong-nghi-van:hover {
+  background-color: #f2faf5 !important;
+}
+
+/* KHÓA CỨNG GIAO DIỆN NHÃN (BADGE) CHỐNG VỠ NỀN & KHÔNG RỚT CHỮ */
+.badge-chuan {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  gap: 0.375rem !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+/* TỐI ƯU HÓA HIỆN NĂNG CUỘN (CHỐNG LAG / GIẬT KHUNG HÌNH) */
+.overflow-y-auto,
+.overflow-x-auto {
+  -webkit-overflow-scrolling: touch;
+  will-change: scroll-position;
+}
+
+/* Kích hoạt tăng tốc phần cứng GPU cho modal và các container chính */
+#modalXuLyBaoCao > div,
+#modalXacNhanThuHoiTuBaoCao > div,
+#modalXacNhanTuChoiBaoCao > div,
+#modalXacNhanGhiNhanHangGia > div,
+.bg-white.rounded-2xl {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}

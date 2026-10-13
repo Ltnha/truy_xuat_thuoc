@@ -1,0 +1,47 @@
+/* Đường quét laser mô phỏng */
+@keyframes scanMove {
+  0% {
+    top: 0%;
+  }
+  50% {
+    top: 100%;
+  }
+  100% {
+    top: 0%;
+  }
+}
+
+.animate-scan {
+  animation: scanMove 2.5s infinite linear;
+}
+
+/* Hiệu ứng kéo thả file vào khung tải ảnh */
+#khungTaiAnhQR {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#khungTaiAnhQR.keo-qua {
+  border-color: #047857 !important;
+  background-color: #ecfdf5 !important;
+  transform: scale(1.012);
+  box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.15);
+}
+
+/* Hiệu ứng nút mẫu thử nghiệm */
+.btn-anh-mau {
+  transition: all 0.2s ease-in-out;
+}
+
+.btn-anh-mau:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+/* Xem trước ảnh QR */
+#anhQRPreview {
+  transition: transform 0.2s ease;
+}
+
+#anhQRPreview:hover {
+  transform: scale(1.04);
+}

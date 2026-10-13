@@ -1,0 +1,21 @@
+/* Tương tác dòng bảng quyền hạn */
+.dong-quyen-han:hover {
+  background-color: #f2faf5 !important;
+}
+
+/* KHÓA CỨNG GIAO DIỆN NHÃN (BADGE) CHỐNG VỠ NỀN & KHÔNG RỚT CHỮ */
+.badge-chuan {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  gap: 0.375rem !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
+
+/* NỔI BẬT DÒNG HẾT HẠN GIẤY PHÉP NHƯNG VẪN ĐÃ DUYỆT */
+.dong-canh-bao-het-han {
+  border-left: 4px solid #f59e0b !important; /* amber-500 */
+  background-color: rgba(254, 243, 199, 0.35) !important; /* amber-50/35 */
+}

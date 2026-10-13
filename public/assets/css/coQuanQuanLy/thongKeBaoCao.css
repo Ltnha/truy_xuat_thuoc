@@ -1,0 +1,27 @@
+/* Tùy chỉnh hiệu ứng tương tác cho các thẻ chỉ số KPI */
+.the-chi-so {
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.the-chi-so:hover {
+  transform: translateY(-2px);
+}
+
+/* Tương tác dòng bảng điểm nóng */
+.dong-diem-nong:hover {
+  background-color: #f2faf5 !important;
+}
+
+/* KHÓA CỨNG GIAO DIỆN NHÃN (BADGE) CHỐNG VỠ NỀN & KHÔNG RỚT CHỮ */
+.badge-chuan {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  white-space: nowrap !important;
+  gap: 0.375rem !important;
+  line-height: 1 !important;
+  flex-shrink: 0 !important;
+}
