@@ -1,3 +1,5 @@
+@extends('layoutNguoiTieuDung.main')
+
 @push('styles')
     <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/dangNhap.css') }}">
 @endpush
@@ -24,7 +26,8 @@
         </div>
 
         <!-- Form đăng nhập -->
-        <form id="formDangNhap" action="xuLyDangNhap.php" method="POST" class="space-y-4">
+        <form id="formDangNhap" action="{{ url('/dang-nhap') }}" method="POST" class="space-y-4">
+            @csrf
 
             <!-- Ô Tên đăng nhập (taiKhoan.tenDangNhap) -->
             <div class="space-y-1.5">
@@ -66,7 +69,7 @@
         <div class="pt-4 border-t border-slate-100 text-center">
             <p class="text-xs text-slate-600">
                 Chưa có tài khoản?
-                <a href="dangKyToChuc.php" class="font-bold text-cyan-800 hover:text-cyan-900 hover:underline transition-colors ml-1">
+                <a href="{{ url('/dang-ky-to-chuc') }}" class="font-bold text-cyan-800 hover:text-cyan-900 hover:underline transition-colors ml-1">
                     Đăng ký tài khoản tổ chức
                 </a>
             </p>

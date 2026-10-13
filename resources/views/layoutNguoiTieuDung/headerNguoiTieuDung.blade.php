@@ -30,14 +30,15 @@
     </script>
 
     <!-- CSS Bổ trợ Layout -->
-    <link rel="stylesheet" href="layoutNguoiTieuDung/headerNguoiTieuDung.css">
-    <link rel="stylesheet" href="layoutNguoiTieuDung/navbarNguoiTieuDung.css">
-    <link rel="stylesheet" href="layoutNguoiTieuDung/footerNguoiTieuDung.css">
+    <link rel="stylesheet" href="{{ asset('assets/css/layoutNguoiTieuDung/headerNguoiTieuDung.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/layoutNguoiTieuDung/navbarNguoiTieuDung.css') }}">
+    <link rel="stylesheet" href="{{ asset('assets/css/layoutNguoiTieuDung/footerNguoiTieuDung.css') }}">
 
     <!-- CSS Riêng từng trang -->
     <?php if (isset($fileCssRieng)) { ?>
-        <link rel="stylesheet" href="<?php echo $fileCssRieng; ?>">
+        <link rel="stylesheet" href="{{ asset($fileCssRieng) }}">
     <?php } ?>
+    @stack('styles')
 </head>
 
 <body class="bg-nenChinh text-slate-900 font-sans min-h-screen flex flex-col antialiased">

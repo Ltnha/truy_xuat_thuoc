@@ -1,3 +1,5 @@
+@extends('layoutDungChung.master')
+
 @push('styles')
     <link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLyLoThuoc.css') }}">
 @endpush
@@ -9,7 +11,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo $tieuDeTrang; ?></title>
+    <title>Quản lý lô thuốc </title>
 
     <!-- Google Font Inter -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

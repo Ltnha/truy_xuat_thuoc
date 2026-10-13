@@ -21,7 +21,7 @@
 
             <!-- Ô tra cứu nhanh -->
             <div class="pt-4 max-w-2xl mx-auto">
-                <form action="traCuuNguonGoc.php" method="GET" class="bg-white p-2 rounded-2xl bong-xanh flex flex-col sm:flex-row gap-2 border border-emerald-900/10">
+                <form action="{{ url('/tra-cuu') }}" method="GET" class="bg-white p-2 rounded-2xl bong-xanh flex flex-col sm:flex-row gap-2 border border-emerald-900/10">
                     <div class="flex-1 flex items-center px-4 gap-3 bg-[#f2faf5] rounded-xl border border-emerald-900/10 focus-within:border-emerald-700 focus-within:bg-white transition-all">
                         <i class="fa-solid fa-barcode text-slate-500 text-lg"></i>
                         <input type="text" name="maDinhDanh" placeholder="Nhập mã lô (VD: LOT-PARA-2026) hoặc mã hộp thuốc..." class="w-full py-3 bg-transparent text-sm text-slate-900 outline-none placeholder-slate-400 font-medium">
@@ -29,7 +29,7 @@
                     <button type="submit" class="bg-emerald-700 hover:bg-emerald-800 text-white px-7 py-3.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2">
                         <i class="fa-solid fa-magnifying-glass"></i> Tra Cứu
                     </button>
-                    <a href="traCuuNguonGoc.php?cheDo=quet" class="bg-cyan-800 hover:bg-cyan-900 text-white px-5 py-3.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2" title="Quét mã QR bằng Camera">
+                    <a href="{{ url('/tra-cuu?cheDo=quet') }}" class="bg-cyan-800 hover:bg-cyan-900 text-white px-5 py-3.5 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2" title="Quét mã QR bằng Camera">
                         <i class="fa-solid fa-qrcode text-base"></i> Quét QR
                     </a>
                 </form>

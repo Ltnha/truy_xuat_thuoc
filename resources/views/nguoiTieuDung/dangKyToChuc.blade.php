@@ -1,3 +1,5 @@
+@extends('layoutNguoiTieuDung.main')
+
 @push('styles')
     <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/dangKyToChuc.css') }}">
 @endpush
@@ -15,7 +17,8 @@
     </div>
 
     <!-- KHUNG FORM ĐĂNG KÝ (4 NHÓM RÕ RÀNG) -->
-    <form id="formDangKyToChuc" action="xuLyDangKy.php" method="POST" enctype="multipart/form-data" class="bg-white rounded-2xl border border-emerald-900/10 p-6 sm:p-10 bong-xanh space-y-10">
+    <form id="formDangKyToChuc" action="{{ url('/dang-ky-to-chuc') }}" method="POST" enctype="multipart/form-data" class="bg-white rounded-2xl border border-emerald-900/10 p-6 sm:p-10 bong-xanh space-y-10">
+        @csrf
 
         <!-- NHÓM 1: CHỌN LOẠI TỔ CHỨC (loaiToChuc) -->
         <section class="space-y-4">

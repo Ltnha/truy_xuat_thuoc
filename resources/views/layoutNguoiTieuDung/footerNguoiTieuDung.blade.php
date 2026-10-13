@@ -20,10 +20,10 @@
             <div>
                 <h4 class="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-4">Dành Cho Người Dân</h4>
                 <ul class="space-y-2.5 text-xs text-slate-600 font-medium">
-                    <li><a href="traCuuNguonGoc.php" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Quét mã QR thuốc</a></li>
-                    <li><a href="lichSuTraCuu.php" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Lịch sử kiểm tra gần đây</a></li>
-                    <li><a href="../congKhai/baoCaoNghiVan.php" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Gửi cảnh báo thuốc nghi giả</a></li>
-                    <li><a href="trangChu.php#canhBaoThuoc" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Danh sách thuốc bị thu hồi</a></li>
+                    <li><a href="{{ url('/tra-cuu') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Quét mã QR thuốc</a></li>
+                    <li><a href="{{ url('/lich-su-tra-cuu') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Lịch sử kiểm tra gần đây</a></li>
+                    <li><a href="{{ url('/bao-cao-nghi-van') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Gửi cảnh báo thuốc nghi giả</a></li>
+                    <li><a href="{{ url('/#canhBaoThuoc') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Danh sách thuốc bị thu hồi</a></li>
                 </ul>
             </div>
 
@@ -31,10 +31,10 @@
             <div>
                 <h4 class="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-4">Mắt Xích Chuỗi Cung Ứng</h4>
                 <ul class="space-y-2.5 text-xs text-slate-600 font-medium">
-                    <li><a href="../nguoiTieuDung/dangKyToChuc.php" class="hover:text-cyan-800"><i class="fa-solid fa-industry mr-1.5"></i> Nhà Sản Xuất Dược</a></li>
-                    <li><a href="../nguoiTieuDung/dangKyToChuc.php" class="hover:text-cyan-800"><i class="fa-solid fa-truck-ramp-box mr-1.5"></i> Nhà Phân Phối Tổng</a></li>
-                    <li><a href="../nguoiTieuDung/dangKyToChuc.php" class="hover:text-cyan-800"><i class="fa-solid fa-prescription-bottle-medical mr-1.5"></i> Nhà Thuốc / Bệnh Viện</a></li>
-                    <li><a href="../nguoiTieuDung/dangNhap.php" class="hover:text-cyan-800"><i class="fa-solid fa-building-columns mr-1.5"></i> Cổng Cơ Quan Quản Lý</a></li>
+                    <li><a href="{{ url('/dang-ky-to-chuc') }}" class="hover:text-cyan-800"><i class="fa-solid fa-industry mr-1.5"></i> Nhà Sản Xuất Dược</a></li>
+                    <li><a href="{{ url('/dang-ky-to-chuc') }}" class="hover:text-cyan-800"><i class="fa-solid fa-truck-ramp-box mr-1.5"></i> Nhà Phân Phối Tổng</a></li>
+                    <li><a href="{{ url('/dang-ky-to-chuc') }}" class="hover:text-cyan-800"><i class="fa-solid fa-prescription-bottle-medical mr-1.5"></i> Nhà Thuốc / Bệnh Viện</a></li>
+                    <li><a href="{{ url('/dang-nhap') }}" class="hover:text-cyan-800"><i class="fa-solid fa-building-columns mr-1.5"></i> Cổng Đăng Nhập Hệ Thống</a></li>
                 </ul>
             </div>
 
@@ -60,11 +60,12 @@
     </div>
 </footer>
 
-<script src="layoutNguoiTieuDung/navbarNguoiTieuDung.js"></script>
-<script src="layoutNguoiTieuDung/footerNguoiTieuDung.js"></script>
+<script src="{{ asset('assets/js/layoutNguoiTieuDung/navbarNguoiTieuDung.js') }}"></script>
+<script src="{{ asset('assets/js/layoutNguoiTieuDung/footerNguoiTieuDung.js') }}"></script>
 <?php if (isset($fileJsRieng)) { ?>
-    <script src="<?php echo $fileJsRieng; ?>"></script>
+    <script src="{{ asset($fileJsRieng) }}"></script>
 <?php } ?>
+@stack('scripts')
 </body>
 
 </html>

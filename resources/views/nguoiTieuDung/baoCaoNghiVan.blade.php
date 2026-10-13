@@ -1,3 +1,5 @@
+@extends('layoutNguoiTieuDung.main')
+
 @push('styles')
     <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/baoCaoNghiVan.css') }}">
 @endpush
@@ -17,7 +19,7 @@
             </h1>
         </div>
 
-        <a href="traCuuNguonGoc.php" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-bold transition-all shadow-sm self-start sm:self-auto">
+        <a href="{{ url('/tra-cuu') }}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-bold transition-all shadow-sm self-start sm:self-auto">
             <i class="fa-solid fa-qrcode"></i> Tra Cứu Thuốc
         </a>
     </div>
@@ -54,7 +56,7 @@
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm pointer-events-none">
                         <i class="fa-solid fa-barcode"></i>
                     </span>
-                    <input type="text" id="maLoBaoCao" name="maLo" required value="<?php echo $maLoNhanDuoc; ?>" placeholder="VD: LOT-AMOX-2025-09 hoặc quét trên bao bì..." class="w-full pl-10 pr-4 py-3 bg-nenChinh border border-emerald-900/15 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 outline-none transition-all font-mono">
+                    <input type="text" id="maLoBaoCao" name="maLo" required value="" placeholder="VD: LOT-AMOX-2025-09 hoặc quét trên bao bì..." class="w-full pl-10 pr-4 py-3 bg-nenChinh border border-emerald-900/15 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 outline-none transition-all font-mono">
                 </div>
                 <p class="text-[11px] text-slate-500">Mã lô thường được in nổi hoặc in mực sắc nét tại mép hộp/vỉ thuốc.</p>
             </div>
