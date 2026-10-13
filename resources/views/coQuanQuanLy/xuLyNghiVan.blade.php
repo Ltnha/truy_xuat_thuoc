@@ -1,13 +1,8 @@
-<?php
-// Vai trò Cơ quan quản lý (Tông màu chủ đạo: Indigo / Chàm)
-$vaiTroHienTai = 'CO_QUAN_QUAN_LY';
-$tieuDeTrang = "Quản Lý Báo Cáo Nghi Vấn – Cổng Cơ Quan Quản Lý";
-$tieuDePhanHe = "Xử lý nghi vấn";
-$fileCssRieng = "xuLyNghiVan.css";
-$fileJsRieng = "xuLyNghiVan.js";
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/coQuanQuanLy/xuLyNghiVan.css') }}">
+@endpush
 
-$soBaoCaoChoXuly = 2;
-?>
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -438,3 +433,9 @@ $soBaoCaoChoXuly = 2;
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/coQuanQuanLy/xuLyNghiVan.js') }}"></script>
+@endpush

@@ -1,12 +1,8 @@
-<?php
-// 1. Khai báo vai trò để Sidebar/Topbar dùng chung tự động áp dụng màu Xanh lá & menu Nhà sản xuất
-$vaiTroHienTai = 'NHA_SAN_XUAT';
-$tieuDeTrang = "Quản Lý Sản Phẩm Dược – Cổng Nhà Sản Xuất";
-// Tiêu đề phân hệ đồng bộ khớp 100% với tên mục trên Sidebar
-$tieuDePhanHe = "Quản lý sản phẩm dược";
-$fileCssRieng = "quanLySanPham.css";
-$fileJsRieng = "quanLySanPham.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLyLoHang.css') }}">
+@endpush
+
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -274,3 +270,8 @@ $fileJsRieng = "quanLySanPham.js";
 </body>
 
 </html>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nhaSanXuat/quanLyLoHang.js') }}"></script>
+@endpush

@@ -1,34 +1,8 @@
-<?php
-// Nhận vai trò từ URL/Session (NHA_PHAN_PHOI hoặc NHA_THUOC)
-$vaiTroHienTai = isset($_GET['vaiTro']) ? $_GET['vaiTro'] : 'NHA_PHAN_PHOI';
-if (!in_array($vaiTroHienTai, ['NHA_PHAN_PHOI', 'NHA_THUOC'])) {
-    $vaiTroHienTai = 'NHA_PHAN_PHOI';
-}
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/trangDungChung/quanLyBaoCaoNghiVan.css') }}">
+@endpush
 
-$cauHinhVaiTro = [
-    'NHA_PHAN_PHOI' => [
-        'ten' => 'Nhà Phân Phối',
-        'icon' => 'fa-truck-moving',
-        'tenToChucMacDinh' => 'Tổng Công ty Dược Việt Nam - Vinapharm',
-        'btnClass' => 'bg-blue-700 hover:bg-blue-800 text-white',
-        'textClass' => 'text-blue-700'
-    ],
-    'NHA_THUOC' => [
-        'ten' => 'Nhà Thuốc',
-        'icon' => 'fa-prescription-bottle-medical',
-        'tenToChucMacDinh' => 'Nhà Thuốc PharmaCare Cần Thơ',
-        'btnClass' => 'bg-cyan-700 hover:bg-cyan-800 text-white',
-        'textClass' => 'text-cyan-700'
-    ]
-];
-
-$role = $cauHinhVaiTro[$vaiTroHienTai];
-$tieuDeTrang = "Báo Cáo Nghi Vấn – " . $role['ten'];
-// Tiêu đề đồng bộ khớp 100% với tên mục trên Sidebar
-$tieuDePhanHe = "Báo cáo nghi vấn";
-$fileCssRieng = "quanLyBaoCaoNghiVan.css";
-$fileJsRieng = "quanLyBaoCaoNghiVan.js";
-?>
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -333,3 +307,9 @@ $fileJsRieng = "quanLyBaoCaoNghiVan.js";
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/trangDungChung/quanLyBaoCaoNghiVan.js') }}"></script>
+@endpush

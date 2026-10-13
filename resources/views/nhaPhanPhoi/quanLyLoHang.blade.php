@@ -1,12 +1,8 @@
-<?php
-// Khai báo vai trò Nhà phân phối để Sidebar/Topbar tự động đổi màu Xanh Dương
-$vaiTroHienTai = 'NHA_PHAN_PHOI';
-$tieuDeTrang = "Quản Lý Lô Hàng – Cổng Nhà Phân Phối";
-// Tiêu đề phân hệ đồng bộ khớp 100% với tên mục trên Menu Sidebar
-$tieuDePhanHe = "Quản lý lô hàng";
-$fileCssRieng = "quanLyLoHang.css";
-$fileJsRieng = "quanLyLoHang.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nhaPhanPhoi/quanLyLoHang.css') }}">
+@endpush
+
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -498,3 +494,9 @@ $fileJsRieng = "quanLyLoHang.js";
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nhaPhanPhoi/quanLyLoHang.js') }}"></script>
+@endpush

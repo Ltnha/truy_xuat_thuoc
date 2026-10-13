@@ -1,11 +1,10 @@
-<?php
-// Vai trò Cơ quan quản lý (Cục Quản lý Dược - Tông màu Indigo / Chàm)
-$vaiTroHienTai = 'CO_QUAN_QUAN_LY';
-$tieuDeTrang = "Thu Hồi Lô Hàng – Cổng Cơ Quan Quản Lý";
-$tieuDePhanHe = "Thu hồi lô hàng";
-$fileCssRieng = "quanLyThuHoi.css";
-$fileJsRieng = "quanLyThuHoi.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/coQuanQuanLy/quanLyThuHoi.css') }}">
+@endpush
+
+@section('content')
+
+
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -369,3 +368,9 @@ $fileJsRieng = "quanLyThuHoi.js";
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/coQuanQuanLy/quanLyThuHoi.js') }}"></script>
+@endpush

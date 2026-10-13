@@ -1,11 +1,8 @@
-<?php
-// Khai báo vai trò Nhà thuốc để Sidebar/Topbar tự động áp dụng màu Xanh ngọc
-$vaiTroHienTai = 'NHA_THUOC';
-$tieuDeTrang = "Tiếp Nhận Lô Hàng – Cổng Nhà Thuốc";
-$tieuDePhanHe = "Tiếp nhận lô hàng";
-$fileCssRieng = "tiepNhanLoHang.css";
-$fileJsRieng = "tiepNhanLoHang.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nhaThuoc/tiepNhanLoHang.css') }}">
+@endpush
+
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -514,3 +511,9 @@ $fileJsRieng = "tiepNhanLoHang.js";
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nhaThuoc/tiepNhanLoHang.js') }}"></script>
+@endpush

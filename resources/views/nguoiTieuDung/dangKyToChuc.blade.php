@@ -1,11 +1,8 @@
-<?php
-$tieuDeTrang = "Đăng Ký Tài Khoản Tổ Chức – PharmaChain";
-$fileCssRieng = "dangKyToChuc.css";
-$fileJsRieng = "dangKyToChuc.js";
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/dangKyToChuc.css') }}">
+@endpush
 
-include_once 'layoutNguoiTieuDung/headerNguoiTieuDung.php';
-include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
-?>
+@section('content')
 
 <main class="flex-1 py-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full space-y-8">
 
@@ -249,4 +246,8 @@ include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
     </div>
 </main>
 
-<?php include_once 'layoutNguoiTieuDung/footerNguoiTieuDung.php'; ?>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nguoiTieuDung/dangKyToChuc.js') }}"></script>
+@endpush

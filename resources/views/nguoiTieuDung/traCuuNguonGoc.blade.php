@@ -1,12 +1,8 @@
-<?php
-$tieuDeTrang = "Tra Cứu Nguồn Gốc Dược Phẩm – PharmaChain";
-$fileCssRieng = "traCuuNguonGoc.css";
-$fileJsRieng = "traCuuNguonGoc.js";
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/traCuuNguonGoc.css') }}">
+@endpush
 
-include_once 'layoutNguoiTieuDung/headerNguoiTieuDung.php';
-include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
-?>
-
+@section('content')
 <main class="flex-1 py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-8">
 
     <!-- TIÊU ĐỀ TRANG CĂN CHỈNH MỚI + NÚT XEM LỊCH SỬ -->
@@ -279,6 +275,8 @@ include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
     </div>
 </main>
 
-<!-- Thư viện giải mã mã QR từ ảnh tải lên -->
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-<?php include_once 'layoutNguoiTieuDung/footerNguoiTieuDung.php'; ?>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nguoiTieuDung/traCuuNguonGoc.js') }}"></script>
+@endpush

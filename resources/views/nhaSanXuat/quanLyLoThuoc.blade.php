@@ -1,11 +1,8 @@
-<?php
-// 1. Khai báo vai trò để Sidebar/Topbar tự chọn bảng màu Xanh lá
-$vaiTroHienTai = 'NHA_SAN_XUAT';
-$tieuDeTrang = "Quản Lý Lô Thuốc – Cổng Nhà Sản Xuất";
-$tieuDePhanHe = "Phân Hệ Quản Lý Lô Dược Phẩm & Phân Phối";
-$fileCssRieng = "quanLyLoThuoc.css";
-$fileJsRieng = "quanLyLoThuoc.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLyLoThuoc.css') }}">
+@endpush
+
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -385,3 +382,8 @@ $fileJsRieng = "quanLyLoThuoc.js";
 </body>
 
 </html>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nhaSanXuat/quanLyLoThuoc.js') }}"></script>
+@endpush

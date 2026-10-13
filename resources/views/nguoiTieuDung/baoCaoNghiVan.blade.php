@@ -1,14 +1,8 @@
-<?php
-$tieuDeTrang = "Báo Cáo Nghi Vấn Dược Phẩm – PharmaChain";
-$fileCssRieng = "baoCaoNghiVan.css";
-$fileJsRieng = "baoCaoNghiVan.js";
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/baoCaoNghiVan.css') }}">
+@endpush
 
-include_once 'layoutNguoiTieuDung/headerNguoiTieuDung.php';
-include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
-
-// Tự động nhận mã lô nếu được điều hướng từ trang tra cứu thuốc
-$maLoNhanDuoc = isset($_GET['maLo']) ? htmlspecialchars($_GET['maLo']) : (isset($_GET['maDinhDanh']) ? htmlspecialchars($_GET['maDinhDanh']) : '');
-?>
+@section('content')
 
 <main class="flex-1 py-10 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto w-full space-y-6">
 
@@ -266,4 +260,8 @@ $maLoNhanDuoc = isset($_GET['maLo']) ? htmlspecialchars($_GET['maLo']) : (isset(
     </div>
 </div>
 
-<?php include_once 'layoutNguoiTieuDung/footerNguoiTieuDung.php'; ?>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nguoiTieuDung/baoCaoNghiVan.js') }}"></script>
+@endpush

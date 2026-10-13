@@ -1,12 +1,10 @@
-<?php
-$tieuDeTrang = "Trang Chủ – Truy Xuất Nguồn Gốc Dược Phẩm Blockchain";
-$fileCssRieng = "trangChu.css";
-$fileJsRieng = "trangChu.js";
+@extends('layoutNguoiTieuDung.main') {{-- Hoặc layout dùng chung phù hợp --}}
 
-include_once 'layoutNguoiTieuDung/headerNguoiTieuDung.php';
-include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/trangChu.css') }}">
+@endpush
 
+@section('content')
 <main class="flex-1 pb-16">
     <!-- KHỐI HERO: Banner chính & Ô tra cứu nhanh -->
     <section class="bg-gradient-to-br from-emerald-700 via-[#1E5C3A] to-cyan-800 text-white py-16 px-4 sm:px-6 lg:px-8 shadow-md relative overflow-hidden">
@@ -174,4 +172,8 @@ include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
     </section>
 </main>
 
-<?php include_once 'layoutNguoiTieuDung/footerNguoiTieuDung.php'; ?>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nguoiTieuDung/trangChu.js') }}"></script>
+@endpush

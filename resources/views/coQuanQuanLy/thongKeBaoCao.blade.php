@@ -1,11 +1,8 @@
-<?php
-// Vai trò Cơ quan quản lý (Tông màu chủ đạo: Indigo / Chàm đậm)
-$vaiTroHienTai = 'CO_QUAN_QUAN_LY';
-$tieuDeTrang = "Thống Kê Báo Cáo – Cổng Cơ Quan Quản Lý";
-$tieuDePhanHe = "Thống kê báo cáo";
-$fileCssRieng = "thongKeBaoCao.css";
-$fileJsRieng = "thongKeBaoCao.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/coQuanQuanLy/thongKeBaoCao.css') }}">
+@endpush
+
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -243,3 +240,9 @@ $fileJsRieng = "thongKeBaoCao.js";
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/coQuanQuanLy/thongKeBaoCao.js') }}"></script>
+@endpush

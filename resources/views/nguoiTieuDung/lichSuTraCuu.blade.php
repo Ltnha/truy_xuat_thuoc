@@ -1,11 +1,8 @@
-<?php
-$tieuDeTrang = "Lịch Sử Tra Cứu – PharmaChain";
-$fileCssRieng = "lichSuTraCuu.css";
-$fileJsRieng = "lichSuTraCuu.js";
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/lichSuTraCuu.css') }}">
+@endpush
 
-include_once 'layoutNguoiTieuDung/headerNguoiTieuDung.php';
-include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
-?>
+@section('content')
 
 <main class="flex-1 py-10 px-4 sm:px-6 lg:px-8 max-w-5xl mx-auto w-full space-y-6">
 
@@ -122,4 +119,8 @@ include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
     </div>
 </div>
 
-<?php include_once 'layoutNguoiTieuDung/footerNguoiTieuDung.php'; ?>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nguoiTieuDung/lichSuTraCuu.js') }}"></script>
+@endpush

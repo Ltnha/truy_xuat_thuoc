@@ -1,11 +1,8 @@
-<?php
-// Khai báo vai trò Cơ quan quản lý (Cục Quản lý Dược)
-$vaiTroHienTai = 'CO_QUAN_QUAN_LY';
-$tieuDeTrang = "Phê Duyệt Tổ Chức – Cổng Cơ Quan Quản Lý";
-$tieuDePhanHe = "Phê duyệt tổ chức";
-$fileCssRieng = "pheDuyetTaiKhoanToChuc.css";
-$fileJsRieng = "pheDuyetTaiKhoanToChuc.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/coQuanQuanLy/pheDuyetTaiKhoanToChuc.css') }}">
+@endpush
+
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -409,3 +406,9 @@ $fileJsRieng = "pheDuyetTaiKhoanToChuc.js";
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/coQuanQuanLy/pheDuyetTaiKhoanToChuc.js') }}"></script>
+@endpush

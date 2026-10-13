@@ -1,11 +1,8 @@
-<?php
-$tieuDeTrang = "Đăng Nhập Hệ Thống – PharmaChain";
-$fileCssRieng = "dangNhap.css";
-$fileJsRieng = "dangNhap.js";
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/dangNhap.css') }}">
+@endpush
 
-include_once 'layoutNguoiTieuDung/headerNguoiTieuDung.php';
-include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
-?>
+@section('content')
 
 <main class="flex-1 flex items-center justify-center py-14 px-4 sm:px-6">
     <!-- KHUNG ĐĂNG NHẬP CĂN GIỮA - 1 FORM DUY NHẤT -->
@@ -78,4 +75,8 @@ include_once 'layoutNguoiTieuDung/navbarNguoiTieuDung.php';
     </div>
 </main>
 
-<?php include_once 'layoutNguoiTieuDung/footerNguoiTieuDung.php'; ?>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/nguoiTieuDung/dangNhap.js') }}"></script>
+@endpush

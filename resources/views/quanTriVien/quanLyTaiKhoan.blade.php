@@ -1,11 +1,8 @@
-<?php
-// Vai trò Quản trị viên hệ thống
-$vaiTroHienTai = 'QUAN_TRI_VIEN';
-$tieuDeTrang = "Quản Lý Tài Khoản – Cổng Quản Trị Hệ Thống";
-$tieuDePhanHe = "Quản lý tài khoản";
-$fileCssRieng = "quanLyTaiKhoan.css";
-$fileJsRieng = "quanLyTaiKhoan.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/quanTriVien/quanLyTaiKhoan.css') }}">
+@endpush
+
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -383,3 +380,9 @@ $fileJsRieng = "quanLyTaiKhoan.js";
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/quanTriVien/quanLyTaiKhoan.js') }}"></script>
+@endpush

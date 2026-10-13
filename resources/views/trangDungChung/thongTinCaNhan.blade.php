@@ -1,65 +1,8 @@
-<?php
-// Mô phỏng vai trò nhận được từ Session đăng nhập (Mặc định: NHA_SAN_XUAT)
-$vaiTroHienTai = isset($_GET['vaiTro']) ? $_GET['vaiTro'] : 'NHA_SAN_XUAT';
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/trangDungChung/thongTinCaNhan.css') }}">
+@endpush
 
-// Cấu hình màu nhấn và vai trò
-$cauHinhVaiTro = [
-    'NHA_SAN_XUAT' => [
-        'ten' => 'Nhà Sản Xuất',
-        'icon' => 'fa-industry',
-        'tenToChucMacDinh' => 'Công ty CP Dược Phẩm Medipharco',
-        'textClass' => 'text-emerald-700',
-        'bgNhanClass' => 'bg-emerald-50',
-        'btnClass' => 'bg-emerald-700 hover:bg-emerald-800 text-white',
-        'badgeClass' => 'bg-emerald-100 text-emerald-800 border-emerald-300'
-    ],
-    'NHA_PHAN_PHOI' => [
-        'ten' => 'Nhà Phân Phối',
-        'icon' => 'fa-truck-moving',
-        'tenToChucMacDinh' => 'Tổng Công ty Dược Việt Nam - Vinapharm',
-        'textClass' => 'text-blue-700',
-        'bgNhanClass' => 'bg-blue-50',
-        'btnClass' => 'bg-blue-700 hover:bg-blue-800 text-white',
-        'badgeClass' => 'bg-blue-100 text-blue-800 border-blue-300'
-    ],
-    'NHA_THUOC' => [
-        'ten' => 'Nhà Thuốc',
-        'icon' => 'fa-prescription-bottle-medical',
-        'tenToChucMacDinh' => 'Nhà Thuốc PharmaCare Cần Thơ',
-        'textClass' => 'text-cyan-700',
-        'bgNhanClass' => 'bg-cyan-50',
-        'btnClass' => 'bg-cyan-700 hover:bg-cyan-800 text-white',
-        'badgeClass' => 'bg-cyan-100 text-cyan-800 border-cyan-300'
-    ],
-    'QUAN_TRI_VIEN' => [
-        'ten' => 'Quản Trị Viên',
-        'icon' => 'fa-user-shield',
-        'tenToChucMacDinh' => 'Trung Tâm Quản Trị Hệ Thống',
-        'textClass' => 'text-slate-700',
-        'bgNhanClass' => 'bg-slate-100',
-        'btnClass' => 'bg-slate-800 hover:bg-slate-900 text-white',
-        'badgeClass' => 'bg-slate-200 text-slate-800 border-slate-400'
-    ],
-    'CO_QUAN_QUAN_LY' => [
-        'ten' => 'Cơ Quan Quản Lý',
-        'icon' => 'fa-building-columns',
-        'tenToChucMacDinh' => 'Cục Quản Lý Dược - Bộ Y Tế',
-        'textClass' => 'text-indigo-700',
-        'bgNhanClass' => 'bg-indigo-50',
-        'btnClass' => 'bg-indigo-700 hover:bg-indigo-800 text-white',
-        'badgeClass' => 'bg-indigo-100 text-indigo-800 border-indigo-300'
-    ]
-];
-
-$role = isset($cauHinhVaiTro[$vaiTroHienTai]) ? $cauHinhVaiTro[$vaiTroHienTai] : $cauHinhVaiTro['NHA_SAN_XUAT'];
-
-// Tiêu đề phân hệ gọn gàng (Đã bỏ hậu tố vai trò thừa)
-$tieuDePhanHe = "Hồ Sơ & Tài Khoản Cá Nhân";
-
-// Cờ điều khiển hiển thị theo biến thể vai trò
-$coThePhapLy = in_array($vaiTroHienTai, ['NHA_SAN_XUAT', 'NHA_PHAN_PHOI', 'NHA_THUOC']);
-$coDiaChiVi = in_array($vaiTroHienTai, ['NHA_SAN_XUAT', 'NHA_PHAN_PHOI', 'NHA_THUOC', 'CO_QUAN_QUAN_LY']);
-?>
+@section('content')
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -319,3 +262,9 @@ $coDiaChiVi = in_array($vaiTroHienTai, ['NHA_SAN_XUAT', 'NHA_PHAN_PHOI', 'NHA_TH
 </body>
 
 </html>
+
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/trangDungChung/thongTinCaNhan.js') }}"></script>
+@endpush

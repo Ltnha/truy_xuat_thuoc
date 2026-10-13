@@ -1,11 +1,9 @@
-<?php
-// Vai trò Cơ quan quản lý (Cục Quản lý Dược)
-$vaiTroHienTai = 'CO_QUAN_QUAN_LY';
-$tieuDeTrang = "Xét Duyệt Sản Phẩm – Cổng Cơ Quan Quản Lý";
-$tieuDePhanHe = "Xét duyệt sản phẩm";
-$fileCssRieng = "xetDuyetSanPham.css";
-$fileJsRieng = "xetDuyetSanPham.js";
-?>
+@push('styles')
+    <link rel="stylesheet" href="{{ asset('assets/css/coQuanQuanLy/xetDuyetSanPham.css') }}">
+@endpush
+
+@section('content')
+
 <!DOCTYPE html>
 <html lang="vi">
 
@@ -508,3 +506,8 @@ $fileJsRieng = "xetDuyetSanPham.js";
 </body>
 
 </html>
+@endsection
+
+@push('scripts')
+    <script src="{{ asset('assets/js/coQuanQuanLy/xetDuyetSanPham.js') }}"></script>
+@endpush
