@@ -12,6 +12,26 @@ contract BatchTraceability {
     // Danh dau event key da ghi de chan ghi trung.
     mapping(bytes32 => bool) public recordedEventKeys;
 
+    // Trang thai cong khai toi thieu de ung dung va nguoi tieu dung co the tu kiem tra.
+    mapping(bytes32 => uint8) public productStatuses;
+    mapping(bytes32 => uint8) public organizationStatuses;
+    mapping(bytes32 => bool) public registeredBatches;
+    mapping(bytes32 => bytes32) public batchProducts;
+    mapping(bytes32 => uint256) public batchExpiryDates;
+    mapping(bytes32 => bool) public recalledBatches;
+    mapping(bytes32 => bool) public dispensedUnits;
+    mapping(bytes32 => bytes32) public unitBatchIds;
+    mapping(bytes32 => uint8) public transferStatuses;
+
+    struct TransferRecord {
+        bytes32 batchId;
+        bytes32 fromOrganization;
+        bytes32 toOrganization;
+        uint256 quantity;
+    }
+
+    mapping(bytes32 => TransferRecord) private transferRecords;
+
     // Phat khi quyen owner duoc chuyen.
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
 
@@ -34,6 +54,54 @@ contract BatchTraceability {
         uint256 timestamp
     );
 
+    event ProductStatusChanged(
+        bytes32 indexed productId,
+        uint8 status,
+        bytes32 payloadHash,
+        uint256 timestamp
+    );
+
+    event OrganizationStatusChanged(
+        bytes32 indexed organizationId,
+        uint8 status,
+        bytes32 payloadHash,
+        uint256 timestamp
+    );
+
+    event BatchRegistered(
+        bytes32 indexed batchId,
+        bytes32 indexed productId,
+        address indexed actor,
+        bytes32 payloadHash,
+        uint256 timestamp
+    );
+
+    event TransferStatusChanged(
+        bytes32 indexed batchId,
+        bytes32 indexed transferId,
+        bytes32 fromOrganization,
+        bytes32 toOrganization,
+        uint256 quantity,
+        uint8 status,
+        bytes32 payloadHash,
+        uint256 timestamp
+    );
+
+    event UnitDispensed(
+        bytes32 indexed unitId,
+        bytes32 indexed batchId,
+        address indexed actor,
+        bytes32 payloadHash,
+        uint256 timestamp
+    );
+
+    event BatchRecalled(
+        bytes32 indexed batchId,
+        address indexed actor,
+        bytes32 payloadHash,
+        uint256 timestamp
+    );
+
     // Loi tuy chinh khi nguoi goi khong co quyen.
     error Unauthorized();
     // Loi khi nhap dia chi rong.
@@ -42,6 +110,12 @@ contract BatchTraceability {
     error InvalidEventData();
     // Loi khi event key nay da duoc ghi truoc do.
     error DuplicateEvent();
+    error InvalidStatus();
+    error ProductNotApproved();
+    error BatchNotFound();
+    error BatchAlreadyRecalled();
+    error InvalidTransferState();
+    error BatchExpired();
 
     // Chay mot lan luc deploy, gan nguoi deploy lam owner.
     constructor() {
@@ -74,6 +148,123 @@ contract BatchTraceability {
         address previousOwner = owner;
         owner = newOwner;
         emit OwnershipTransferred(previousOwner, newOwner);
+    }
+
+    function setProductStatus(bytes32 productId, uint8 status, bytes32 payloadHash) external onlyWriter {
+        if (productId == bytes32(0) || payloadHash == bytes32(0)) revert InvalidEventData();
+        if (status != 1 && status != 2) revert InvalidStatus();
+
+        productStatuses[productId] = status;
+        emit ProductStatusChanged(productId, status, payloadHash, block.timestamp);
+    }
+
+    function setOrganizationStatus(bytes32 organizationId, uint8 status, bytes32 payloadHash) external onlyWriter {
+        if (organizationId == bytes32(0) || payloadHash == bytes32(0)) revert InvalidEventData();
+        if (status != 1 && status != 2) revert InvalidStatus();
+
+        organizationStatuses[organizationId] = status;
+        emit OrganizationStatusChanged(organizationId, status, payloadHash, block.timestamp);
+    }
+
+    function recordAuditEvent(bytes32 businessId, bytes32 eventType, bytes32 payloadHash) external onlyWriter {
+        if (businessId == bytes32(0) || eventType == bytes32(0) || payloadHash == bytes32(0)) {
+            revert InvalidEventData();
+        }
+        bytes32 eventKey = keccak256(abi.encode(businessId, eventType));
+        if (recordedEventKeys[eventKey]) revert DuplicateEvent();
+        recordedEventKeys[eventKey] = true;
+        emit BatchEventRecorded(businessId, eventKey, msg.sender, eventType, payloadHash, block.timestamp);
+    }
+
+    function registerBatch(
+        bytes32 batchId,
+        bytes32 productId,
+        uint256 expiresAt,
+        bytes32 payloadHash
+    ) external onlyWriter {
+        if (batchId == bytes32(0) || productId == bytes32(0) || payloadHash == bytes32(0)) {
+            revert InvalidEventData();
+        }
+        if (productStatuses[productId] != 1) revert ProductNotApproved();
+        if (registeredBatches[batchId]) revert DuplicateEvent();
+        if (expiresAt <= block.timestamp) revert BatchExpired();
+
+        registeredBatches[batchId] = true;
+        batchProducts[batchId] = productId;
+        batchExpiryDates[batchId] = expiresAt;
+        emit BatchRegistered(batchId, productId, msg.sender, payloadHash, block.timestamp);
+    }
+
+    function recordTransfer(
+        bytes32 batchId,
+        bytes32 transferId,
+        bytes32 fromOrganization,
+        bytes32 toOrganization,
+        uint256 quantity,
+        uint8 status,
+        bytes32 payloadHash
+    ) external onlyWriter {
+        if (
+            batchId == bytes32(0)
+            || transferId == bytes32(0)
+            || fromOrganization == bytes32(0)
+            || toOrganization == bytes32(0)
+            || payloadHash == bytes32(0)
+            || quantity == 0
+        ) revert InvalidEventData();
+        if (!registeredBatches[batchId]) revert BatchNotFound();
+        if (recalledBatches[batchId]) revert BatchAlreadyRecalled();
+
+        if (status == 1) {
+            if (transferStatuses[transferId] != 0) revert DuplicateEvent();
+            transferRecords[transferId] = TransferRecord(batchId, fromOrganization, toOrganization, quantity);
+        } else if (status == 2) {
+            TransferRecord memory transferRecord = transferRecords[transferId];
+            if (
+                transferStatuses[transferId] != 1
+                || transferRecord.batchId != batchId
+                || transferRecord.fromOrganization != fromOrganization
+                || transferRecord.toOrganization != toOrganization
+                || transferRecord.quantity != quantity
+            ) revert InvalidTransferState();
+        } else {
+            revert InvalidStatus();
+        }
+
+        transferStatuses[transferId] = status;
+        emit TransferStatusChanged(
+            batchId,
+            transferId,
+            fromOrganization,
+            toOrganization,
+            quantity,
+            status,
+            payloadHash,
+            block.timestamp
+        );
+    }
+
+    function dispenseUnit(bytes32 unitId, bytes32 batchId, bytes32 payloadHash) external onlyWriter {
+        if (unitId == bytes32(0) || batchId == bytes32(0) || payloadHash == bytes32(0)) {
+            revert InvalidEventData();
+        }
+        if (!registeredBatches[batchId]) revert BatchNotFound();
+        if (recalledBatches[batchId]) revert BatchAlreadyRecalled();
+        if (batchExpiryDates[batchId] < block.timestamp) revert BatchExpired();
+        if (dispensedUnits[unitId]) revert DuplicateEvent();
+
+        dispensedUnits[unitId] = true;
+        unitBatchIds[unitId] = batchId;
+        emit UnitDispensed(unitId, batchId, msg.sender, payloadHash, block.timestamp);
+    }
+
+    function recallBatch(bytes32 batchId, bytes32 payloadHash) external onlyWriter {
+        if (batchId == bytes32(0) || payloadHash == bytes32(0)) revert InvalidEventData();
+        if (!registeredBatches[batchId]) revert BatchNotFound();
+        if (recalledBatches[batchId]) revert BatchAlreadyRecalled();
+
+        recalledBatches[batchId] = true;
+        emit BatchRecalled(batchId, msg.sender, payloadHash, block.timestamp);
     }
 
     // Ghi mot event cho lo thuoc. Ca bon tham so bytes32 phai la 32 byte

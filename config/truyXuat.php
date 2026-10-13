@@ -8,6 +8,8 @@ return [
         'rpcUrl' => env('BLOCKCHAIN_RPC_URL'),
         'diaChiHopDong' => env('BLOCKCHAIN_CONTRACT_ADDRESS'),
         'signerUrl' => env('BLOCKCHAIN_SIGNER_URL'),
+        'signerToken' => env('BLOCKCHAIN_SIGNER_TOKEN'),
+        'maxAttempts' => (int) env('BLOCKCHAIN_MAX_ATTEMPTS', 8),
     ],
     'choPhepNsxDenNhaThuoc' => false,
     'soDonViBanToiDaMoiLan' => 50,
