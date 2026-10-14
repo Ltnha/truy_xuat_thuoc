@@ -1,389 +1,336 @@
 @extends('layoutDungChung.master')
 
+@section('title', 'Quản lý lô thuốc - PharmaChain')
+
 @push('styles')
     <link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLyLoThuoc.css') }}">
 @endpush
 
 @section('content')
-<!DOCTYPE html>
-<html lang="vi">
+<div class="space-y-6 max-w-7xl w-full mx-auto">
 
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý lô thuốc </title>
+    <!-- THANH TRÊN: TÌM KIẾM + BỘ LỌC + NÚT ĐĂNG KÝ LÔ MỚI -->
+    <div class="bg-white p-5 rounded-2xl border border-emerald-900/10 bong-xanh flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
 
-    <!-- Google Font Inter -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-    <!-- Font Awesome 6 Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        tailwind.config = {
-            theme: {
-                extend: {
-                    colors: {
-                        nenChinh: '#f2faf5',
-                    }
-                }
-            }
-        }
-    </script>
-
-    <link rel="stylesheet" href="quanLyLoThuoc.css">
-</head>
-
-<body class="bg-nenChinh text-slate-900 font-sans min-h-screen flex antialiased">
-
-    <!-- 1. Thanh Sidebar dùng chung cố định (Sticky top-0) -->
-    <?php include_once '../trangDungChung/layoutDungChung/sidebarDungChung.php'; ?>
-
-    <!-- 2. Cột nội dung trang bên phải (Tự do cuộn) -->
-    <div class="flex-1 flex flex-col min-w-0">
-        <!-- Thanh Topbar dùng chung -->
-        <?php include_once '../trangDungChung/layoutDungChung/topbarDungChung.php'; ?>
-
-        <main class="flex-1 p-6 sm:p-8 space-y-6 max-w-7xl w-full mx-auto">
-
-            <!-- THANH TRÊN: TÌM KIẾM + BỘ LỌC + NÚT ĐĂNG KÝ LÔ MỚI -->
-            <div class="bg-white p-5 rounded-2xl border border-emerald-900/10 bong-xanh flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
-
-                <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
-                            <i class="fa-solid fa-magnifying-glass"></i>
-                        </span>
-                        <input type="text" id="oTimKiemLo" placeholder="Tìm theo mã lô hoặc tên thuốc..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                    </div>
-
-                    <!-- Lọc trạng thái thuần Việt -->
-                    <select id="locTrangThaiLo" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-emerald-700 outline-none cursor-pointer">
-                        <option value="TAT_CA">-- Tất cả trạng thái --</option>
-                        <option value="CREATED">Đã tạo (Mới lưu kho)</option>
-                        <option value="IN_TRANSIT">Đang phân phối</option>
-                        <option value="HET_HAN">Đã hết hạn sử dụng</option>
-                        <option value="RECALLED">Đã thu hồi</option>
-                    </select>
-
-                    <!-- Lọc theo hạn sử dụng -->
-                    <select id="locHanDung" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-emerald-700 outline-none cursor-pointer">
-                        <option value="TAT_CA">-- Thời hạn sử dụng --</option>
-                        <option value="CON_HAN">Còn hạn lưu hành</option>
-                        <option value="CAN_HAN">Cận date (dưới 6 tháng)</option>
-                        <option value="DA_HET_HAN">Đã quá hạn</option>
-                    </select>
-                </div>
-
-                <button type="button" id="nutMoModalDangKyLo" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 shrink-0">
-                    <i class="fa-solid fa-plus-circle text-sm"></i> Đăng Ký Lô Mới
-                </button>
+        <div class="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                </span>
+                <input type="text" id="oTimKiemLo" placeholder="Tìm theo mã lô hoặc tên thuốc..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
             </div>
 
-            <!-- BẢNG DANH SÁCH LÔ THUỐC -->
-            <div class="bg-white rounded-2xl border border-emerald-900/10 bong-xanh overflow-hidden">
-                <div class="p-4 bg-nenChinh border-b border-emerald-900/10 flex items-center justify-between text-xs">
-                    <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                        <i class="fa-solid fa-table-list text-emerald-700"></i> Danh Sách Lô Thuốc Sản Xuất & Mã On-chain
-                    </span>
-                    <span id="tongSoLoHienThi" class="font-bold text-slate-500 font-mono">Hiển thị: 0 lô</span>
-                </div>
+            <!-- Lọc trạng thái thuần Việt -->
+            <select id="locTrangThaiLo" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-emerald-700 outline-none cursor-pointer">
+                <option value="TAT_CA">-- Tất cả trạng thái --</option>
+                <option value="CREATED">Đã tạo (Mới lưu kho)</option>
+                <option value="IN_TRANSIT">Đang phân phối</option>
+                <option value="HET_HAN">Đã hết hạn sử dụng</option>
+                <option value="RECALLED">Đã thu hồi</option>
+            </select>
 
-                <div class="w-full overflow-x-auto">
-                    <table class="w-full text-left border-collapse text-xs">
-                        <thead>
-                            <tr class="bg-slate-50 text-slate-600 uppercase tracking-wider border-b border-slate-100 text-[11px]">
-                                <th class="py-3 px-2.5 font-bold whitespace-nowrap">Mã Lô</th>
-                                <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Mã QR</th>
-                                <th class="py-3 px-2 font-bold whitespace-nowrap">Mã On-chain (txHash)</th>
-                                <th class="py-3 px-2.5 font-bold">Sản Phẩm</th>
-                                <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Hạn Dùng</th>
-                                <th class="py-3 px-2 font-bold text-right whitespace-nowrap">Tổng</th>
-                                <th class="py-3 px-2 font-bold text-right whitespace-nowrap">Khả Dụng</th>
-                                <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Trạng Thái</th>
-                                <th class="py-3 px-2.5 font-bold text-center whitespace-nowrap">Hành Động</th>
-                            </tr>
-                        </thead>
-                        <tbody id="thanBangLoThuoc" class="divide-y divide-slate-100 font-medium">
-                            <!-- Render bằng JavaScript -->
-                        </tbody>
-                    </table>
-                </div>
+            <!-- Lọc theo hạn sử dụng -->
+            <select id="locHanDung" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-emerald-700 outline-none cursor-pointer">
+                <option value="TAT_CA">-- Thời hạn sử dụng --</option>
+                <option value="CON_HAN">Còn hạn lưu hành</option>
+                <option value="CAN_HAN">Cận date (dưới 6 tháng)</option>
+                <option value="DA_HET_HAN">Đã quá hạn</option>
+            </select>
+        </div>
 
-                <!-- Phân trang -->
-                <div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-                    <span id="thongTinPhanTrangLo" class="text-slate-500">Đang hiển thị...</span>
-                    <div class="flex items-center gap-1.5" id="cumNutPhanTrangLo"></div>
-                </div>
-            </div>
-        </main>
+        <button type="button" id="nutMoModalDangKyLo" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-md transition-all flex items-center justify-center gap-2 shrink-0">
+            <i class="fa-solid fa-plus-circle text-sm"></i> Đăng Ký Lô Mới
+        </button>
     </div>
 
-    <!-- MODAL 1: ĐĂNG KÝ LÔ MỚI & SINH MÃ QR 2 CẤP -->
-    <div id="modalDangKyLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
-        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 bong-xanh max-h-[90vh] overflow-y-auto">
+    <!-- BẢNG DANH SÁCH LÔ THUỐC -->
+    <div class="bg-white rounded-2xl border border-emerald-900/10 bong-xanh overflow-hidden">
+        <div class="p-4 bg-nenChinh border-b border-emerald-900/10 flex items-center justify-between text-xs">
+            <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
+                <i class="fa-solid fa-table-list text-emerald-700"></i> Danh Sách Lô Thuốc Sản Xuất & Mã On-chain
+            </span>
+            <span id="tongSoLoHienThi" class="font-bold text-slate-500 font-mono">Hiển thị: 0 lô</span>
+        </div>
 
-            <div id="manHinhFormDangKyLo" class="space-y-5">
-                <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
-                    <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                        <i class="fa-solid fa-box-open text-emerald-700"></i> Khởi Tạo Lô Thuốc Mới & Đồng Bộ Blockchain
-                    </h3>
-                    <button type="button" class="dong-modal-lo text-slate-400 hover:text-slate-700 text-lg">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
+        <div class="w-full overflow-x-auto">
+            <table class="w-full text-left border-collapse text-xs">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-600 uppercase tracking-wider border-b border-slate-100 text-[11px]">
+                        <th class="py-3 px-2.5 font-bold whitespace-nowrap">Mã Lô</th>
+                        <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Mã QR</th>
+                        <th class="py-3 px-2 font-bold whitespace-nowrap">Mã On-chain (txHash)</th>
+                        <th class="py-3 px-2.5 font-bold">Sản Phẩm</th>
+                        <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Hạn Dùng</th>
+                        <th class="py-3 px-2 font-bold text-right whitespace-nowrap">Tổng</th>
+                        <th class="py-3 px-2 font-bold text-right whitespace-nowrap">Khả Dụng</th>
+                        <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Trạng Thái</th>
+                        <th class="py-3 px-2.5 font-bold text-center whitespace-nowrap">Hành Động</th>
+                    </tr>
+                </thead>
+                <tbody id="thanBangLoThuoc" class="divide-y divide-slate-100 font-medium">
+                    <!-- Render bằng JavaScript -->
+                </tbody>
+            </table>
+        </div>
 
-                <form id="formSubmitDangKyLo" class="space-y-4 text-xs">
-                    <div class="space-y-1">
-                        <!-- Yêu cầu 4: Đổi thuật ngữ thành Cơ quan quản lý -->
-                        <label for="chonSanPhamDaDuyet" class="font-bold text-slate-700">Chọn Sản Phẩm Đã Được Cơ Quan Quản Lý Phê Duyệt <span class="text-red-500">*</span></label>
-                        <select id="chonSanPhamDaDuyet" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                            <option value="">-- Chọn sản phẩm dược hợp lệ --</option>
-                            <option value="SP01" data-ten="Paracetamol 500mg">Paracetamol 500mg (SĐK: VD-28491-18) – [Đã duyệt]</option>
-                            <option value="SP02" data-ten="Deslotid OPV 5mg">Deslotid OPV 5mg (SĐK: VD-19234-15) – [Đã duyệt]</option>
-                            <option value="SP03" data-ten="Cefalexin 500mg">Cefalexin 500mg (SĐK: VD-33012-20) – [Đã duyệt]</option>
-                        </select>
-                    </div>
-
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div class="space-y-1">
-                            <label for="nhapMaLo" class="font-bold text-slate-700">Mã Lô Thuốc <span class="text-red-500">*</span></label>
-                            <input type="text" id="nhapMaLo" required placeholder="VD: LOT-PARA-2026-03" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono uppercase font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                        </div>
-                        <div class="space-y-1">
-                            <label for="nhapSoLuong" class="font-bold text-slate-700">Tổng Số Lượng (hộp) <span class="text-red-500">*</span></label>
-                            <input type="number" id="nhapSoLuong" required min="10" placeholder="VD: 5000" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                        </div>
-                        <div class="space-y-1">
-                            <label for="nhapNgaySX" class="font-bold text-slate-700">Ngày Sản Xuất <span class="text-red-500">*</span></label>
-                            <input type="date" id="nhapNgaySX" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                        </div>
-                        <div class="space-y-1">
-                            <label for="nhapHanDung" class="font-bold text-slate-700">Hạn Sử Dụng <span class="text-red-500">*</span></label>
-                            <input type="date" id="nhapHanDung" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                        </div>
-                    </div>
-
-                    <!-- Yêu cầu 3: Ghi chú thân thiện người dùng, nhắc cả QR lô và QR đơn vị -->
-                    <div class="p-3 bg-cyan-50 rounded-xl border border-cyan-800/15 text-[11px] text-cyan-900 flex items-start gap-2">
-                        <i class="fa-solid fa-cube text-cyan-800 mt-0.5 shrink-0"></i>
-                        <span>Hệ thống sẽ ghi nhận lô lên blockchain, tạo mã QR lô và mã QR cho từng hộp.</span>
-                    </div>
-
-                    <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                        <button type="button" class="dong-modal-lo px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
-                            Hủy
-                        </button>
-                        <!-- Yêu cầu 2: Đổi nút theo mô hình Custodial -->
-                        <button type="submit" class="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
-                            <i class="fa-solid fa-check"></i> Xác nhận đăng ký
-                        </button>
-                    </div>
-                </form>
-            </div>
-
-            <div id="manHinhKetQuaSinhQR" class="hidden space-y-5">
-                <div class="text-center space-y-1">
-                    <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl">
-                        <i class="fa-solid fa-circle-check"></i>
-                    </div>
-                    <h3 class="text-base font-bold text-slate-900">Khởi Tạo Lô Thuốc Thành Công!</h3>
-                    <p class="text-xs text-slate-500 font-mono" id="hienThiTxHashTaoLo">TxHash: 0x9f1b...28c4</p>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="p-4 bg-nenChinh rounded-xl border border-emerald-900/15 text-center space-y-2.5">
-                        <div class="text-xs font-bold text-emerald-800 uppercase tracking-wide">Mã QR Cấp Lô (Thùng Lớn)</div>
-                        <div class="w-32 h-32 mx-auto bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-center shadow-2xs">
-                            <i class="fa-solid fa-qrcode text-7xl text-slate-800"></i>
-                        </div>
-                        <div class="text-[11px] font-mono font-bold text-slate-700" id="hienThiMaLoQR">LOT-PARA-2026-03</div>
-                        <button type="button" id="nutTaiQRLoModal" class="w-full py-2 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-700 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5" title="Tải QR lô">
-                            <i class="fa-solid fa-download"></i> Tải Tem QR Thùng
-                        </button>
-                    </div>
-
-                    <div class="p-4 bg-cyan-50/70 rounded-xl border border-cyan-800/15 text-center space-y-2.5 flex flex-col justify-between">
-                        <div>
-                            <div class="text-xs font-bold text-cyan-900 uppercase tracking-wide">Mã QR Cấp Đơn Vị Lẻ (Serial)</div>
-                            <p class="text-[11px] text-slate-600 mt-1">Đã tự động tạo <strong id="hienThiSoLuongDonVi">5,000</strong> mã định danh duy nhất.</p>
-                        </div>
-
-                        <div class="p-3 bg-white rounded-lg border border-slate-200 font-mono text-[11px] text-slate-700 text-left space-y-1">
-                            <div>• UNIT-00001 (In hộp 1)</div>
-                            <div>• UNIT-00002 (In hộp 2)</div>
-                            <div class="text-slate-400">... và các đơn vị tiếp theo</div>
-                        </div>
-
-                        <div class="space-y-1.5 pt-1">
-                            <button type="button" id="nutXuatQRDonViModal" class="w-full py-2 bg-cyan-800 hover:bg-cyan-900 text-white font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 shadow-2xs" title="Tải QR đơn vị (ZIP)">
-                                <i class="fa-solid fa-file-zipper"></i> Xuất Trọn Bộ QR Đơn Vị (.ZIP)
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="pt-2">
-                    <button type="button" class="dong-modal-lo w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md transition-all">
-                        Hoàn Tất & Đóng Cửa Sổ
-                    </button>
-                </div>
-            </div>
-
+        <!-- Phân trang -->
+        <div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <span id="thongTinPhanTrangLo" class="text-slate-500">Đang hiển thị...</span>
+            <div class="flex items-center gap-1.5" id="cumNutPhanTrangLo"></div>
         </div>
     </div>
 
-    <!-- MODAL 2: PHÂN PHỐI LÔ THUỐC -->
-    <div id="modalPhanPhoiLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
-        <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 space-y-5 bong-xanh">
+</div>
+
+<!-- MODAL 1: ĐĂNG KÝ LÔ MỚI & SINH MÃ QR 2 CẤP -->
+<div id="modalDangKyLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 bong-xanh max-h-[90vh] overflow-y-auto">
+
+        <div id="manHinhFormDangKyLo" class="space-y-5">
             <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-truck-fast text-cyan-800"></i> Khởi Tạo Giao Dịch Chuyển Giao (Transfer)
+                    <i class="fa-solid fa-box-open text-emerald-700"></i> Khởi Tạo Lô Thuốc Mới & Đồng Bộ Blockchain
                 </h3>
-                <button type="button" id="nutDongModalPhanPhoi" class="text-slate-400 hover:text-slate-700 text-lg">
+                <button type="button" class="dong-modal-lo text-slate-400 hover:text-slate-700 text-lg">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
 
-            <form id="formSubmitPhanPhoi" class="space-y-4 text-xs">
-                <div class="p-3 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1.5">
-                    <div class="flex justify-between">
-                        <span class="text-slate-500">Mã lô chuyển giao:</span>
-                        <span id="phanPhoiMaLoText" class="font-mono font-bold text-slate-900"></span>
-                    </div>
-                    <div class="flex justify-between">
-                        <span class="text-slate-500">Số lượng khả dụng xuất kho:</span>
-                        <span id="phanPhoiSoLuongConLaiText" class="font-bold text-emerald-700 font-mono"></span>
-                    </div>
-                    <div class="text-[10px] text-slate-400 italic">
-                        (Khả dụng = Tồn kho thực trừ đi các đơn chuyển giao đang chờ PENDING)
-                    </div>
-                </div>
-
+            <form id="formSubmitDangKyLo" class="space-y-4 text-xs">
                 <div class="space-y-1">
-                    <label for="chonNhaPhanPhoi" class="font-bold text-slate-700">Đơn Vị Tiếp Nhận (Nhà Phân Phối Đã Duyệt) <span class="text-red-500">*</span></label>
-                    <select id="chonNhaPhanPhoi" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                        <option value="">-- Chọn Nhà phân phối hợp lệ --</option>
-                        <option value="NPP01">Công ty Cổ phần Dược phẩm CPC1 Hà Nội (Ví: 0x3a...11C)</option>
-                        <option value="NPP02">Tổng Công ty Dược Việt Nam - Vinapharm (Ví: 0x7c...88D)</option>
-                        <option value="NPP03">Công ty Dược phẩm Vimedimex TP.HCM (Ví: 0x1e...44E)</option>
+                    <label for="chonSanPhamDaDuyet" class="font-bold text-slate-700">Chọn Sản Phẩm Đã Được Cơ Quan Quản Lý Phê Duyệt <span class="text-red-500">*</span></label>
+                    <select id="chonSanPhamDaDuyet" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                        <option value="">-- Chọn sản phẩm dược hợp lệ --</option>
+                        <option value="SP01" data-ten="Paracetamol 500mg">Paracetamol 500mg (SĐK: VD-28491-18) – [Đã duyệt]</option>
+                        <option value="SP02" data-ten="Deslotid OPV 5mg">Deslotid OPV 5mg (SĐK: VD-19234-15) – [Đã duyệt]</option>
+                        <option value="SP03" data-ten="Cefalexin 500mg">Cefalexin 500mg (SĐK: VD-33012-20) – [Đã duyệt]</option>
                     </select>
                 </div>
 
-                <div class="space-y-1">
-                    <label for="soLuongPhanPhoi" class="font-bold text-slate-700">Số Lượng Chuyển Giao <span class="text-red-500">*</span></label>
-                    <input type="number" id="soLuongPhanPhoi" required min="1" placeholder="Nhập số lượng xuất kho..." class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                    <span id="loiSoLuongPhanPhoi" class="text-[11px] text-red-600 hidden font-bold">Số lượng chuyển giao không được vượt quá số khả dụng!</span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <label for="nhapMaLo" class="font-bold text-slate-700">Mã Lô Thuốc <span class="text-red-500">*</span></label>
+                        <input type="text" id="nhapMaLo" required placeholder="VD: LOT-PARA-2026-03" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono uppercase font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    </div>
+                    <div class="space-y-1">
+                        <label for="nhapSoLuong" class="font-bold text-slate-700">Tổng Số Lượng (hộp) <span class="text-red-500">*</span></label>
+                        <input type="number" id="nhapSoLuong" required min="10" placeholder="VD: 5000" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    </div>
+                    <div class="space-y-1">
+                        <label for="nhapNgaySX" class="font-bold text-slate-700">Ngày Sản Xuất <span class="text-red-500">*</span></label>
+                        <input type="date" id="nhapNgaySX" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    </div>
+                    <div class="space-y-1">
+                        <label for="nhapHanDung" class="font-bold text-slate-700">Hạn Sử Dụng <span class="text-red-500">*</span></label>
+                        <input type="date" id="nhapHanDung" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    </div>
                 </div>
 
-                <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                    <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức[cite: 3].
+                <div class="p-3 bg-cyan-50 rounded-xl border border-cyan-800/15 text-[11px] text-cyan-900 flex items-start gap-2">
+                    <i class="fa-solid fa-cube text-cyan-800 mt-0.5 shrink-0"></i>
+                    <span>Hệ thống sẽ ghi nhận lô lên blockchain, tạo mã QR lô và mã QR cho từng hộp.</span>
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                    <button type="button" id="nutHuyPhanPhoi" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
+                    <button type="button" class="dong-modal-lo px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
                         Hủy
                     </button>
-                    <button type="submit" class="px-6 py-2.5 bg-cyan-800 hover:bg-cyan-900 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
-                        <i class="fa-solid fa-paper-plane"></i> Gửi Yêu Cầu Chuyển Giao
+                    <button type="submit" class="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
+                        <i class="fa-solid fa-check"></i> Xác nhận đăng ký
                     </button>
                 </div>
             </form>
         </div>
-    </div>
 
-    <!-- MODAL 3: XEM CHI TIẾT LÔ THUỐC -->
-    <div id="modalChiTietLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
-        <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 bong-xanh max-h-[90vh] overflow-y-auto">
-            <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <span class="text-base font-bold text-slate-900">Chi Tiết Lô Thuốc:</span>
-                    <span id="modalMaLoTitle" class="font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded text-xs border border-emerald-200"></span>
+        <div id="manHinhKetQuaSinhQR" class="hidden space-y-5">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-circle-check"></i>
                 </div>
-                <button type="button" id="nutDongModalChiTietLo" class="text-slate-400 hover:text-slate-700 text-lg">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
+                <h3 class="text-base font-bold text-slate-900">Khởi Tạo Lô Thuốc Thành Công!</h3>
+                <p class="text-xs text-slate-500 font-mono" id="hienThiTxHashTaoLo">TxHash: 0x9f1b...28c4</p>
             </div>
 
-            <!-- Yêu cầu 5: Hiển thị Ngày SX, Hạn dùng theo dd/mm/yyyy -->
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-nenChinh rounded-xl border border-emerald-900/10 text-xs">
-                <div>
-                    <span class="text-slate-500 block">Sản phẩm:</span>
-                    <span id="modalChiTietSanPham" class="font-bold text-slate-900"></span>
-                </div>
-                <div>
-                    <span class="text-slate-500 block">Ngày sản xuất:</span>
-                    <span id="modalChiTietNgaySX" class="font-semibold text-slate-800 font-mono"></span>
-                </div>
-                <div>
-                    <span class="text-slate-500 block">Hạn dùng:</span>
-                    <span id="modalChiTietHanDung" class="font-semibold text-slate-800 font-mono"></span>
-                </div>
-                <div>
-                    <span class="text-slate-500 block">Tổng / Khả dụng:</span>
-                    <span id="modalChiTietSoLuong" class="font-bold text-cyan-800 font-mono"></span>
-                </div>
-            </div>
-
-            <div class="space-y-1.5 text-xs">
-                <span class="font-bold text-slate-700">Bằng chứng Blockchain (Polygon Testnet Explorer):</span>
-                <div class="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
-                    <a id="modalChiTietTxLink" href="#" target="_blank" class="flex-1 font-mono text-[11px] text-cyan-800 hover:underline break-all flex items-center gap-1.5">
-                        <span id="modalChiTietTxHash">0x...</span>
-                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px] shrink-0 text-slate-400"></i>
-                    </a>
-                    <button type="button" id="nutSaoChepModalTx" class="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg text-[11px] font-bold shrink-0">
-                        <i class="fa-regular fa-copy"></i> Sao chép
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div class="p-4 bg-nenChinh rounded-xl border border-emerald-900/15 text-center space-y-2.5">
+                    <div class="text-xs font-bold text-emerald-800 uppercase tracking-wide">Mã QR Cấp Lô (Thùng Lớn)</div>
+                    <div class="w-32 h-32 mx-auto bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-center shadow-2xs">
+                        <i class="fa-solid fa-qrcode text-7xl text-slate-800"></i>
+                    </div>
+                    <div class="text-[11px] font-mono font-bold text-slate-700" id="hienThiMaLoQR">LOT-PARA-2026-03</div>
+                    <button type="button" id="nutTaiQRLoModal" class="w-full py-2 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-700 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5" title="Tải QR lô">
+                        <i class="fa-solid fa-download"></i> Tải Tem QR Thùng
                     </button>
                 </div>
-            </div>
 
-            <!-- Yêu cầu 1: Đã xóa[cite: 3] ở dòng mô tả bên dưới -->
-            <div class="p-4 bg-cyan-50/70 rounded-xl border border-cyan-800/20 space-y-3">
-                <div class="flex items-center justify-between">
+                <div class="p-4 bg-cyan-50/70 rounded-xl border border-cyan-800/15 text-center space-y-2.5 flex flex-col justify-between">
                     <div>
-                        <h5 class="font-bold text-xs text-cyan-950 uppercase tracking-wide">Quản Lý & Tải Mã QR Lô Hàng</h5>
-                        <p class="text-[11px] text-slate-600 mt-0.5">Xuất bộ mã để in tem nhãn thùng lớn hoặc in lên từng hộp/vỉ thuốc lẻ.</p>
+                        <div class="text-xs font-bold text-cyan-900 uppercase tracking-wide">Mã QR Cấp Đơn Vị Lẻ (Serial)</div>
+                        <p class="text-[11px] text-slate-600 mt-1">Đã tự động tạo <strong id="hienThiSoLuongDonVi">5,000</strong> mã định danh duy nhất.</p>
+                    </div>
+
+                    <div class="p-3 bg-white rounded-lg border border-slate-200 font-mono text-[11px] text-slate-700 text-left space-y-1">
+                        <div>• UNIT-00001 (In hộp 1)</div>
+                        <div>• UNIT-00002 (In hộp 2)</div>
+                        <div class="text-slate-400">... và các đơn vị tiếp theo</div>
+                    </div>
+
+                    <div class="space-y-1.5 pt-1">
+                        <button type="button" id="nutXuatQRDonViModal" class="w-full py-2 bg-cyan-800 hover:bg-cyan-900 text-white font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 shadow-2xs" title="Tải QR đơn vị (ZIP)">
+                            <i class="fa-solid fa-file-zipper"></i> Xuất Trọn Bộ QR Đơn Vị (.ZIP)
+                        </button>
                     </div>
                 </div>
-                <div class="flex flex-wrap gap-2 pt-1">
-                    <button type="button" id="nutXuatQRThungModal" class="px-3.5 py-2 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs" title="Tải QR lô">
-                        <i class="fa-solid fa-qrcode"></i> Tải Mã QR Lô (Thùng)
-                    </button>
-                    <button type="button" id="nutXuatQRDonViZipModal" class="px-3.5 py-2 bg-cyan-800 hover:bg-cyan-900 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs" title="Tải QR đơn vị (ZIP)">
-                        <i class="fa-solid fa-file-zipper"></i> Xuất Trọn Bộ QR Đơn Vị (.ZIP)
-                    </button>
-                    <button type="button" id="nutXuatQRDonViCsvModal" class="px-3.5 py-2 bg-white hover:bg-cyan-50 border border-cyan-300 text-cyan-900 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs">
-                        <i class="fa-solid fa-file-csv"></i> Xuất Danh Sách Serial (.CSV)
-                    </button>
-                </div>
             </div>
 
-            <!-- Yêu cầu 6: Timeline hiển thị cả thoiGianKhoiTao và thoiGianXacNhan -->
-            <div class="space-y-3 text-xs pt-1">
-                <h4 class="font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
-                    <i class="fa-solid fa-timeline text-emerald-700"></i> Lịch Sử Chuyển Giao Lô Hàng
-                </h4>
-                <div id="danhSachTimelineChuyenGiao" class="relative pl-6 border-l-2 border-emerald-900/20 space-y-4"></div>
-            </div>
-
-            <div class="pt-3 border-t border-slate-100 flex justify-end">
-                <button type="button" id="nutDongModalChiTietLoBottom" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
-                    Đóng
+            <div class="pt-2">
+                <button type="button" class="dong-modal-lo w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                    Hoàn Tất & Đóng Cửa Sổ
                 </button>
             </div>
         </div>
+
     </div>
+</div>
 
-    <!-- Script riêng của trang Quản lý lô -->
-    <script src="quanLyLoThuoc.js"></script>
-</body>
+<!-- MODAL 2: PHÂN PHỐI LÔ THUỐC -->
+<div id="modalPhanPhoiLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+    <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 space-y-5 bong-xanh">
+        <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-truck-fast text-cyan-800"></i> Khởi Tạo Giao Dịch Chuyển Giao (Transfer)
+            </h3>
+            <button type="button" id="nutDongModalPhanPhoi" class="text-slate-400 hover:text-slate-700 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
 
-</html>
+        <form id="formSubmitPhanPhoi" class="space-y-4 text-xs">
+            <div class="p-3 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1.5">
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Mã lô chuyển giao:</span>
+                    <span id="phanPhoiMaLoText" class="font-mono font-bold text-slate-900"></span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-500">Số lượng khả dụng xuất kho:</span>
+                    <span id="phanPhoiSoLuongConLaiText" class="font-bold text-emerald-700 font-mono"></span>
+                </div>
+                <div class="text-[10px] text-slate-400 italic">
+                    (Khả dụng = Tồn kho thực trừ đi các đơn chuyển giao đang chờ PENDING)
+                </div>
+            </div>
+
+            <div class="space-y-1">
+                <label for="chonNhaPhanPhoi" class="font-bold text-slate-700">Đơn Vị Tiếp Nhận (Nhà Phân Phối Đã Duyệt) <span class="text-red-500">*</span></label>
+                <select id="chonNhaPhanPhoi" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    <option value="">-- Chọn Nhà phân phối hợp lệ --</option>
+                    <option value="NPP01">Công ty Cổ phần Dược phẩm CPC1 Hà Nội (Ví: 0x3a...11C)</option>
+                    <option value="NPP02">Tổng Công ty Dược Việt Nam - Vinapharm (Ví: 0x7c...88D)</option>
+                    <option value="NPP03">Công ty Dược phẩm Vimedimex TP.HCM (Ví: 0x1e...44E)</option>
+                </select>
+            </div>
+
+            <div class="space-y-1">
+                <label for="soLuongPhanPhoi" class="font-bold text-slate-700">Số Lượng Chuyển Giao <span class="text-red-500">*</span></label>
+                <input type="number" id="soLuongPhanPhoi" required min="1" placeholder="Nhập số lượng xuất kho..." class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                <span id="loiSoLuongPhanPhoi" class="text-[11px] text-red-600 hidden font-bold">Số lượng chuyển giao không được vượt quá số khả dụng!</span>
+            </div>
+
+            <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức[cite: 8].
+            </div>
+
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button type="button" id="nutHuyPhanPhoi" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
+                    Hủy
+                </button>
+                <button type="submit" class="px-6 py-2.5 bg-cyan-800 hover:bg-cyan-900 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i> Gửi Yêu Cầu Chuyển Giao
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL 3: XEM CHI TIẾT LÔ THUỐC -->
+<div id="modalChiTietLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 bong-xanh max-h-[90vh] overflow-y-auto">
+        <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-base font-bold text-slate-900">Chi Tiết Lô Thuốc:</span>
+                <span id="modalMaLoTitle" class="font-mono font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded text-xs border border-emerald-200"></span>
+            </div>
+            <button type="button" id="nutDongModalChiTietLo" class="text-slate-400 hover:text-slate-700 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-nenChinh rounded-xl border border-emerald-900/10 text-xs">
+            <div>
+                <span class="text-slate-500 block">Sản phẩm:</span>
+                <span id="modalChiTietSanPham" class="font-bold text-slate-900"></span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Ngày sản xuất:</span>
+                <span id="modalChiTietNgaySX" class="font-semibold text-slate-800 font-mono"></span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Hạn dùng:</span>
+                <span id="modalChiTietHanDung" class="font-semibold text-slate-800 font-mono"></span>
+            </div>
+            <div>
+                <span class="text-slate-500 block">Tổng / Khả dụng:</span>
+                <span id="modalChiTietSoLuong" class="font-bold text-cyan-800 font-mono"></span>
+            </div>
+        </div>
+
+        <div class="space-y-1.5 text-xs">
+            <span class="font-bold text-slate-700">Bằng chứng Blockchain (Polygon Testnet Explorer):</span>
+            <div class="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                <a id="modalChiTietTxLink" href="#" target="_blank" class="flex-1 font-mono text-[11px] text-cyan-800 hover:underline break-all flex items-center gap-1.5">
+                    <span id="modalChiTietTxHash">0x...</span>
+                    <i class="fa-solid fa-arrow-up-right-from-square text-[10px] shrink-0 text-slate-400"></i>
+                </a>
+                <button type="button" id="nutSaoChepModalTx" class="px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 rounded-lg text-[11px] font-bold shrink-0">
+                    <i class="fa-regular fa-copy"></i> Sao chép
+                </button>
+            </div>
+        </div>
+
+        <div class="p-4 bg-cyan-50/70 rounded-xl border border-cyan-800/20 space-y-3">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h5 class="font-bold text-xs text-cyan-950 uppercase tracking-wide">Quản Lý & Tải Mã QR Lô Hàng</h5>
+                    <p class="text-[11px] text-slate-600 mt-0.5">Xuất bộ mã để in tem nhãn thùng lớn hoặc in lên từng hộp/vỉ thuốc lẻ.</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2 pt-1">
+                <button type="button" id="nutXuatQRThungModal" class="px-3.5 py-2 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs" title="Tải QR lô">
+                    <i class="fa-solid fa-qrcode"></i> Tải Mã QR Lô (Thùng)
+                </button>
+                <button type="button" id="nutXuatQRDonViZipModal" class="px-3.5 py-2 bg-cyan-800 hover:bg-cyan-900 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs" title="Tải QR đơn vị (ZIP)">
+                    <i class="fa-solid fa-file-zipper"></i> Xuất Trọn Bộ QR Đơn Vị (.ZIP)
+                </button>
+                <button type="button" id="nutXuatQRDonViCsvModal" class="px-3.5 py-2 bg-white hover:bg-cyan-50 border border-cyan-300 text-cyan-900 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-file-csv"></i> Xuất Danh Sách Serial (.CSV)
+                </button>
+            </div>
+        </div>
+
+        <div class="space-y-3 text-xs pt-1">
+            <h4 class="font-bold uppercase tracking-wider text-slate-700 flex items-center gap-2">
+                <i class="fa-solid fa-timeline text-emerald-700"></i> Lịch Sử Chuyển Giao Lô Hàng
+            </h4>
+            <div id="danhSachTimelineChuyenGiao" class="relative pl-6 border-l-2 border-emerald-900/20 space-y-4"></div>
+        </div>
+
+        <div class="pt-3 border-t border-slate-100 flex justify-end">
+            <button type="button" id="nutDongModalChiTietLoBottom" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+                Đóng
+            </button>
+        </div>
+    </div>
+</div>
 @endsection
 
 @push('scripts')
