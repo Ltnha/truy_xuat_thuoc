@@ -3,13 +3,16 @@
 namespace App\Http\Controllers\CoQuan;
 
 use App\Enums\AccountStatus;
+use App\Enums\BlockchainIdentityStatus;
 use App\Enums\OrganizationApprovalStatus;
 use App\Enums\ProductApprovalStatus;
 use App\Http\Controllers\Controller;
+use App\Models\BlockchainIdentity;
 use App\Models\NhatKyHeThong;
 use App\Models\SanPham;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
+use App\Services\Blockchain\PolygonBlockchainGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,19 +20,29 @@ use Illuminate\View\View;
 
 class DuyetHoSoController extends Controller
 {
+    public function __construct(protected PolygonBlockchainGateway $blockchainGateway) {}
+
     public function index(): View
     {
-        return view('coQuan.duyetHoSo', [
+        return view('coQuanQuanLy.pheDuyetTaiKhoanToChuc', [
+            // Tối ưu Eager Loading thêm 'yeuCauDangKys.taiLieus' để tránh N+1 Query
             'toChucs' => ToChuc::query()
-                ->with(['yeuCauDangKys' => fn ($query) => $query->latest('id')])
+                ->with([
+                    'yeuCauDangKys' => fn($query) => $query->latest('id'),
+                    'yeuCauDangKys.taiLieus'
+                ])
                 ->where('trangThaiDuyet', OrganizationApprovalStatus::choDuyet)
                 ->latest('id')
-                ->paginate(20, ['*'], 'toChucPage'),
+                ->paginate(15, ['*'], 'toChucPage'),
+
             'sanPhams' => SanPham::query()
-                ->with(['nhaSanXuat', 'yeuCauDangKySanPhams' => fn ($query) => $query->latest('id')])
+                ->with([
+                    'nhaSanXuat',
+                    'yeuCauDangKySanPhams' => fn($query) => $query->latest('id')
+                ])
                 ->where('trangThaiDuyet', ProductApprovalStatus::choDuyet)
                 ->latest('id')
-                ->paginate(20, ['*'], 'sanPhamPage'),
+                ->paginate(15, ['*'], 'sanPhamPage'),
         ]);
     }
 
@@ -40,73 +53,67 @@ class DuyetHoSoController extends Controller
             'lyDo' => ['nullable', 'required_if:trangThaiDuyet,TU_CHOI', 'string', 'max:500'],
         ]);
 
-        abort_unless($toChuc->trangThaiDuyet === OrganizationApprovalStatus::choDuyet, 409, 'Tổ chức không còn ở trạng thái chờ duyệt.');
+        abort_unless($toChuc->trangThaiDuyet === OrganizationApprovalStatus::choDuyet, 409, 'Hồ sơ tổ chức không còn ở trạng thái chờ duyệt.');
 
         DB::transaction(function () use ($request, $toChuc, $duLieu): void {
             $status = OrganizationApprovalStatus::from($duLieu['trangThaiDuyet']);
             $toChuc->trangThaiDuyet = $status;
             $toChuc->save();
 
+            // 1. Cập nhật Yêu cầu đăng ký
             $yeuCau = $toChuc->yeuCauDangKys()->latest('id')->first();
             if ($yeuCau) {
                 $yeuCau->trangThai = $status->value;
                 $yeuCau->nguoiDuyetId = $request->user()->id;
-                $yeuCau->ngayXuLy = today();
+                $yeuCau->ngayXuLy = now();
                 $yeuCau->lyDoTuChoi = $duLieu['lyDo'] ?? null;
                 $yeuCau->save();
             }
+
+            $taiKhoanDaiDien = null;
 
             if ($status === OrganizationApprovalStatus::daDuyet) {
-                TaiKhoan::query()
+                // 2. Kích hoạt tài khoản đại diện
+                $taiKhoanDaiDien = TaiKhoan::query()
                     ->where('toChucId', $toChuc->id)
                     ->where('trangThai', AccountStatus::pending)
-                    ->update(['trangThai' => AccountStatus::active]);
+                    ->first();
+
+                if ($taiKhoanDaiDien) {
+                    $taiKhoanDaiDien->update(['trangThai' => AccountStatus::active]);
+                }
+
+                // 3. Khởi tạo Định danh mật mã / Ví Blockchain Custodial
+                if (! $toChuc->blockchainIdentity) {
+                    $walletInfo = $this->blockchainGateway->taoViCustodial();
+
+                    BlockchainIdentity::create([
+                        'toChucId' => $toChuc->id,
+                        'network' => 'Polygon Amoy Testnet',
+                        'address' => $walletInfo['address'],
+                        'certificateId' => $walletInfo['certificateId'],
+                        'trangThai' => BlockchainIdentityStatus::active,
+                    ]);
+                }
+            } else {
+                $taiKhoanDaiDien = TaiKhoan::query()->where('toChucId', $toChuc->id)->first();
             }
 
+            // 4. Ghi vết nhật ký hệ thống (Đã sửa doiTuongId tham chiếu chính xác taiKhoan.id)
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $request->user()->id,
+                'doiTuongId' => $taiKhoanDaiDien?->id, // Sửa từ $toChuc->id thành $taiKhoanDaiDien->id
                 'hanhDong' => $status === OrganizationApprovalStatus::daDuyet ? 'DUYET_TO_CHUC' : 'TU_CHOI_TO_CHUC',
+                'ketQua' => 'THANH_CONG',
                 'thoiGian' => now(),
-                'noiDung' => "Xử lý tổ chức {$toChuc->tenToChuc}".(! empty($duLieu['lyDo']) ? ': '.$duLieu['lyDo'] : '.'),
-                'diaChiIP' => $request->ip(),
+                'chiTiet' => "Xử lý phê duyệt tổ chức: {$toChuc->tenToChuc}. Trạng thái: {$status->value}." . (! empty($duLieu['lyDo']) ? ' Lý do: ' . $duLieu['lyDo'] : ''),
             ]);
         });
 
-        return back()->with('thanhCong', 'Đã cập nhật kết quả xét duyệt tổ chức.');
-    }
+        $thongBao = $duLieu['trangThaiDuyet'] === 'DA_DUYET'
+            ? "Đã phê duyệt tổ chức [{$toChuc->tenToChuc}] và cấp ví Blockchain thành công."
+            : "Đã từ chối hồ sơ đăng ký của tổ chức [{$toChuc->tenToChuc}]. Lý do từ chối đã được gửi đến doanh nghiệp.";
 
-    public function approveProduct(Request $request, SanPham $sanPham): RedirectResponse
-    {
-        $duLieu = $request->validate([
-            'trangThaiDuyet' => ['required', 'in:DA_DUYET,TU_CHOI'],
-            'lyDo' => ['nullable', 'required_if:trangThaiDuyet,TU_CHOI', 'string', 'max:500'],
-        ]);
-
-        abort_unless($sanPham->trangThaiDuyet === ProductApprovalStatus::choDuyet, 409, 'Sản phẩm không còn ở trạng thái chờ duyệt.');
-
-        DB::transaction(function () use ($request, $sanPham, $duLieu): void {
-            $status = ProductApprovalStatus::from($duLieu['trangThaiDuyet']);
-            $sanPham->trangThaiDuyet = $status;
-            $sanPham->save();
-
-            $yeuCau = $sanPham->yeuCauDangKySanPhams()->latest('id')->first();
-            if ($yeuCau) {
-                $yeuCau->trangThai = $status->value;
-                $yeuCau->nguoiXuLyId = $request->user()->id;
-                $yeuCau->ngayXuLy = today();
-                $yeuCau->lyDoTuChoi = $duLieu['lyDo'] ?? null;
-                $yeuCau->save();
-            }
-
-            NhatKyHeThong::query()->create([
-                'taiKhoanId' => $request->user()->id,
-                'hanhDong' => $status === ProductApprovalStatus::daDuyet ? 'DUYET_SAN_PHAM' : 'TU_CHOI_SAN_PHAM',
-                'thoiGian' => now(),
-                'noiDung' => "Xử lý sản phẩm {$sanPham->tenSanPham}".(! empty($duLieu['lyDo']) ? ': '.$duLieu['lyDo'] : '.'),
-                'diaChiIP' => $request->ip(),
-            ]);
-        });
-
-        return back()->with('thanhCong', 'Đã cập nhật kết quả xét duyệt sản phẩm.');
+        return back()->with('thanhCong', $thongBao);
     }
 }

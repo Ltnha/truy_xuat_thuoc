@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use App\Enums\AccountStatus;
@@ -11,7 +12,7 @@ class TaiKhoanHoatDong
     public function handle(Request $request, Closure $next): Response
     {
         if (! $request->user()) {
-            return redirect()->route('dangNhap');
+            return redirect()->route('login'); // Sửa tên route tại đây
         }
 
         if ($request->user()->trangThai !== AccountStatus::active) {

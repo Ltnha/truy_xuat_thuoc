@@ -1,7 +1,7 @@
 @extends('layoutNguoiTieuDung.main')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/dangKyToChuc.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/nguoiTieuDung/dangKyToChuc.css') }}">
 @endpush
 
 @section('content')
@@ -252,5 +252,5 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('assets/js/nguoiTieuDung/dangKyToChuc.js') }}"></script>
+<script src="{{ asset('assets/js/nguoiTieuDung/dangKyToChuc.js') }}"></script>
 @endpush
