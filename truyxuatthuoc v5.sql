@@ -32,10 +32,19 @@ CREATE TABLE taiKhoan (
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
 );
 
--- 3. Bảng yeuCauDangKy (Đăng ký/Cập nhật thông tin tổ chức)
+-- 3. Bảng yeuCauDangKy (Lưu lịch sử & Snapshot thông tin từng lần nộp)
 CREATE TABLE yeuCauDangKy (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     toChucId BIGINT NOT NULL,
+    tenToChuc VARCHAR(255) NULL,
+    loaiToChuc ENUM('NHA_SAN_XUAT','NHA_PHAN_PHOI','NHA_THUOC','CO_QUAN_QUAN_LY') NULL,
+    diaChi VARCHAR(255) NULL,
+    soDienThoai VARCHAR(20) NULL,
+    maSoThue VARCHAR(20) NULL,
+    soGiayPhepDuoc VARCHAR(50) NULL,
+    coQuanCap VARCHAR(255) NULL,
+    ngayCapGiayPhep DATE NULL,
+    ngayHetHanGiayPhep DATE NULL,
     versionHoSo INT NOT NULL DEFAULT 1,
     ngayGui DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     trangThai ENUM('CHO_DUYET','DA_DUYET','TU_CHOI') NOT NULL DEFAULT 'CHO_DUYET',
@@ -386,19 +395,20 @@ VALUES
     (11, 12, NULL, 'TAO_TAI_KHOAN_DEMO', 'THANH_CONG', '2026-10-06 09:30:00', 'Tao tai khoan mo rong du lieu demo.');
 
 -- 4. Bảng yeuCauDangKy
+-- 3. Bảng yeuCauDangKy (Lưu lịch sử & Snapshot thông tin từng lần nộp)
 INSERT INTO yeuCauDangKy
-    (id, toChucId, versionHoSo, ngayGui, trangThai, nguoiDuyetId, ngayXuLy, lyDoTuChoi)
+    (id, toChucId, tenToChuc, loaiToChuc, diaChi, soDienThoai, maSoThue, soGiayPhepDuoc, coQuanCap, ngayCapGiayPhep, ngayHetHanGiayPhep, versionHoSo, ngayGui, trangThai, nguoiDuyetId, ngayXuLy, lyDoTuChoi)
 VALUES
-    (1, 1, 1, '2026-09-01 00:00:00', 'DA_DUYET', 2, '2026-09-05 00:00:00', NULL),
-    (2, 2, 1, '2026-09-02 00:00:00', 'DA_DUYET', 2, '2026-09-06 00:00:00', NULL),
-    (3, 3, 1, '2026-09-03 00:00:00', 'DA_DUYET', 2, '2026-09-07 00:00:00', NULL),
-    (4, 4, 1, '2026-09-01 00:00:00', 'DA_DUYET', 1, '2026-09-04 00:00:00', NULL),
-    (5, 5, 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
-    (6, 6, 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (7, 7, 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (8, 8, 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (9, 9, 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (10, 10, 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL);
+    (1, 1, 'Cong ty Co phan Duoc pham An Khang (DEMO)', 'NHA_SAN_XUAT', 'Khu cong nghiep Hoa Khanh, Da Nang', '02363888001', '0402190001', 'GP-N1-2025-001', 'Bo Y te', '2025-01-15', '2030-01-14', 1, '2026-09-01 00:00:00', 'DA_DUYET', 2, '2026-09-05 00:00:00', NULL),
+    (2, 2, 'Cong ty TNHH Phan phoi Minh Chau (DEMO)', 'NHA_PHAN_PHOI', 'Quan Binh Thanh, TP Ho Chi Minh', '02838880002', '0318290002', 'GP-PP-2025-002', 'So Y te TP Ho Chi Minh', '2025-02-10', '2030-02-09', 1, '2026-09-02 00:00:00', 'DA_DUYET', 2, '2026-09-06 00:00:00', NULL),
+    (3, 3, 'Nha thuoc Tan Tam (DEMO)', 'NHA_THUOC', 'Quan Hai Chau, Da Nang', '02363888003', '0402190003', 'GP-NT-2025-003', 'So Y te Da Nang', '2025-03-01', '2030-02-28', 1, '2026-09-03 00:00:00', 'DA_DUYET', 2, '2026-09-07 00:00:00', NULL),
+    (4, 4, 'Co quan Quan ly Duoc Da Nang (DEMO)', 'CO_QUAN_QUAN_LY', 'Quan Hai Chau, Da Nang', '02363888004', '0402190004', NULL, 'Bo Y te', NULL, NULL, 1, '2026-09-01 00:00:00', 'DA_DUYET', 1, '2026-09-04 00:00:00', NULL),
+    (5, 5, 'Cong ty Duoc Hoa Binh (DEMO - cho duyet)', 'NHA_SAN_XUAT', 'Thanh pho Hue', '02343888005', '3302190005', 'GP-N1-2026-005', 'So Y te Thua Thien Hue', '2026-05-10', '2031-05-09', 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (6, 6, 'Duoc pham Song Han (DEMO)', 'NHA_SAN_XUAT', 'Da Nang', '02363900101', 'DEMO-EXP-2026-01', 'GP-DEMO-NSX-101', 'So Y te Da Nang', '2025-01-10', '2030-01-09', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (7, 7, 'Duoc pham Cao Nguyen (DEMO)', 'NHA_SAN_XUAT', 'Dak Lak', '02623900102', 'DEMO-EXP-2026-02', 'GP-DEMO-NSX-102', 'So Y te Dak Lak', '2025-02-10', '2030-02-09', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (8, 8, 'Phan phoi Duoc Mien Tay (DEMO)', 'NHA_PHAN_PHOI', 'Can Tho', '02923900103', 'DEMO-EXP-2026-03', 'GP-DEMO-PP-103', 'So Y te Can Tho', '2025-03-10', '2030-03-09', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (9, 9, 'Nha thuoc Hoa Sen (DEMO)', 'NHA_THUOC', 'Can Tho', '02923900104', 'DEMO-EXP-2026-04', 'GP-DEMO-NT-104', 'So Y te Can Tho', '2025-04-10', '2030-04-09', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (10, 10, 'Co quan Quan ly Duoc Can Tho (DEMO)', 'CO_QUAN_QUAN_LY', 'Can Tho', '02923900105', 'DEMO-EXP-2026-05', NULL, 'Bo Y te', NULL, NULL, 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL);
 
 -- 5. Bảng taiLieuDangKy
 INSERT INTO taiLieuDangKy (id, yeuCauDangKyId, tenTaiLieu, loaiTaiLieu, duongDan, ngayTaiLen)

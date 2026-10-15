@@ -3,48 +3,52 @@
 @section('title', 'Phê duyệt tài khoản tổ chức - PharmaChain')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('assets/css/coQuanQuanLy/pheDuyetTaiKhoanToChuc.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/coQuanQuanLy/pheDuyetTaiKhoanToChuc.css') }}">
 @endpush
 
 @section('content')
 <div class="space-y-6 max-w-7xl w-full mx-auto">
 
-    <!-- THANH CÔNG CỤ: TÌM KIẾM + LỌC LOẠI TỔ CHỨC + LỌC TRẠNG THÁI YÊU CẦU -->
-    <div class="bg-white p-5 rounded-2xl border border-emerald-900/10 bong-xanh">
+    @if (session('thanhCong'))
+    <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 flex items-center gap-2 shadow-sm">
+        <i class="fa-solid fa-circle-check text-emerald-600 text-sm"></i>
+        <span>{{ session('thanhCong') }}</span>
+    </div>
+    @endif
+
+    <!-- BỘ LỌC DỮ LIỆU -->
+    <form method="GET" action="{{ route('co-quan.phe-duyet-tai-khoan') }}" id="formBoLocToChuc" class="bg-white p-5 rounded-2xl border border-emerald-900/10 bong-xanh">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <!-- Ô tìm kiếm -->
             <div class="relative">
                 <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </span>
-                <input type="text" id="oTimKiemToChuc" placeholder="Tìm theo tên tổ chức hoặc mã số thuế..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-indigo-700 outline-none">
+                <input type="text" name="tuKhoa" value="{{ $tuKhoa }}" placeholder="Tìm theo tên tổ chức, MST, Số GPKD..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-indigo-700 outline-none">
             </div>
 
-            <!-- Lọc theo loại hình tổ chức -->
-            <select id="locLoaiToChuc" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
-                <option value="TAT_CA">-- Tất cả loại hình tổ chức --</option>
-                <option value="NHA_SAN_XUAT">Nhà sản xuất</option>
-                <option value="NHA_PHAN_PHOI">Nhà phân phối</option>
-                <option value="NHA_THUOC">Nhà thuốc</option>
+            <select name="loaiToChuc" onchange="this.form.submit()" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
+                <option value="TAT_CA" {{ $loaiToChuc === 'TAT_CA' ? 'selected' : '' }}>-- Tất cả loại hình tổ chức --</option>
+                <option value="NHA_SAN_XUAT" {{ $loaiToChuc === 'NHA_SAN_XUAT' ? 'selected' : '' }}>Nhà sản xuất</option>
+                <option value="NHA_PHAN_PHOI" {{ $loaiToChuc === 'NHA_PHAN_PHOI' ? 'selected' : '' }}>Nhà phân phối</option>
+                <option value="NHA_THUOC" {{ $loaiToChuc === 'NHA_THUOC' ? 'selected' : '' }}>Nhà thuốc</option>
             </select>
 
-            <!-- Lọc theo trạng thái yêu cầu (Mặc định: Chờ xử lý) -->
-            <select id="locTrangThaiYeuCau" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
-                <option value="CHO_XU_LY" selected>Chờ xử lý (Chưa duyệt)</option>
-                <option value="DA_DUYET">Đã phê duyệt</option>
-                <option value="TU_CHOI">Bị từ chối</option>
-                <option value="TAT_CA">Toàn bộ trạng thái</option>
+            <select name="trangThaiDuyet" onchange="this.form.submit()" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
+                <option value="CHO_DUYET" {{ $trangThaiDuyet === 'CHO_DUYET' ? 'selected' : '' }}>Chờ xử lý (Chưa duyệt)</option>
+                <option value="DA_DUYET" {{ $trangThaiDuyet === 'DA_DUYET' ? 'selected' : '' }}>Đã phê duyệt</option>
+                <option value="TU_CHOI" {{ $trangThaiDuyet === 'TU_CHOI' ? 'selected' : '' }}>Bị từ chối</option>
+                <option value="TAT_CA" {{ $trangThaiDuyet === 'TAT_CA' ? 'selected' : '' }}>Toàn bộ trạng thái</option>
             </select>
         </div>
-    </div>
+    </form>
 
-    <!-- BẢNG DANH SÁCH YÊU CẦU ĐĂNG KÝ TỔ CHỨC -->
+    <!-- BẢNG DANH SÁCH -->
     <div class="bg-white rounded-2xl border border-emerald-900/10 bong-xanh overflow-hidden">
         <div class="p-4 bg-nenChinh border-b border-emerald-900/10 flex items-center justify-between text-xs">
             <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
                 <i class="fa-solid fa-building-circle-check text-indigo-700"></i> Danh Sách Hồ Sơ Đăng Ký Tổ Chức
             </span>
-            <span id="soLuongYeuCauBadge" class="font-bold text-slate-500 font-mono">Hiển thị: 0 hồ sơ</span>
+            <span class="font-bold text-slate-500 font-mono">Hiển thị: {{ $toChucs->total() }} hồ sơ</span>
         </div>
 
         <div class="w-full overflow-x-auto">
@@ -54,85 +58,160 @@
                         <th class="py-3.5 px-3 font-bold">Tên Tổ Chức</th>
                         <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Loại Hình</th>
                         <th class="py-3.5 px-3 font-bold whitespace-nowrap">Mã Số Thuế</th>
-                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Số Giấy Phép Kinh Doanh</th>
+                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Số GPKD Dược</th>
                         <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Ngày Nộp</th>
                         <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Lần Nộp</th>
                         <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Trạng Thái</th>
                         <th class="py-3.5 px-3 font-bold text-center whitespace-nowrap">Hành Động</th>
                     </tr>
                 </thead>
-                <tbody id="thanBangYeuCau" class="divide-y divide-slate-100 font-medium">
-                    <!-- Render qua JavaScript -->
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    @forelse ($toChucs as $toChuc)
+                    @php
+                    $yeuCauMoiNhat = $toChuc->yeuCauDangKys->sortByDesc('id')->first();
+                    $taiKhoanDaiDien = $toChuc->taiKhoans->first();
+                    $soLanNop = $toChuc->yeuCauDangKys->max('versionHoSo') ?? 1;
+                    @endphp
+                    <tr class="hover:bg-slate-50/80 transition-colors">
+                        <td class="py-3 px-3">
+                            <div class="font-bold text-slate-900">{{ $toChuc->tenToChuc }}</div>
+                            <div class="text-[11px] text-slate-500">{{ $toChuc->diaChi }}</div>
+                        </td>
+                        <td class="py-3 px-2.5 text-center">
+                            @if($toChuc->loaiToChuc->value === 'NHA_SAN_XUAT')
+                            <span class="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px]">Nhà Sản Xuất</span>
+                            @elseif($toChuc->loaiToChuc->value === 'NHA_PHAN_PHOI')
+                            <span class="px-2 py-0.5 rounded-full bg-cyan-100 text-cyan-800 font-bold text-[10px]">Nhà Phân Phối</span>
+                            @else
+                            <span class="px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold text-[10px]">Nhà Thuốc</span>
+                            @endif
+                        </td>
+                        <td class="py-3 px-3 font-mono text-slate-800">{{ $toChuc->maSoThue }}</td>
+                        <td class="py-3 px-3 font-mono font-bold text-indigo-900">{{ $toChuc->soGiayPhepDuoc }}</td>
+                        <td class="py-3 px-2.5 text-center font-mono text-slate-600">
+                            {{ $yeuCauMoiNhat ? \Carbon\Carbon::parse($yeuCauMoiNhat->ngayGui)->format('d/m/Y') : 'N/A' }}
+                        </td>
+                        <td class="py-3 px-2.5 text-center">
+                            <span class="px-2 py-0.5 rounded bg-slate-100 text-slate-800 font-mono font-bold text-[11px] border border-slate-200">
+                                Lần {{ $soLanNop }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-2.5 text-center">
+                            @if($toChuc->trangThaiDuyet->value === 'CHO_DUYET')
+                            <span class="px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 font-bold text-[10px] inline-flex items-center gap-1">
+                                <i class="fa-solid fa-clock"></i> Chờ duyệt
+                            </span>
+                            @elseif($toChuc->trangThaiDuyet->value === 'DA_DUYET')
+                            <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 font-bold text-[10px] inline-flex items-center gap-1">
+                                <i class="fa-solid fa-circle-check"></i> Đã duyệt
+                            </span>
+                            @else
+                            <span class="px-2.5 py-1 rounded-full bg-red-100 text-red-800 font-bold text-[10px] inline-flex items-center gap-1">
+                                <i class="fa-solid fa-circle-xmark"></i> Bị từ chối
+                            </span>
+                            @endif
+                        </td>
+                        <td class="py-3 px-3 text-center">
+                            <button type="button" class="btn-xem-ho-so px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 transition-all text-[11px] cursor-pointer"
+                                data-id="{{ $toChuc->id }}"
+                                data-tendangnhap="{{ $taiKhoanDaiDien?->tenDangNhap }}"
+                                data-trangthai="{{ $toChuc->trangThaiDuyet->value }}"
+                                data-lichsu="{{ json_encode($toChuc->yeuCauDangKys->sortByDesc('id')->map(fn($y) => [
+                                        'phienBan' => $y->versionHoSo,
+                                        'ngayGui' => \Carbon\Carbon::parse($y->ngayGui)->format('H:i d/m/Y'),
+                                        'trangThai' => $y->trangThai,
+                                        'lyDoTuChoi' => $y->lyDoTuChoi,
+                                        'ngayXuLy' => $y->ngayXuLy ? \Carbon\Carbon::parse($y->ngayXuLy)->format('H:i d/m/Y') : null,
+                                        'tenToChuc' => $y->tenToChuc ?? $toChuc->tenToChuc,
+                                        'maSoThue' => $y->maSoThue ?? $toChuc->maSoThue,
+                                        'soDienThoai' => $y->soDienThoai ?? $toChuc->soDienThoai,
+                                        'diaChi' => $y->diaChi ?? $toChuc->diaChi,
+                                        'soGiayPhepDuoc' => $y->soGiayPhepDuoc ?? $toChuc->soGiayPhepDuoc,
+                                        'coQuanCap' => $y->coQuanCap ?? $toChuc->coQuanCap,
+                                        'ngayCapGiayPhep' => $y->ngayCapGiayPhep ? \Carbon\Carbon::parse($y->ngayCapGiayPhep)->format('d/m/Y') : 'N/A',
+                                        'taiLieus' => $y->taiLieus->map(fn($t) => ['id' => $t->id, 'ten' => $t->tenTaiLieu])->values(),
+                                    ])->values()) }}">
+                                <i class="fa-solid fa-eye mr-1"></i> Xem hồ sơ
+                            </button>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="8" class="py-8 text-center text-slate-400">
+                            <i class="fa-solid fa-folder-open text-3xl mb-2 block"></i>
+                            Không tìm thấy hồ sơ đăng ký tổ chức nào phù hợp.
+                        </td>
+                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
 
-        <!-- Phân trang -->
-        <div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <span id="thongTinPhanTrang" class="text-slate-500">Đang hiển thị...</span>
-            <div class="flex items-center gap-1.5" id="cumNutPhanTrang"></div>
+        <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs">
+            {{ $toChucs->links() }}
         </div>
     </div>
-
 </div>
 
-<!-- CÁC MODAL XEM HỒ SƠ & XÁC NHẬN -->
+<!-- MODAL XEM HỒ SƠ -->
 <div id="modalXemHoSo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-5 hidden">
     <div class="bg-white rounded-2xl max-w-5xl w-full p-5 sm:p-7 space-y-4 bong-xanh max-h-[92vh] flex flex-col">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2.5 flex-wrap">
                 <span class="text-base font-bold text-slate-900">Hồ Sơ Đăng Ký Tổ Chức:</span>
                 <span id="panelTenToChucTitle" class="font-bold text-indigo-900 bg-indigo-50 px-2.5 py-0.5 rounded text-xs border border-indigo-200"></span>
-                <span id="panelTrangThaiBadge"></span>
             </div>
-            <button type="button" class="dong-modal-hoso text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-hoso text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
-        <div id="panelTheKetQuaDaXuLy" class="hidden p-3 rounded-xl border text-xs shrink-0"></div>
+
         <div class="flex-1 overflow-y-auto space-y-4 pr-1 text-xs">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
                 <div class="lg:col-span-7 bg-nenChinh p-4 rounded-xl border border-emerald-900/10 space-y-3">
                     <span class="font-bold text-slate-800 uppercase tracking-wide flex items-center gap-2 border-b border-slate-200 pb-2">
-                        <i class="fa-solid fa-id-card text-indigo-700"></i> Thông Tin Pháp Lý Kê Khai Hiện Tại
+                        <i class="fa-solid fa-id-card text-indigo-700"></i> Thông Tin Pháp Lý Kê Khai (<span id="panelHeaderVersionLabel" class="text-indigo-700 font-bold">Lần mới nhất</span>)
                     </span>
                     <div class="grid grid-cols-2 gap-2.5">
-                        <div class="col-span-2"><span class="text-slate-500 block">Tên doanh nghiệp / Cơ sở:</span><span id="panelTenToChuc" class="font-bold text-slate-900 text-sm"></span></div>
-                        <div><span class="text-slate-500 block">Loại hình tổ chức:</span><div id="panelLoaiHinh" class="pt-0.5"></div></div>
-                        <div><span class="text-slate-500 block">Tên đăng nhập:</span><span id="panelTenDangNhap" class="font-mono font-bold text-slate-900 text-xs"></span></div>
+                        <div class="col-span-2"><span class="text-slate-500 block">Tên doanh nghiệp:</span><span id="panelTenToChuc" class="font-bold text-slate-900 text-sm"></span></div>
                         <div><span class="text-slate-500 block">Mã số thuế:</span><span id="panelMaSoThue" class="font-mono font-bold text-slate-900"></span></div>
-                        <div><span class="text-slate-500 block">Số điện thoại liên hệ:</span><span id="panelSoDienThoai" class="font-mono font-semibold text-slate-800"></span></div>
-                        <div><span class="text-slate-500 block">Số giấy phép kinh doanh dược:</span><span id="panelSoGiayPhep" class="font-mono font-bold text-indigo-800"></span></div>
-                        <div><span class="text-slate-500 block">Cơ quan cấp giấy phép:</span><span id="panelCoQuanCap" class="font-semibold text-slate-800"></span></div>
-                        <div><span class="text-slate-500 block">Ngày cấp phép:</span><span id="panelNgayCap" class="font-mono text-slate-700"></span></div>
-                        <div><span class="text-slate-500 block">Ngày hết hạn giấy phép:</span><div class="flex items-center gap-1.5 flex-wrap pt-0.5"><span id="panelNgayHetHan" class="font-mono font-bold text-slate-800"></span><span id="panelCanhBaoPhepBadge" class="hidden"></span></div></div>
-                        <div class="col-span-2"><span class="text-slate-500 block">Địa chỉ trụ sở đăng ký:</span><span id="panelDiaChi" class="font-medium text-slate-800 leading-tight"></span></div>
+                        <div><span class="text-slate-500 block">Tên đăng nhập:</span><span id="panelTenDangNhap" class="font-mono font-bold text-slate-900"></span></div>
+                        <div><span class="text-slate-500 block">Số điện thoại:</span><span id="panelSoDienThoai" class="font-mono text-slate-800"></span></div>
+                        <div><span class="text-slate-500 block">Số GPKD dược:</span><span id="panelSoGiayPhep" class="font-mono font-bold text-indigo-800"></span></div>
+                        <div><span class="text-slate-500 block">Cơ quan cấp:</span><span id="panelCoQuanCap" class="font-semibold text-slate-800"></span></div>
+                        <div><span class="text-slate-500 block">Ngày cấp:</span><span id="panelNgayCap" class="font-mono text-slate-700"></span></div>
+                        <div class="col-span-2"><span class="text-slate-500 block">Địa chỉ trụ sở:</span><span id="panelDiaChi" class="font-medium text-slate-800"></span></div>
                     </div>
                 </div>
+
                 <div class="lg:col-span-5 bg-indigo-50/60 p-4 rounded-xl border border-indigo-200 space-y-3">
                     <div class="flex items-center justify-between border-b border-indigo-200 pb-2">
-                        <span class="font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-2">
+                        <span class="font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-1.5">
                             <i class="fa-solid fa-file-shield text-indigo-700"></i> Hồ Sơ Minh Chứng
                         </span>
-                        <span id="panelSoLuongTepMinhChung" class="text-[11px] font-bold text-indigo-800 font-mono">0 tệp tài liệu</span>
+                        <span id="panelViewingVersionBadge" class="px-2 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">
+                            Lần nộp mới nhất
+                        </span>
                     </div>
-                    <div id="panelDanhSachTepMinhChung" class="space-y-2 max-h-72 overflow-y-auto pr-1"></div>
+                    <div id="panelDanhSachTepMinhChung" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
                 </div>
             </div>
+
             <div class="border-t border-slate-200 pt-3 space-y-2">
                 <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2 text-[11px]">
-                    <i class="fa-solid fa-clock-rotate-left text-slate-500"></i> Lịch Sử Các Lần Nộp Hồ Sơ Đăng Ký
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-700"></i> Lịch Sử Các Lần Nộp Hồ Sơ Đăng Ký
                 </span>
-                <div id="panelDanhSachLichSuNop" class="space-y-1.5"></div>
+                <div id="panelDanhSachLichSuNop" class="space-y-2"></div>
             </div>
         </div>
+
         <div class="border-t border-slate-100 pt-3 flex items-center justify-between shrink-0">
-            <button type="button" class="dong-modal-hoso px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all">Đóng</button>
+            <button type="button" class="dong-modal-hoso px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs cursor-pointer">Đóng</button>
             <div id="panelCumNutHanhDong" class="flex items-center gap-2.5">
-                <button type="button" id="panelNutMoModalTuChoi" class="px-5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5">
+                <button type="button" id="panelNutMoModalTuChoi" class="px-5 py-2 bg-red-50 text-red-600 border border-red-200 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-pointer hover:bg-red-100">
                     <i class="fa-solid fa-circle-xmark"></i> Từ Chối Hồ Sơ
                 </button>
-                <button type="button" id="panelNutMoModalDuyet" class="px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-md">
+                <button type="button" id="panelNutMoModalDuyet" class="px-6 py-2 bg-indigo-700 text-white font-bold rounded-xl text-xs flex items-center gap-1.5 shadow-md cursor-pointer hover:bg-indigo-800">
                     <i class="fa-solid fa-circle-check"></i> Phê Duyệt Hồ Sơ
                 </button>
             </div>
@@ -145,33 +224,25 @@
     <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-circle-check text-indigo-700"></i> Xác Nhận Phê Duyệt Tổ Chức
+                <i class="fa-solid fa-circle-check text-indigo-700"></i> Phê Duyệt & Cấp Ví Sepolia
             </h3>
-            <button type="button" class="dong-modal-duyet text-slate-400 hover:text-slate-700 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="dong-modal-duyet text-slate-400 hover:text-slate-700 text-lg cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div id="manHinhFormDuyet" class="space-y-4 text-xs">
-            <div id="modalDuyetKhungCanhBaoPhep" class="hidden p-3 rounded-xl border text-[11px] leading-relaxed space-y-1"></div>
+
+        <form id="formActionDuyetToChuc" method="POST" action="" class="space-y-4 text-xs">
+            @csrf
+            <input type="hidden" name="trangThaiDuyet" value="DA_DUYET">
             <div class="p-3.5 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1.5">
-                <div class="flex justify-between"><span class="text-slate-500">Tổ chức:</span><span id="duyetModalTenToChuc" class="font-bold text-slate-900 text-right"></span></div>
-                <div class="flex justify-between"><span class="text-slate-500">MST:</span><span id="duyetModalMST" class="font-mono font-bold text-slate-900"></span></div>
-                <div class="flex justify-between"><span class="text-slate-500">Vai trò:</span><span id="duyetModalVaiTro" class="font-bold text-indigo-800"></span></div>
-                <div class="flex justify-between"><span class="text-slate-500">Tài khoản:</span><span id="duyetModalTenDangNhap" class="font-mono font-bold text-slate-900"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Tổ chức:</span><span id="duyetModalTenToChuc" class="font-bold text-slate-900"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Mã số thuế:</span><span id="duyetModalMST" class="font-mono font-bold text-slate-900"></span></div>
             </div>
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" class="dong-modal-duyet px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl">Hủy</button>
-                <button type="button" id="nutXacNhanDuyetGhiBlockchain" class="px-6 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5">
-                    <i class="fa-solid fa-shield-halved"></i> Xác Nhận & Cấp Vai Trò
+                <button type="button" class="dong-modal-duyet px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer">Hủy</button>
+                <button type="submit" class="px-6 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-shield-halved"></i> Xác Nhận Phê Duyệt
                 </button>
             </div>
-        </div>
-        <div id="manHinhDangGhiBlockchain" class="hidden text-center py-6 space-y-4">
-            <div class="w-14 h-14 mx-auto rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-2xl"><i class="fa-solid fa-cube fa-bounce"></i></div>
-            <h4 class="text-sm font-bold text-slate-900">Đang ghi nhận trên blockchain...</h4>
-        </div>
-        <div id="manHinhLoiBlockchain" class="hidden text-center py-4 space-y-4">
-            <h4 class="text-sm font-bold text-red-700">Giao Dịch Thất Bại!</h4>
-            <button type="button" class="dong-modal-duyet px-4 py-2 bg-slate-100 rounded-xl text-xs">Đóng</button>
-        </div>
+        </form>
     </div>
 </div>
 
@@ -180,22 +251,25 @@
     <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-circle-xmark text-red-600"></i> Từ Chối Hồ Sơ</h3>
-            <button type="button" class="dong-modal-tuchoi text-slate-400 hover:text-slate-700 text-lg"><i class="fa-solid fa-xmark"></i></button>
+            <button type="button" class="dong-modal-tuchoi text-slate-400 hover:text-slate-700 text-lg cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
         </div>
-        <div class="space-y-4 text-xs">
+
+        <form id="formActionTuChoiToChuc" method="POST" action="" class="space-y-4 text-xs">
+            @csrf
+            <input type="hidden" name="trangThaiDuyet" value="TU_CHOI">
             <div class="space-y-1">
                 <label for="nhapLyDoTuChoiToChuc" class="font-bold text-slate-700 uppercase tracking-wide block text-[11px]">Lý Do Từ Chối <span class="text-red-500">*</span></label>
-                <textarea id="nhapLyDoTuChoiToChuc" maxlength="500" rows="3" class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 outline-none"></textarea>
+                <textarea id="nhapLyDoTuChoiToChuc" name="lyDo" required maxlength="500" rows="3" placeholder="Nhập chi tiết lý do từ chối hồ sơ pháp lý..." class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 outline-none focus:border-red-500"></textarea>
             </div>
-        </div>
-        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-            <button type="button" class="dong-modal-tuchoi px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Hủy</button>
-            <button type="button" id="nutXacNhanTuChoiOffChain" disabled class="px-6 py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed">Xác Nhận Từ Chối</button>
-        </div>
+            <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+                <button type="button" class="dong-modal-tuchoi px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer">Hủy</button>
+                <button type="submit" id="nutXacNhanTuChoi" disabled class="px-6 py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed">Xác Nhận Từ Chối</button>
+            </div>
+        </form>
     </div>
 </div>
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('assets/js/coQuanQuanLy/pheDuyetTaiKhoanToChuc.js') }}"></script>
+<script src="{{ asset('assets/js/coQuanQuanLy/pheDuyetTaiKhoanToChuc.js') }}"></script>
 @endpush

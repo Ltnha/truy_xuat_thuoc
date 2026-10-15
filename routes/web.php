@@ -25,6 +25,10 @@ Route::middleware('guest')->group(function () {
 
     Route::get('/dang-ky-to-chuc', fn() => view('nguoiTieuDung.dangKyToChuc'))->name('dangKyToChuc.form');
     Route::post('/dang-ky-to-chuc', [DangKyToChucController::class, 'store'])->name('dangKyToChuc.store');
+
+    // Route Nộp lại hồ sơ khi bị từ chối
+    Route::get('/dang-ky-to-chuc/nop-lai/{toChuc}', [DangKyToChucController::class, 'resubmitForm'])->name('dangKyToChuc.resubmitForm');
+    Route::post('/dang-ky-to-chuc/nop-lai/{toChuc}', [DangKyToChucController::class, 'resubmitStore'])->name('dangKyToChuc.resubmitStore');
 });
 
 Route::post('/dang-xuat', [DangNhapController::class, 'logout'])->name('logout')->middleware('auth');

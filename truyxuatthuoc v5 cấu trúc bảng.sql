@@ -1,10 +1,5 @@
--- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION 3.2)
--- Database Schema chuẩn hóa kết hợp giữa v3 và v3.1
-
 CREATE DATABASE IF NOT EXISTS truyxuatthuoc CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE truyxuatthuoc;
-
--- 1. Bảng toChuc
 CREATE TABLE toChuc (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenToChuc VARCHAR(255) NOT NULL,
@@ -32,10 +27,19 @@ CREATE TABLE taiKhoan (
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
 );
 
--- 3. Bảng yeuCauDangKy (Đăng ký/Cập nhật thông tin tổ chức)
+-- 3. Bảng yeuCauDangKy (Lưu lịch sử & Snapshot thông tin từng lần nộp)
 CREATE TABLE yeuCauDangKy (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     toChucId BIGINT NOT NULL,
+    tenToChuc VARCHAR(255) NULL,
+    loaiToChuc ENUM('NHA_SAN_XUAT','NHA_PHAN_PHOI','NHA_THUOC','CO_QUAN_QUAN_LY') NULL,
+    diaChi VARCHAR(255) NULL,
+    soDienThoai VARCHAR(20) NULL,
+    maSoThue VARCHAR(20) NULL,
+    soGiayPhepDuoc VARCHAR(50) NULL,
+    coQuanCap VARCHAR(255) NULL,
+    ngayCapGiayPhep DATE NULL,
+    ngayHetHanGiayPhep DATE NULL,
     versionHoSo INT NOT NULL DEFAULT 1,
     ngayGui DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     trangThai ENUM('CHO_DUYET','DA_DUYET','TU_CHOI') NOT NULL DEFAULT 'CHO_DUYET',

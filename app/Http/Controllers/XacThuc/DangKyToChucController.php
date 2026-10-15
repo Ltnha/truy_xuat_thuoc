@@ -15,8 +15,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Throwable;
 
@@ -45,7 +45,6 @@ class DangKyToChucController extends Controller
 
         try {
             DB::transaction(function () use ($data, $request, &$savedFiles): void {
-                // 1. Lưu thông tin hồ sơ Tổ chức (Trạng thái chờ duyệt)
                 $organization = new ToChuc;
                 $organization->tenToChuc = $data['tenToChuc'];
                 $organization->loaiToChuc = OrganizationType::from($data['loaiToChuc']);
@@ -59,10 +58,9 @@ class DangKyToChucController extends Controller
                 $organization->trangThaiDuyet = OrganizationApprovalStatus::choDuyet;
                 $organization->save();
 
-                // 2. Tạo Tài khoản đại diện (Trạng thái PENDING)
                 $account = new TaiKhoan;
                 $account->tenDangNhap = $data['tenDangNhap'];
-                $account->matKhau = $data['matKhau']; // <--- BỎ Hash::make() TẠI ĐÂY
+                $account->matKhau = $data['matKhau'];
                 $account->email = $data['email'];
                 $account->vaiTro = Role::from($data['loaiToChuc']);
                 $account->trangThai = AccountStatus::pending;
@@ -70,15 +68,23 @@ class DangKyToChucController extends Controller
                 $account->ngayTao = now();
                 $account->save();
 
-                // 3. Tạo phiếu Yêu cầu đăng ký xét duyệt (Chờ Cơ quan quản lý xử lý)
+                // Lưu phiếu Yêu cầu kèm Snapshot Lần 1
                 $requestForm = new YeuCauDangKy;
                 $requestForm->toChucId = $organization->id;
-                $requestForm->ngayGui = today();
+                $requestForm->tenToChuc = $data['tenToChuc'];
+                $requestForm->loaiToChuc = $data['loaiToChuc'];
+                $requestForm->diaChi = $data['diaChi'];
+                $requestForm->soDienThoai = $data['soDienThoai'];
+                $requestForm->maSoThue = $data['maSoThue'];
+                $requestForm->soGiayPhepDuoc = $data['soGiayPhepDuoc'];
+                $requestForm->coQuanCap = $data['coQuanCap'];
+                $requestForm->ngayCapGiayPhep = $data['ngayCapGiayPhep'];
+                $requestForm->ngayHetHanGiayPhep = $data['ngayHetHanGiayPhep'] ?? null;
                 $requestForm->versionHoSo = 1;
+                $requestForm->ngayGui = now();
                 $requestForm->trangThai = OrganizationApprovalStatus::choDuyet->value;
                 $requestForm->save();
 
-                // 4. Lưu tài liệu đính kèm vào bảng taiLieuDangKy (Gắn với yeuCauDangKyId)
                 foreach ($request->file('taiLieu', []) as $file) {
                     $path = $file->store('tai-lieu-dang-ky', 'public');
                     $savedFiles[] = $path;
@@ -95,17 +101,111 @@ class DangKyToChucController extends Controller
             ->with('thanhCong', 'Hồ sơ đăng ký đã được gửi thành công và đang chờ Cơ quan quản lý xét duyệt.');
     }
 
+    public function resubmitForm(ToChuc $toChuc): View|RedirectResponse
+    {
+        if ($toChuc->trangThaiDuyet->value !== 'TU_CHOI') {
+            return redirect()->route('login');
+        }
+
+        $taiKhoan = $toChuc->taiKhoans->first();
+        $yeuCauCu = $toChuc->yeuCauDangKys()->latest('id')->first();
+
+        return view('nguoiTieuDung.dangKyToChuc', [
+            'toChucNopLai' => $toChuc,
+            'taiKhoanNopLai' => $taiKhoan,
+            'lyDoTuChoi' => $yeuCauCu?->lyDoTuChoi,
+        ]);
+    }
+
+    public function resubmitStore(Request $request, ToChuc $toChuc): RedirectResponse
+    {
+        if ($toChuc->trangThaiDuyet->value !== 'TU_CHOI') {
+            return redirect()->route('login');
+        }
+
+        $data = $request->validate([
+            'loaiToChuc' => ['required', 'in:NHA_SAN_XUAT,NHA_PHAN_PHOI,NHA_THUOC'],
+            'tenToChuc' => ['required', 'string', 'max:255'],
+            'maSoThue' => ['required', 'string', 'max:20', Rule::unique('toChuc', 'maSoThue')->ignore($toChuc->id)],
+            'soDienThoai' => ['required', 'string', 'max:20'],
+            'diaChi' => ['required', 'string', 'max:255'],
+            'soGiayPhepDuoc' => ['required', 'string', 'max:50'],
+            'coQuanCap' => ['required', 'string', 'max:255'],
+            'ngayCapGiayPhep' => ['required', 'date', 'before_or_equal:today'],
+            'ngayHetHanGiayPhep' => ['nullable', 'date', 'after:ngayCapGiayPhep'],
+            'taiLieu' => ['nullable', 'array', 'max:5'],
+            'taiLieu.*' => ['nullable', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+        ]);
+
+        DB::transaction(function () use ($data, $request, $toChuc): void {
+            // Cập nhật thông tin hiện tại trên bảng toChuc
+            $toChuc->update([
+                'tenToChuc' => $data['tenToChuc'],
+                'loaiToChuc' => OrganizationType::from($data['loaiToChuc']),
+                'diaChi' => $data['diaChi'],
+                'soDienThoai' => $data['soDienThoai'],
+                'maSoThue' => $data['maSoThue'],
+                'soGiayPhepDuoc' => $data['soGiayPhepDuoc'],
+                'coQuanCap' => $data['coQuanCap'],
+                'ngayCapGiayPhep' => $data['ngayCapGiayPhep'],
+                'ngayHetHanGiayPhep' => $data['ngayHetHanGiayPhep'] ?? null,
+                'trangThaiDuyet' => OrganizationApprovalStatus::choDuyet,
+            ]);
+
+            $yeuCauCu = $toChuc->yeuCauDangKys()->latest('id')->first();
+            $phienBanMoi = $yeuCauCu ? ($yeuCauCu->versionHoSo + 1) : 1;
+
+            // Tạo bản ghi phiếu yêu cầu mới kèm Snapshot thông tin nộp lại
+            $yeuCauMoi = new YeuCauDangKy;
+            $yeuCauMoi->toChucId = $toChuc->id;
+            $yeuCauMoi->tenToChuc = $data['tenToChuc'];
+            $yeuCauMoi->loaiToChuc = $data['loaiToChuc'];
+            $yeuCauMoi->diaChi = $data['diaChi'];
+            $yeuCauMoi->soDienThoai = $data['soDienThoai'];
+            $yeuCauMoi->maSoThue = $data['maSoThue'];
+            $yeuCauMoi->soGiayPhepDuoc = $data['soGiayPhepDuoc'];
+            $yeuCauMoi->coQuanCap = $data['coQuanCap'];
+            $yeuCauMoi->ngayCapGiayPhep = $data['ngayCapGiayPhep'];
+            $yeuCauMoi->ngayHetHanGiayPhep = $data['ngayHetHanGiayPhep'] ?? null;
+            $yeuCauMoi->versionHoSo = $phienBanMoi;
+            $yeuCauMoi->ngayGui = now();
+            $yeuCauMoi->trangThai = OrganizationApprovalStatus::choDuyet->value;
+            $yeuCauMoi->save();
+
+            if ($request->hasFile('taiLieu')) {
+                foreach ($request->file('taiLieu') as $file) {
+                    $path = $file->store('tai-lieu-dang-ky', 'public');
+                    $this->saveDocument($yeuCauMoi, $file, $path);
+                }
+            } elseif ($yeuCauCu) {
+                // Kế thừa file đính kèm từ lần nộp trước
+                foreach ($yeuCauCu->taiLieus as $oldFile) {
+                    TaiLieuDangKy::create([
+                        'yeuCauDangKyId' => $yeuCauMoi->id,
+                        'tenTaiLieu' => $oldFile->tenTaiLieu,
+                        'loaiTaiLieu' => $oldFile->loaiTaiLieu,
+                        'duongDan' => $oldFile->duongDan,
+                        'ngayTaiLen' => now(),
+                    ]);
+                }
+            }
+        });
+
+        return redirect()
+            ->route('login')
+            ->with('thanhCong', 'Hồ sơ bổ sung đã được gửi thành công. Vui lòng chờ Cơ quan quản lý xét duyệt.');
+    }
+
     private function saveDocument(YeuCauDangKy $requestForm, UploadedFile $file, string $path): void
     {
-        // Nhận diện loại tài liệu pháp lý phù hợp với CSDL v4 (GIAY_PHEP hoặc HO_SO_DOANH_NGHIEP)
         $extension = strtolower($file->getClientOriginalExtension());
         $loaiTaiLieu = ($extension === 'pdf') ? 'GIAY_PHEP' : 'HO_SO_DOANH_NGHIEP';
 
         TaiLieuDangKy::query()->create([
-            'yeuCauDangKyId' => $requestForm->id, // Liên kết trực tiếp với Yêu cầu xét duyệt
+            'yeuCauDangKyId' => $requestForm->id,
             'tenTaiLieu' => $file->getClientOriginalName(),
-            'loaiTaiLieu' => $loaiTaiLieu, // Lưu danh mục 'GIAY_PHEP' / 'HO_SO_DOANH_NGHIEP' thay vì 'image/jpeg'
-            'duongDan' => $path, // Đường dẫn lưu trữ tệp trong storage
+            'loaiTaiLieu' => $loaiTaiLieu,
+            'duongDan' => $path,
             'ngayTaiLen' => now(),
         ]);
     }
