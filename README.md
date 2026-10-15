@@ -97,8 +97,8 @@ truy_xuat_thuoc
 │     │  ├─ ChainId.php
 │     │  ├─ FakeBlockchainGateway.php
 │     │  ├─ GhiNhanBlockchain.php
-│     │  ├─ PolygonBlockchainGateway.php
 │     │  ├─ SepoliaBatchEvent.php
+│     │  ├─ SepoliaBlockchainGateway.php
 │     │  └─ SepoliaTransactionSynchronizer.php
 │     ├─ ChuoiCungUng
 │     │  ├─ BanLeService.php
@@ -110,6 +110,7 @@ truy_xuat_thuoc
 │     │  ├─ DonViSanPhamService.php
 │     │  ├─ LoThuocService.php
 │     │  └─ QrService.php
+│     ├─ NhatKyService.php
 │     ├─ QuanTri
 │     │  └─ NhatKyService.php
 │     ├─ Service.php
@@ -277,24 +278,46 @@ truy_xuat_thuoc
 ├─ storage
 │  ├─ app
 │  │  ├─ private
+│  │  │  └─ tai-lieu-dang-ky
+│  │  │     └─ OFuGdXAhMEy1jmo67l9OT9yPhji3u1YU0WyD0ThU.jpg
 │  │  └─ public
+│  │     └─ tai-lieu-dang-ky
+│  │        ├─ 7AsYltpBUIDiLZNztdw7ywwNCCvHPIbCXZdTdvq1.pdf
+│  │        ├─ 9tBtHGgIYmtkbNqk8vhAg98EjxwI5PEXMGl7m9ts.pdf
+│  │        ├─ bEQhmyQYuL1feRKnBNVse8NGwZJgroB5ASMqvNfx.jpg
+│  │        ├─ bxX4mCJvSxv2Xsn5TIfhU4KP6iGo5lbInGDxXGrD.jpg
+│  │        ├─ fZt7hd4bBjnspck1JNO6ocwGNUiBjxxE1TJ2r6Kn.pdf
+│  │        ├─ hjGDt5OZCMCr3enOd3CfMT5zom4I9t28h4GiN9GC.pdf
+│  │        ├─ LaCzQt8cqih0MXhQZ8SK4wFBfEZzdnxta8SiNgCj.png
+│  │        ├─ lsakk7uDwI6rNjxtKj57hwAeWoBgwokswf5L39Cv.jpg
+│  │        ├─ nXMDEF2EX4KZEfguijtXDu0Z8c1kxdfT66MTgznr.jpg
+│  │        └─ T6ag19jfEKZqL5ymvC2gQ6ogSVsO1vC5SNOycgIo.jpg
 │  ├─ framework
 │  │  ├─ cache
 │  │  │  └─ data
 │  │  ├─ sessions
-│  │  │  └─ xlcUzShhAMvVF6TB9xEVBmwtUZfcVrR8pBJZWmFX
+│  │  │  ├─ AvOlHE0XDEnRYtx6bdWodhwJeSI3BBZMvhUoqm7v
+│  │  │  ├─ MuVYpJAJaKxZ2EPE3JQtkEpmjjkSt6eqczF3MEjj
+│  │  │  ├─ oKCf9maIbY9q1QxU2Z0tdT14g4fCxmfMEPjgSGJ8
+│  │  │  ├─ PwkLy2HCQA5aP4vpxfyDqqC60ximwMzcnnqRZtw5
+│  │  │  ├─ rd6S6ODgqwiH1aU93Skt90yycSKgbyqiaXmCSWCi
+│  │  │  ├─ SOfmjNldhOT0MCKUuE5N2GRIqElvI07cHdk8HpV6
+│  │  │  ├─ UmD9ut53eNPZ8nkOHMuOa99NEdspnCWMXg7Vf8dM
+│  │  │  └─ wDPvsqh70RnXiO9xDBYLrfgyIdLXTjYm4Hxezl2W
 │  │  ├─ testing
 │  │  └─ views
 │  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
 │  │     ├─ 1878de6f35923c583b84d5595cb57dde.php
 │  │     ├─ 2305f106441e1f9a23c54e332fd4f3da.php
 │  │     ├─ 3a21b499124aa2e727ce7f19eba89c83.php
-│  │     ├─ 3b78bdc6ff0f0c48847ec749d94c8409.php
-│  │     ├─ 4fb8ce220e53cfd239bbfb961c06705e.php
+│  │     ├─ 4b6b03a8365874d03bcd495e4b77ff8d.php
 │  │     ├─ 7e8c5fb405b097e2cc35e76bcb580f1f.php
+│  │     ├─ 95245472938aae797b87da43d15b8f9a.php
 │  │     ├─ ab26b96cc32f28f88682afd59e65469d.php
-│  │     ├─ bab67472c92c3a7aff295f5f6367f710.php
+│  │     ├─ ab8753b4461257f4fb85f889052e5f11.php
+│  │     ├─ bc0d81ad3032929d6ccdbef00c943fae.php
 │  │     ├─ c22a38954b4ecbc916871f419f6dee35.php
+│  │     ├─ d2cc06a7e3b34c2db5f7d30b1964491a.php
 │  │     ├─ e718ffa9359ce16c3ea7996405287ba2.php
 │  │     └─ ee1870d7ed41d671d963a57255e294bc.php
 │  └─ logs
@@ -316,7 +339,8 @@ truy_xuat_thuoc
 │     ├─ EnumTest.php
 │     ├─ ExampleTest.php
 │     └─ RoleMiddlewareTest.php
-├─ truyxuatthuoc v4.sql
+├─ truyxuatthuoc v5 cấu trúc bảng.sql
+├─ truyxuatthuoc v5.sql
 └─ vite.config.js
 
 ```

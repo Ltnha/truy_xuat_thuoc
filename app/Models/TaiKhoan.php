@@ -1,37 +1,46 @@
 <?php
+
 namespace App\Models;
 
 use App\Enums\AccountStatus;
-use App\Enums\Role;
-use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
+use App\Enums\Role; // <-- Import Enum Role
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 
 class TaiKhoan extends Authenticatable
 {
-    use Notifiable;
+    use HasFactory;
 
     protected $table = 'taiKhoan';
-    public $timestamps = false;
-    protected $guarded = ['id'];
 
-    protected $hidden = ['matKhau'];
+    public $timestamps = false; // Bảng dùng cột ngayTao
 
-    protected function casts(): array
+    protected $fillable = [
+        'tenDangNhap',
+        'matKhau',
+        'email',
+        'vaiTro',
+        'trangThai',
+        'lyDoKhoa',
+        'nguoiKhoaId',
+        'thoiGianKhoa',
+        'toChucId',
+        'ngayTao',
+    ];
+
+    protected $casts = [
+        'vaiTro'     => Role::class,          // <-- BẮT BUỘC DÙNG Role::class (KHÔNG DÙNG OrganizationType)
+        'trangThai'  => AccountStatus::class,
+        'matKhau'    => 'hashed',
+        'ngayTao'    => 'datetime',
+        'thoiGianKhoa' => 'datetime',
+    ];
+
+    public function getAuthPassword()
     {
-        return [
-            'matKhau' => 'hashed',
-            'ngayTao' => 'datetime',
-            'vaiTro' => Role::class,
-            'trangThai' => AccountStatus::class,
-        ];
-    }
-
-    public function getAuthPasswordName(): string
-    {
-        return 'matKhau';
+        return $this->matKhau;
     }
 
     public function toChuc(): BelongsTo
@@ -39,18 +48,8 @@ class TaiKhoan extends Authenticatable
         return $this->belongsTo(ToChuc::class, 'toChucId');
     }
 
-    public function quyenHans(): BelongsToMany
-    {
-        return $this->belongsToMany(QuyenHan::class, 'taiKhoan_quyenHan', 'taiKhoanId', 'quyenHanId');
-    }
-
     public function nhatKys(): HasMany
     {
         return $this->hasMany(NhatKyHeThong::class, 'taiKhoanId');
-    }
-
-    public function coQuyen(string $tenQuyen): bool
-    {
-        return $this->quyenHans()->where('tenQuyen', $tenQuyen)->exists();
     }
 }

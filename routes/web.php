@@ -1,10 +1,12 @@
 <?php
 
+use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CoQuan\DuyetHoSoController;
 use App\Http\Controllers\XacThuc\DangKyToChucController;
 use App\Http\Controllers\XacThuc\DangNhapController;
 use App\Http\Controllers\XacThuc\HoSoController;
-use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\QuanTri\NhatKyController;
+use App\Http\Controllers\QuanTri\TaiKhoanController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,14 +28,13 @@ Route::middleware('guest')->group(function () {
     Route::get('/dang-ky-to-chuc', fn() => view('nguoiTieuDung.dangKyToChuc'))->name('dangKyToChuc.form');
     Route::post('/dang-ky-to-chuc', [DangKyToChucController::class, 'store'])->name('dangKyToChuc.store');
 
-    // Route Nộp lại hồ sơ khi bị từ chối
     Route::get('/dang-ky-to-chuc/nop-lai/{toChuc}', [DangKyToChucController::class, 'resubmitForm'])->name('dangKyToChuc.resubmitForm');
     Route::post('/dang-ky-to-chuc/nop-lai/{toChuc}', [DangKyToChucController::class, 'resubmitStore'])->name('dangKyToChuc.resubmitStore');
 });
 
 Route::post('/dang-xuat', [DangNhapController::class, 'logout'])->name('logout')->middleware('auth');
 
-// --- 3. NHÓM QUẢN LÝ (BẢO VỆ BỞI AUTH & ACCOUNT STATUS) ---
+// --- 3. NHÓM BẢO VỆ BỞI AUTH & TRẠNG THÁI TÀI KHOẢN ---
 Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // Trang cá nhân
@@ -74,7 +75,10 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // --- QUẢN TRỊ VIÊN ---
     Route::middleware(['kiem.tra.vai.tro:QUAN_TRI_VIEN'])->prefix('quan-tri')->group(function () {
-        Route::get('/quan-ly-tai-khoan', fn() => view('quanTriVien.quanLyTaiKhoan'))->name('quan-tri.tai-khoan');
-        Route::get('/nhat-ky-he-thong', fn() => view('quanTriVien.nhatKyHeThong'))->name('quan-tri.nhat-ky');
+        Route::get('/quan-ly-tai-khoan', [TaiKhoanController::class, 'index'])->name('quan-tri.tai-khoan');
+        Route::post('/tai-khoan/{taiKhoan}/khoa', [TaiKhoanController::class, 'lock'])->name('quan-tri.tai-khoan.khoa');
+        Route::post('/tai-khoan/{taiKhoan}/mo-khoa', [TaiKhoanController::class, 'unlock'])->name('quan-tri.tai-khoan.mo-khoa');
+
+        Route::get('/nhat-ky-he-thong', [NhatKyController::class, 'index'])->name('quan-tri.nhat-ky');
     });
 });

@@ -3,48 +3,100 @@
 namespace App\Http\Controllers\QuanTri;
 
 use App\Enums\AccountStatus;
+use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\TaiKhoan;
+use App\Services\NhatKyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
 
 class TaiKhoanController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
-        return view('quanTri.taiKhoan', [
-            'taiKhoans' => TaiKhoan::query()->with('toChuc')->latest('id')->paginate(25),
-        ]);
+        $tuKhoa = $request->input('tuKhoa');
+        $vaiTro = $request->input('vaiTro', 'TAT_CA');
+        $trangThai = $request->input('trangThai', 'TAT_CA');
+
+        $query = TaiKhoan::with(['toChuc', 'nhatKys' => fn($q) => $q->latest('id')->limit(10)]);
+
+        if ($tuKhoa) {
+            $query->where(function ($q) use ($tuKhoa) {
+                $q->where('tenDangNhap', 'like', "%{$tuKhoa}%")
+                    ->orWhere('email', 'like', "%{$tuKhoa}%")
+                    ->orWhereHas('toChuc', fn($sub) => $sub->where('tenToChuc', 'like', "%{$tuKhoa}%"));
+            });
+        }
+
+        if ($vaiTro !== 'TAT_CA') {
+            $query->where('vaiTro', $vaiTro);
+        }
+
+        if ($trangThai !== 'TAT_CA') {
+            $query->where('trangThai', $trangThai);
+        }
+
+        $taiKhoans = $query->latest('id')->paginate(10)->withQueryString();
+
+        return view('quanTriVien.quanLyTaiKhoan', compact('taiKhoans', 'tuKhoa', 'vaiTro', 'trangThai'));
     }
 
-    public function updateStatus(Request $request, TaiKhoan $taiKhoan): RedirectResponse
+    public function lock(Request $request, TaiKhoan $taiKhoan): RedirectResponse
     {
-        abort_if((int) $request->user()->id === (int) $taiKhoan->id, 409, 'Bạn không thể tự khóa tài khoản đang sử dụng.');
+        if ($taiKhoan->id === Auth::id()) {
+            return back()->with('loi', 'Bạn không thể tự khóa tài khoản của chính mình.');
+        }
 
-        $duLieu = $request->validate([
-            'trangThai' => ['required', 'in:ACTIVE,LOCKED'],
-            'lyDo' => ['required', 'string', 'max:500'],
+        if ($taiKhoan->vaiTro === Role::coQuanQuanLy) {
+            $soCQQLActive = TaiKhoan::where('vaiTro', Role::coQuanQuanLy)
+                ->where('trangThai', AccountStatus::active)
+                ->count();
+            if ($soCQQLActive <= 1) {
+                return back()->with('loi', 'CHẶN KHÓA: Đây là tài khoản Cơ quan quản lý duy nhất đang hoạt động!');
+            }
+        }
+
+        $request->validate(['lyDo' => 'required|string|max:500']);
+        $lyDo = $request->input('lyDo');
+
+        $taiKhoan->update([
+            'trangThai' => AccountStatus::locked,
+            'lyDoKhoa' => $lyDo,
+            'nguoiKhoaId' => Auth::id(),
+            'thoiGianKhoa' => now(),
         ]);
 
-        abort_unless(
-            in_array($taiKhoan->trangThai, [AccountStatus::active, AccountStatus::locked], true),
-            409,
-            'Chỉ tài khoản đang hoạt động hoặc đang khóa mới được thay đổi trạng thái.'
+        NhatKyService::ghiLog(
+            hanhDong: 'KHOA_TAI_KHOAN',
+            ketQua: 'THANH_CONG',
+            chiTiet: "Khóa tài khoản [{$taiKhoan->tenDangNhap}]. Lý do: {$lyDo}",
+            doiTuongId: $taiKhoan->id
         );
 
-        DB::transaction(function () use ($request, $taiKhoan, $duLieu): void {
-            $taiKhoan->update(['trangThai' => $duLieu['trangThai']]);
-            DB::table('nhatKyHeThong')->insert([
-                'taiKhoanId' => $request->user()->id,
-                'hanhDong' => $duLieu['trangThai'] === 'LOCKED' ? 'KHOA_TAI_KHOAN' : 'MO_KHOA_TAI_KHOAN',
-                'thoiGian' => now(),
-                'noiDung' => "Tài khoản {$taiKhoan->tenDangNhap}: {$duLieu['lyDo']}",
-                'diaChiIP' => $request->ip(),
-            ]);
-        });
+        return back()->with('thanhCong', "Đã khóa tài khoản {$taiKhoan->tenDangNhap} thành công.");
+    }
 
-        return back()->with('thanhCong', 'Đã cập nhật trạng thái tài khoản và ghi nhật ký kiểm toán.');
+    public function unlock(Request $request, TaiKhoan $taiKhoan): RedirectResponse
+    {
+        $request->validate(['lyDo' => 'required|string|max:500']);
+        $lyDo = $request->input('lyDo');
+
+        $taiKhoan->update([
+            'trangThai' => AccountStatus::active,
+            'lyDoKhoa' => null,
+            'nguoiKhoaId' => null,
+            'thoiGianKhoa' => null,
+        ]);
+
+        NhatKyService::ghiLog(
+            hanhDong: 'MO_KHOA_TAI_KHOAN',
+            ketQua: 'THANH_CONG',
+            chiTiet: "Mở khóa tài khoản [{$taiKhoan->tenDangNhap}]. Lý do: {$lyDo}",
+            doiTuongId: $taiKhoan->id
+        );
+
+        return back()->with('thanhCong', "Đã mở khóa tài khoản {$taiKhoan->tenDangNhap} thành công.");
     }
 }

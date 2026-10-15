@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers\XacThuc;
 
+use App\Enums\AccountStatus;
+use App\Enums\OrganizationApprovalStatus;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\TaiKhoan;
@@ -27,7 +29,7 @@ class DangNhapController extends Controller
         ]);
 
         $taiKhoan = TaiKhoan::query()
-            ->with('toChuc.yeuCauDangKys')
+            ->with('toChuc')
             ->where('tenDangNhap', $data['tenDangNhap'])
             ->first();
 
@@ -35,9 +37,9 @@ class DangNhapController extends Controller
             return back()->withErrors(['tenDangNhap' => 'Tên đăng nhập hoặc mật khẩu không chính xác.'])->withInput();
         }
 
-        // Kiểm tra xem tổ chức có bị TỪ CHỐI phê duyệt hay không
-        if ($taiKhoan->toChuc && $taiKhoan->toChuc->trangThaiDuyet->value === 'TU_CHOI') {
-            $yeuCauCu = $taiKhoan->toChuc->yeuCauDangKys->sortByDesc('id')->first();
+        // Kiểm tra xem tổ chức có bị TỪ CHỐI phê duyệt hay không (chỉ truy vấn YeuCauDangKy khi cần)
+        if ($taiKhoan->toChuc && $taiKhoan->toChuc->trangThaiDuyet === OrganizationApprovalStatus::tuChoi) {
+            $yeuCauCu = $taiKhoan->toChuc->yeuCauDangKys()->latest('id')->first();
             $lyDo = $yeuCauCu?->lyDoTuChoi ?? 'Hồ sơ pháp lý chưa đạt yêu cầu thẩm định.';
 
             return back()
@@ -47,9 +49,17 @@ class DangNhapController extends Controller
         }
 
         // Kiểm tra tài khoản PENDING
-        if ($taiKhoan->trangThai->value === 'PENDING') {
+        if ($taiKhoan->trangThai === AccountStatus::pending) {
             return back()
                 ->withErrors(['tenDangNhap' => 'Tài khoản của bạn đang trong quá trình chờ Cơ quan quản lý xét duyệt. Vui lòng quay lại sau.'])
+                ->withInput();
+        }
+
+        // Kiểm tra tài khoản LOCKED
+        if ($taiKhoan->trangThai === AccountStatus::locked) {
+            $lyDo = $taiKhoan->lyDoKhoa ? " Lý do: {$taiKhoan->lyDoKhoa}" : '';
+            return back()
+                ->withErrors(['tenDangNhap' => "Tài khoản của bạn đã bị khóa.{$lyDo}"])
                 ->withInput();
         }
 

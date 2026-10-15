@@ -3,9 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <title>@yield('title', 'Quản Trị Hệ Thống - PharmaChain')</title>
-    <!-- Tailwind CSS & FontAwesome -->
+    <!-- Tối ưu kết nối sớm tới các CDN -->
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải CSS Tailwind nội bộ từ bản build tĩnh (tốc độ cao) hoặc fallback CDN -->
+    @if (file_exists(public_path('build/manifest.json')))
+        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @else
+        <script src="https://cdn.tailwindcss.com"></script>
+    @endif
     @stack('styles')
 </head>
 <body class="bg-slate-50 text-slate-900 font-sans">

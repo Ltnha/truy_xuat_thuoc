@@ -3,344 +3,180 @@
 @section('title', 'Quản lý tài khoản - PharmaChain')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('assets/css/quanTriVien/quanLyTaiKhoan.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/quanTriVien/quanLyTaiKhoan.css') }}">
 @endpush
 
 @section('content')
 <div class="space-y-6 max-w-7xl w-full mx-auto">
 
-    <!-- THANH CÔNG CỤ: TÌM KIẾM + LỌC 5 VAI TRÒ + LỌC ĐỦ 4 TRẠNG THÁI -->
-    <div class="bg-white p-5 rounded-2xl border border-emerald-900/10 bong-xanh">
+    @if (session('thanhCong'))
+    <div class="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs font-bold text-emerald-800 flex items-center gap-2 shadow-sm">
+        <i class="fa-solid fa-circle-check text-emerald-600"></i>
+        <span>{{ session('thanhCong') }}</span>
+    </div>
+    @endif
+    @if (session('loi'))
+    <div class="p-4 bg-red-50 border border-red-200 rounded-2xl text-xs font-bold text-red-800 flex items-center gap-2 shadow-sm">
+        <i class="fa-solid fa-triangle-exclamation text-red-600"></i>
+        <span>{{ session('loi') }}</span>
+    </div>
+    @endif
+
+    <!-- BỘ LỌC TÀI KHOẢN -->
+    <form method="GET" action="{{ route('quan-tri.tai-khoan') }}" class="bg-white p-5 rounded-2xl border border-emerald-900/10 bong-xanh">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <!-- Ô tìm kiếm -->
             <div class="relative">
                 <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </span>
-                <input type="text" id="oTimKiemTaiKhoan" placeholder="Tìm theo tên đăng nhập, email, tổ chức..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-slate-800 outline-none">
+                <input type="text" name="tuKhoa" value="{{ $tuKhoa ?? '' }}" placeholder="Tìm theo tên đăng nhập, email, tổ chức..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium outline-none">
             </div>
 
-            <!-- Lọc theo 5 vai trò -->
-            <select id="locVaiTro" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-slate-800 outline-none cursor-pointer">
-                <option value="TAT_CA">-- Tất cả vai trò (5 vai trò) --</option>
-                <option value="QUAN_TRI_VIEN">Quản trị viên</option>
-                <option value="CO_QUAN_QUAN_LY">Cơ quan quản lý</option>
-                <option value="NHA_SAN_XUAT">Nhà sản xuất</option>
-                <option value="NHA_PHAN_PHOI">Nhà phân phối</option>
-                <option value="NHA_THUOC">Nhà thuốc</option>
+            <select name="vaiTro" onchange="this.form.submit()" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer">
+                <option value="TAT_CA" {{ ($vaiTro ?? 'TAT_CA') === 'TAT_CA' ? 'selected' : '' }}>-- Tất cả vai trò --</option>
+                <option value="QUAN_TRI_VIEN" {{ ($vaiTro ?? '') === 'QUAN_TRI_VIEN' ? 'selected' : '' }}>Quản trị viên</option>
+                <option value="CO_QUAN_QUAN_LY" {{ ($vaiTro ?? '') === 'CO_QUAN_QUAN_LY' ? 'selected' : '' }}>Cơ quan quản lý</option>
+                <option value="NHA_SAN_XUAT" {{ ($vaiTro ?? '') === 'NHA_SAN_XUAT' ? 'selected' : '' }}>Nhà sản xuất</option>
+                <option value="NHA_PHAN_PHOI" {{ ($vaiTro ?? '') === 'NHA_PHAN_PHOI' ? 'selected' : '' }}>Nhà phân phối</option>
+                <option value="NHA_THUOC" {{ ($vaiTro ?? '') === 'NHA_THUOC' ? 'selected' : '' }}>Nhà thuốc</option>
             </select>
 
-            <!-- Lọc đủ 4 trạng thái tài khoản thuần Việt -->
-            <select id="locTrangThaiTK" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 focus:bg-white focus:border-slate-800 outline-none cursor-pointer">
-                <option value="TAT_CA">-- Tất cả trạng thái --</option>
-                <option value="ACTIVE">Hoạt động</option>
-                <option value="LOCKED">Đã khóa</option>
-                <option value="PENDING">Chờ xác minh</option>
-                <option value="REVOKED">Bị thu hồi</option>
+            <select name="trangThai" onchange="this.form.submit()" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-700 outline-none cursor-pointer">
+                <option value="TAT_CA" {{ ($trangThai ?? 'TAT_CA') === 'TAT_CA' ? 'selected' : '' }}>-- Tất cả trạng thái --</option>
+                <option value="ACTIVE" {{ ($trangThai ?? '') === 'ACTIVE' ? 'selected' : '' }}>Hoạt động</option>
+                <option value="LOCKED" {{ ($trangThai ?? '') === 'LOCKED' ? 'selected' : '' }}>Đã khóa</option>
+                <option value="PENDING" {{ ($trangThai ?? '') === 'PENDING' ? 'selected' : '' }}>Chờ xác minh</option>
             </select>
         </div>
-    </div>
+    </form>
 
-    <!-- BẢNG DANH SÁCH TÀI KHOẢN (VỪA KHÍT 100%, KHÔNG BỊ TRÀN NGANG) -->
+    <!-- BẢNG DANH SÁCH -->
     <div class="bg-white rounded-2xl border border-emerald-900/10 bong-xanh overflow-hidden">
         <div class="p-4 bg-nenChinh border-b border-emerald-900/10 flex items-center justify-between text-xs">
             <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-2">
-                <i class="fa-solid fa-users-gear text-slate-700"></i> Danh Sách Tài Khoản Người Dùng Toàn Mạng Lưới
+                <i class="fa-solid fa-users-gear text-slate-700"></i> Danh Sách Tài Khoản Toàn Mạng Lưới
             </span>
-            <span id="soLuongTaiKhoanBadge" class="font-bold text-slate-500 font-mono">Hiển thị: 0 tài khoản</span>
+            <span class="font-bold text-slate-500 font-mono">Hiển thị: {{ $taiKhoans->total() }} tài khoản</span>
         </div>
 
         <div class="w-full overflow-x-auto">
             <table class="w-full text-left border-collapse text-xs">
                 <thead>
                     <tr class="bg-slate-50 text-slate-600 uppercase tracking-wider border-b border-slate-100 text-[11px]">
-                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Tên Đăng Nhập</th>
-                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Email</th>
-                        <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Vai Trò</th>
-                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Tổ Chức</th>
-                        <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Trạng Thái Tài Khoản</th>
-                        <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Trạng Thái Tổ Chức</th>
-                        <th class="py-3.5 px-3 font-bold text-center whitespace-nowrap">Hành Động</th>
+                        <th class="py-3.5 px-3 font-bold">Tên Đăng Nhập</th>
+                        <th class="py-3.5 px-3 font-bold">Email</th>
+                        <th class="py-3.5 px-2.5 font-bold text-center">Vai Trò</th>
+                        <th class="py-3.5 px-3 font-bold">Tổ Chức</th>
+                        <th class="py-3.5 px-2.5 font-bold text-center">Trạng Thái</th>
+                        <th class="py-3.5 px-3 font-bold text-center">Hành Động</th>
                     </tr>
                 </thead>
-                <tbody id="thanBangTaiKhoan" class="divide-y divide-slate-100 font-medium">
-                    <!-- Render qua JavaScript -->
+                <tbody class="divide-y divide-slate-100 font-medium">
+                    @forelse ($taiKhoans as $tk)
+                    @php
+                    $stVal = is_object($tk->trangThai) ? $tk->trangThai->value :$tk->trangThai;
+                    $vtVal = is_object($tk->vaiTro) ? $tk->vaiTro->value :$tk->vaiTro;
+                    @endphp
+                    <tr class="hover:bg-slate-50 transition-colors">
+                        <td class="py-3 px-3 font-mono font-bold text-slate-900">
+                            {{ $tk->tenDangNhap }}
+                            @if($tk->id === Auth::id())
+                            <span class="text-[10px] text-cyan-800 bg-cyan-50 px-1 rounded border border-cyan-200 ml-1">(Tôi)</span>
+                            @endif
+                        </td>
+                        <td class="py-3 px-3 text-slate-600">{{ $tk->email }}</td>
+                        <td class="py-3 px-2.5 text-center">
+                            <span class="px-2 py-0.5 rounded text-[10px] font-bold border bg-slate-100 border-slate-300">
+                                {{ $vtVal }}
+                            </span>
+                        </td>
+                        <td class="py-3 px-3 font-semibold text-slate-800">{{ $tk->toChuc?->tenToChuc ?? '—' }}</td>
+                        <td class="py-3 px-2.5 text-center">
+                            @if($stVal === 'ACTIVE')
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300"><i class="fa-solid fa-circle-check"></i> Hoạt động</span>
+                            @elseif($stVal === 'LOCKED')
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300"><i class="fa-solid fa-lock"></i> Đã khóa</span>
+                            @else
+                            <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300"><i class="fa-solid fa-clock"></i> {{ $stVal }}</span>
+                            @endif
+                        </td>
+                        <td class="py-3 px-3 text-center">
+                            @if($tk->id !== Auth::id())
+                            @if($stVal === 'ACTIVE')
+                            <button type="button" onclick="moModalKhoa({{ $tk->id }}, '{{$tk->tenDangNhap }}')" class="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg border border-red-200 text-xs cursor-pointer"><i class="fa-solid fa-lock text-[10px]"></i> Khóa</button>
+                            @elseif($stVal === 'LOCKED')
+                            <button type="button" onclick="moModalMoKhoa({{ $tk->id }}, '{{$tk->tenDangNhap }}')" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg border border-emerald-300 text-xs cursor-pointer"><i class="fa-solid fa-lock-open text-[10px]"></i> Mở khóa</button>
+                            @endif
+                            @endif
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="6" class="text-center py-8 text-slate-400 italic">Không tìm thấy tài khoản nào.</td>
+                    </tr>
+                    @endforelse
                 </tbody>
             </table>
         </div>
 
-        <!-- Phân trang -->
-        <div class="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <span id="thongTinPhanTrangTK" class="text-slate-500">Đang hiển thị...</span>
-            <div class="flex items-center gap-1.5" id="cumNutPhanTrangTK"></div>
+        <div class="p-4 border-t border-slate-100 flex items-center justify-between text-xs">
+            {{ $taiKhoans->links() }}
         </div>
     </div>
-
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- MODAL 1: KHÓA TÀI KHOẢN (FR13)                           -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div id="modalKhoaTaiKhoan" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh">
-        <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-user-lock text-red-600"></i> Xác Nhận Khóa Tài Khoản
-            </h3>
-            <button type="button" class="dong-modal-khoa text-slate-400 hover:text-slate-700 text-lg">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-
-        <div class="space-y-4 text-xs">
-            <!-- Tóm tắt tài khoản -->
-            <div class="p-3.5 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1.5">
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Tên đăng nhập:</span>
-                    <span id="khoaTenDangNhap" class="font-bold text-slate-900 font-mono text-sm"></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Vai trò:</span>
-                    <span id="khoaVaiTro" class="font-semibold text-slate-800"></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Tổ chức trực thuộc:</span>
-                    <span id="khoaToChuc" class="font-semibold text-slate-800"></span>
-                </div>
-            </div>
-
-            <!-- Cảnh báo hệ quả -->
-            <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 space-y-1 leading-relaxed text-[11px]">
-                <div class="font-bold flex items-center gap-1.5 text-amber-800">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Cảnh báo hệ quả khi khóa:
-                </div>
-                <ul class="list-disc list-inside space-y-0.5 text-slate-700 text-[10px]">
-                    <li>Tài khoản sẽ bị ngắt quyền đăng nhập ngay lập tức, phiên làm việc đang mở mất hiệu lực.</li>
-                    <li>Dữ liệu lịch sử và các giao dịch chuyển giao đang chờ <strong>không bị ảnh hưởng</strong>.</li>
-                    <li>Việc này <strong>không thay đổi</strong> quyền hoặc trạng thái của tổ chức (quyền do Cơ quan quản lý quản lý).</li>
-                    <li>Khóa một tài khoản <strong>không ảnh hưởng đến các tài khoản khác</strong> của cùng tổ chức.</li>
-                </ul>
-            </div>
-
-            <!-- Biến thể cảnh báo mạnh riêng cho Cơ quan quản lý -->
-            <div id="canhBaoManhCoQuanQuanLy" class="hidden p-3 bg-red-50 rounded-xl border border-red-300 text-red-900 space-y-1 leading-relaxed text-[11px]">
-                <div class="font-bold flex items-center gap-1.5 text-red-700">
-                    <i class="fa-solid fa-shield-cat text-sm"></i> CẢNH BÁO ĐẶC BIỆT: TÀI KHOẢN CƠ QUAN QUẢN LÝ
-                </div>
-                <p class="text-[10px] text-red-800" id="canhBaoManhCoQuanQuanLyText">
-                    Khóa tài khoản này sẽ chặn các thao tác duyệt, từ chối và thu hồi mà tài khoản đảm nhận!
-                </p>
-            </div>
-
-            <!-- Ô lý do khóa bắt buộc (tối đa 500 ký tự) -->
+<!-- MODAL KHÓA -->
+<div id="modalKhoa" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 bong-xanh">
+        <h3 class="text-base font-bold text-slate-900"><i class="fa-solid fa-user-lock text-red-600"></i> Khóa Tài Khoản: <span id="tenTkKhoa" class="font-mono text-red-600"></span></h3>
+        <form id="formKhoa" method="POST" action="" class="space-y-3 text-xs">
+            @csrf
             <div class="space-y-1">
-                <div class="flex items-center justify-between">
-                    <label for="nhapLyDoKhoa" class="font-bold text-slate-700 uppercase tracking-wide block text-[11px]">
-                        Lý Do Khóa Tài Khoản <span class="text-red-500">*</span>
-                    </label>
-                    <span id="demKyTuKhoa" class="text-[10px] text-slate-400 font-mono">0/500</span>
-                </div>
-                <textarea id="nhapLyDoKhoa" maxlength="500" rows="3" required placeholder="Nhập lý do cụ thể để ghi nhận vào Nhật ký hệ thống..." class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-slate-800 outline-none resize-y"></textarea>
-                <p class="text-[10px] text-slate-400 italic">Lý do sẽ được lưu vĩnh viễn vào Nhật ký hệ thống để phục vụ đối soát.</p>
+                <label for="lyDoKhoa" class="font-bold text-slate-700 block">Lý do khóa <span class="text-red-500">*</span></label>
+                <textarea id="lyDoKhoa" name="lyDo" required rows="3" placeholder="Nhập chi tiết lý do khóa tài khoản..." class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium outline-none"></textarea>
             </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-            <button type="button" class="dong-modal-khoa px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
-                Hủy
-            </button>
-            <button type="button" id="nutXacNhanKhoa" disabled class="px-6 py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-not-allowed shadow-none">
-                <i class="fa-solid fa-lock"></i> Xác nhận khóa
-            </button>
-        </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="dongModals()" class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer">Hủy</button>
+                <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl cursor-pointer">Xác nhận khóa</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- MODAL 2: MỞ KHÓA TÀI KHOẢN (FR13)                         -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div id="modalMoKhoaTaiKhoan" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh">
-        <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
-            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-lock-open text-emerald-700"></i> Xác Nhận Mở Khóa Tài Khoản
-            </h3>
-            <button type="button" class="dong-modal-mokhoa text-slate-400 hover:text-slate-700 text-lg">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
-
-        <div class="space-y-4 text-xs">
-            <!-- Tóm tắt tài khoản -->
-            <div class="p-3.5 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1.5">
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Tên đăng nhập:</span>
-                    <span id="moKhoaTenDangNhap" class="font-bold text-slate-900 font-mono text-sm"></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Vai trò:</span>
-                    <span id="moKhoaVaiTro" class="font-semibold text-slate-800"></span>
-                </div>
-                <div class="flex justify-between">
-                    <span class="text-slate-500">Tổ chức trực thuộc:</span>
-                    <span id="moKhoaToChuc" class="font-semibold text-slate-800"></span>
-                </div>
-            </div>
-
-            <!-- Thông tin lần khóa trước -->
-            <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-[11px] space-y-1">
-                <div class="font-bold text-slate-700 flex items-center gap-1.5">
-                    <i class="fa-solid fa-clock-rotate-left text-slate-500"></i> Căn cứ lần khóa trước đó:
-                </div>
-                <div class="text-slate-600">Lý do khóa: <strong id="moKhoaLyDoCuText" class="text-slate-800 font-semibold"></strong></div>
-                <div class="text-[10px] text-slate-500 flex justify-between pt-0.5">
-                    <span>Người khóa: <strong id="moKhoaNguoiKhoaCuText"></strong></span>
-                    <span id="moKhoaThoiGianCuText" class="font-mono"></span>
-                </div>
-            </div>
-
-            <!-- Lời dẫn -->
-            <div class="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-emerald-900 text-[11px] leading-relaxed">
-                <i class="fa-solid fa-circle-check text-emerald-700 mr-1"></i> Tài khoản sẽ được chuyển lại trạng thái <strong>Hoạt động</strong> và đăng nhập được. Quyền thực hiện chức năng nghiệp vụ vẫn theo trạng thái của tổ chức (do Cơ quan quản lý quản lý).
-            </div>
-
-            <!-- Banner cảnh báo nếu tổ chức đang ở trạng thái BỊ THU HỒI -->
-            <div id="moKhoaCanhBaoToChucThuHoi" class="hidden p-3 bg-amber-50 rounded-xl border border-amber-300 text-amber-950 text-[11px] leading-relaxed space-y-1">
-                <div class="font-bold flex items-center gap-1.5 text-amber-800">
-                    <i class="fa-solid fa-triangle-exclamation"></i> LƯU Ý VỀ QUYỀN HẠN TỔ CHỨC:
-                </div>
-                <p>
-                    Tổ chức của tài khoản này hiện đang ở trạng thái <strong>Bị thu hồi</strong>. Sau khi mở khóa, tài khoản chỉ có thể đăng nhập xem dữ liệu lịch sử chứ <strong>không thể thực hiện các thao tác giao dịch nghiệp vụ</strong> cho đến khi Cơ quan quản lý phục hồi quyền cho tổ chức.
-                </p>
-            </div>
-
-            <!-- Ô lý do mở khóa bắt buộc -->
+<!-- MODAL MỞ KHÓA -->
+<div id="modalMoKhoa" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 bong-xanh">
+        <h3 class="text-base font-bold text-slate-900"><i class="fa-solid fa-lock-open text-emerald-700"></i> Mở Khóa Tài Khoản: <span id="tenTkMoKhoa" class="font-mono text-emerald-700"></span></h3>
+        <form id="formMoKhoa" method="POST" action="" class="space-y-3 text-xs">
+            @csrf
             <div class="space-y-1">
-                <div class="flex items-center justify-between">
-                    <label for="nhapLyDoMoKhoa" class="font-bold text-slate-700 uppercase tracking-wide block text-[11px]">
-                        Lý Do Mở Khóa Tài Khoản <span class="text-red-500">*</span>
-                    </label>
-                    <span id="demKyTuMoKhoa" class="text-[10px] text-slate-400 font-mono">0/500</span>
-                </div>
-                <textarea id="nhapLyDoMoKhoa" maxlength="500" rows="3" required placeholder="Nhập lý do hoặc căn cứ mở khóa để ghi nhận vào Nhật ký hệ thống..." class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-slate-800 outline-none resize-y"></textarea>
-                <p class="text-[10px] text-slate-400 italic">Lý do sẽ được lưu vĩnh viễn vào Nhật ký hệ thống.</p>
+                <label for="lyDoMoKhoa" class="font-bold text-slate-700 block">Lý do mở khóa <span class="text-red-500">*</span></label>
+                <textarea id="lyDoMoKhoa" name="lyDo" required rows="3" placeholder="Nhập lý do mở khóa tài khoản..." class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium outline-none"></textarea>
             </div>
-        </div>
-
-        <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-            <button type="button" class="dong-modal-mokhoa px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
-                Hủy
-            </button>
-            <button type="button" id="nutXacNhanMoKhoa" disabled class="px-6 py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-not-allowed shadow-none">
-                <i class="fa-solid fa-lock-open"></i> Xác nhận mở khóa
-            </button>
-        </div>
+            <div class="flex items-center justify-end gap-3 pt-2">
+                <button type="button" onclick="dongModals()" class="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer">Hủy</button>
+                <button type="submit" class="px-5 py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl cursor-pointer">Xác nhận mở khóa</button>
+            </div>
+        </form>
     </div>
 </div>
 
-<!-- ══════════════════════════════════════════════════════════ -->
-<!-- MODAL 3: CHI TIẾT TÀI KHOẢN & HOẠT ĐỘNG GẦN ĐÂY          -->
-<!-- ══════════════════════════════════════════════════════════ -->
-<div id="modalChiTietTaiKhoan" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
-    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-5 bong-xanh max-h-[90vh] overflow-y-auto">
-        <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
-            <div class="flex items-center gap-2">
-                <span class="text-base font-bold text-slate-900">Chi Tiết Tài Khoản:</span>
-                <span id="detailTenDangNhapTitle" class="font-mono font-bold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded text-xs border border-slate-200"></span>
-            </div>
-            <button type="button" class="dong-modal-detail text-slate-400 hover:text-slate-700 text-lg">
-                <i class="fa-solid fa-xmark"></i>
-            </button>
-        </div>
+<script>
+    function dongModals() {
+        document.getElementById('modalKhoa').classList.add('hidden');
+        document.getElementById('modalMoKhoa').classList.add('hidden');
+    }
 
-        <!-- Khối thông tin khóa gần nhất -->
-        <div id="detailKhungKhoaGanNhat" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl text-xs space-y-1">
-            <div class="font-bold text-red-700 flex items-center gap-1.5">
-                <i class="fa-solid fa-lock"></i> Tài khoản hiện đang bị khóa:
-            </div>
-            <div class="text-slate-700">Lý do khóa: <strong id="detailLyDoKhoaText" class="text-red-900"></strong></div>
-            <div class="text-[10px] text-slate-500 flex justify-between pt-0.5">
-                <span>Người thực hiện khóa: <strong id="detailNguoiKhoaText"></strong></span>
-                <span id="detailThoiGianKhoaText" class="font-mono"></span>
-            </div>
-        </div>
+    function moModalKhoa(id, ten) {
+        document.getElementById('tenTkKhoa').textContent = ten;
+        document.getElementById('formKhoa').action = `/quan-tri/tai-khoan/${id}/khoa`;
+        document.getElementById('modalKhoa').classList.remove('hidden');
+    }
 
-        <!-- Khung thông tin tổng quan -->
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 p-4 bg-nenChinh rounded-xl border border-emerald-900/10 text-xs">
-            <div>
-                <span class="text-slate-500 block">Tên đăng nhập:</span>
-                <span id="detailTenDangNhap" class="font-mono font-bold text-slate-900"></span>
-            </div>
-            <div>
-                <span class="text-slate-500 block">Email liên hệ:</span>
-                <span id="detailEmail" class="font-semibold text-slate-800 break-all"></span>
-            </div>
-            <div>
-                <span class="text-slate-500 block">Vai trò hệ thống:</span>
-                <div id="detailVaiTro" class="pt-0.5"></div>
-            </div>
-            <div>
-                <span class="text-slate-500 block">Ngày tạo tài khoản:</span>
-                <span id="detailNgayTao" class="font-mono text-slate-700"></span>
-            </div>
-            <div>
-                <span class="text-slate-500 block">Trạng thái tài khoản:</span>
-                <div id="detailTrangThaiTK" class="pt-0.5"></div>
-            </div>
-            <div>
-                <span class="text-slate-500 block">Trạng thái tổ chức:</span>
-                <div id="detailTrangThaiToChuc" class="pt-0.5"></div>
-            </div>
-            <div>
-                <span class="text-slate-500 block">Tổ chức trực thuộc:</span>
-                <span id="detailTenToChuc" class="font-semibold text-slate-800"></span>
-            </div>
-            <div>
-                <span class="text-slate-500 block">Loại hình tổ chức:</span>
-                <span id="detailLoaiHinhToChuc" class="font-semibold text-slate-800"></span>
-            </div>
-        </div>
-
-        <!-- Khối hoạt động gần đây -->
-        <div class="space-y-3 pt-1 text-xs">
-            <div class="flex items-center justify-between">
-                <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
-                    <i class="fa-solid fa-clock-rotate-left text-slate-600"></i> Hoạt Động Gần Đây (10 Bản Ghi Gần Nhất)
-                </span>
-                <a id="linkSangNhatKyHeThong" href="nhatKyHeThong.php" class="text-cyan-800 hover:text-cyan-950 font-bold hover:underline flex items-center gap-1 text-[11px]">
-                    Xem toàn bộ trong Nhật ký hệ thống <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
-                </a>
-            </div>
-
-            <div class="border border-slate-200 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
-                <table class="w-full text-left border-collapse text-xs">
-                    <thead class="bg-slate-50 sticky top-0 text-[11px] text-slate-600 border-b border-slate-200">
-                        <tr>
-                            <th class="p-2.5 font-bold whitespace-nowrap">Thời Gian</th>
-                            <th class="p-2.5 font-bold whitespace-nowrap">Hành Động</th>
-                            <th class="p-2.5 font-bold">Chi Tiết Tóm Tắt</th>
-                        </tr>
-                    </thead>
-                    <tbody id="thanBangHoatDongGanDay" class="divide-y divide-slate-100">
-                        <!-- Render bằng JS -->
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
-        <!-- Chân modal -->
-        <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-            <div id="khungNutThaoTacModalDetail">
-                <!-- Nút Khóa / Mở khóa nhanh render qua JS -->
-            </div>
-            <button type="button" class="dong-modal-detail px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
-                Đóng
-            </button>
-        </div>
-    </div>
-</div>
+    function moModalMoKhoa(id, ten) {
+        document.getElementById('tenTkMoKhoa').textContent = ten;
+        document.getElementById('formMoKhoa').action = `/quan-tri/tai-khoan/${id}/mo-khoa`;
+        document.getElementById('modalMoKhoa').classList.remove('hidden');
+    }
+</script>
 @endsection
-
-@push('scripts')
-    <script src="{{ asset('assets/js/quanTriVien/quanLyTaiKhoan.js') }}"></script>
-@endpush

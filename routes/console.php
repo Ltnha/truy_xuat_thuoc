@@ -1,7 +1,6 @@
 <?php
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
+use Illuminate\Support\Facades\Schedule;
+
+// Tự động chạy lệnh quét và xóa các nhật ký quá 90 ngày vào 00:00 mỗi ngày
+Schedule::command('model:prune')->daily();
