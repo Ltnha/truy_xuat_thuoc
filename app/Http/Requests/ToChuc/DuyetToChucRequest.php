@@ -2,15 +2,27 @@
 
 namespace App\Http\Requests\ToChuc;
 
-use App\Http\Requests\BaseRequest;
+use Illuminate\Foundation\Http\FormRequest;
 
-class DuyetToChucRequest extends BaseRequest
+class DuyetToChucRequest extends FormRequest
 {
+    public function authorize(): bool
+    {
+        return true;
+    }
+
     public function rules(): array
     {
         return [
-            'toChucId' => ['required', 'integer', 'exists:toChuc,id'],
-            'trangThaiDuyet' => ['required', 'string'],
+            'trangThaiDuyet' => ['required', 'string', 'in:DA_DUYET,TU_CHOI'],
+            'lyDo' => ['nullable', 'required_if:trangThaiDuyet,TU_CHOI', 'string', 'max:500'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'lyDo.required_if' => 'Vui lòng nhập lý do từ chối phê duyệt hồ sơ.',
         ];
     }
 }

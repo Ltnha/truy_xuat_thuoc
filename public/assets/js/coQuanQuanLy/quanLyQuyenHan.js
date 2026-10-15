@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const EXPLORER_BASE_URL = "https://amoy.polygonscan.com/address/";
+    const EXPLORER_BASE_URL = "https://sepolia.etherscan.io/address/";
     const ITEMS_PER_PAGE = 5;
     let trangHienTai = 1;
 

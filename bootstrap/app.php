@@ -14,7 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        // ĐĂNG KÝ BÍ DANH (ALIAS) CHO MIDDLEWARE TẠI ĐÂY:
+        // Đăng ký Alias Middleware cho hệ thống
         $middleware->alias([
             'tai.khoan.hoat.dong' => TaiKhoanHoatDong::class,
             'kiem.tra.vai.tro'    => KiemTraVaiTro::class,

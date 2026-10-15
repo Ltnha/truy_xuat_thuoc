@@ -62,7 +62,7 @@ class DangKyToChucController extends Controller
                 // 2. Tạo Tài khoản đại diện (Trạng thái PENDING)
                 $account = new TaiKhoan;
                 $account->tenDangNhap = $data['tenDangNhap'];
-                $account->matKhau = Hash::make($data['matKhau']);
+                $account->matKhau = $data['matKhau']; // <--- BỎ Hash::make() TẠI ĐÂY
                 $account->email = $data['email'];
                 $account->vaiTro = Role::from($data['loaiToChuc']);
                 $account->trangThai = AccountStatus::pending;

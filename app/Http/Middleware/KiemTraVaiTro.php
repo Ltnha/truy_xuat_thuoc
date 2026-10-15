@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Http\Middleware;
 
 use Closure;
@@ -10,7 +11,7 @@ class KiemTraVaiTro
     public function handle(Request $request, Closure $next, string ...$vaiTro): Response
     {
         if (! $request->user()) {
-            return redirect()->route('dangNhap');
+            return redirect()->route('login'); // Sửa 'dangNhap' -> 'login'
         }
 
         $taiKhoan = $request->user();

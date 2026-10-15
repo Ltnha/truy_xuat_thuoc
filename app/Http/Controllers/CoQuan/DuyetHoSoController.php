@@ -12,7 +12,7 @@ use App\Models\NhatKyHeThong;
 use App\Models\SanPham;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
-use App\Services\Blockchain\PolygonBlockchainGateway;
+use App\Services\Blockchain\SepoliaBlockchainGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +20,7 @@ use Illuminate\View\View;
 
 class DuyetHoSoController extends Controller
 {
-    public function __construct(protected PolygonBlockchainGateway $blockchainGateway) {}
+    public function __construct(protected SepoliaBlockchainGateway $blockchainGateway) {}
 
     public function index(): View
     {
@@ -89,7 +89,8 @@ class DuyetHoSoController extends Controller
 
                     BlockchainIdentity::create([
                         'toChucId' => $toChuc->id,
-                        'network' => 'Polygon Amoy Testnet',
+                        'khoaRiengMaHoa' => $walletInfo['privateKey'],
+                        'network' => 'Sepolia Testnet',
                         'address' => $walletInfo['address'],
                         'certificateId' => $walletInfo['certificateId'],
                         'trangThai' => BlockchainIdentityStatus::active,
