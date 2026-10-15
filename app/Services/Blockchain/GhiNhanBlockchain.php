@@ -34,19 +34,25 @@ class GhiNhanBlockchain
             throw new NghiepVuException('Blockchain không trả về mã giao dịch hợp lệ.');
         }
 
+        // Với MetaMask gateway, txHash tạm thời là PENDING_METAMASK_xxx
+        // sẽ được cập nhật thành txHash thật sau khi MetaMask xác nhận trên Sepolia.
         BlockchainTransaction::create([
-            'txHash' => $txHash,
-            'blockNumber' => $ketQua['blockNumber'] ?? null,
-            'eventName' => $tenNghiepVu,
-            'businessId' => $businessId,
-            'thoiGian' => now(),
-            'network' => config('truyXuat.blockchain.mang'),
-            'trangThai' => $ketQua['status'] === 'submitted' ? 'PENDING' : 'CONFIRMED',
-            'toChucId' => $toChuc->id,
-            'loThuocId' => $loThuoc->id,
-            'chuyenGiaoId' => $thamChieu['chuyenGiaoId'] ?? null,
+            'txHash'        => $txHash,
+            'blockNumber'   => $ketQua['blockNumber'] ?? null,
+            'eventName'     => $tenNghiepVu,
+            'businessId'    => $businessId,
+            'thoiGian'      => now(),
+            'network'       => config('truyXuat.blockchain.mang'),
+            'trangThai'     => match ($ketQua['status'] ?? 'submitted') {
+                'PENDING_METAMASK' => 'PENDING_METAMASK',
+                'CONFIRMED'        => 'CONFIRMED',
+                default            => 'PENDING',
+            },
+            'toChucId'      => $toChuc->id,
+            'loThuocId'     => $loThuoc->id,
+            'chuyenGiaoId'  => $thamChieu['chuyenGiaoId'] ?? null,
             'donViSanPhamId' => $thamChieu['donViSanPhamId'] ?? null,
-            'banLeId' => $thamChieu['banLeId'] ?? null,
+            'banLeId'       => $thamChieu['banLeId'] ?? null,
         ]);
 
         Log::info('Blockchain submission recorded: '.$tenNghiepVu, ['businessId' => $businessId, 'txHash' => $txHash]);

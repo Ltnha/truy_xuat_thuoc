@@ -32,13 +32,17 @@ class SepoliaTransactionController extends Controller
         ]);
     }
 
-    public function synchronize(
-        Request $request,
-        LoThuoc $loThuoc,
-        SepoliaTransactionSynchronizer $synchronizer
-    ): RedirectResponse {
+    public function synchronize(Request $request, SepoliaTransactionSynchronizer $synchronizer): RedirectResponse
+    {
         $toChuc = $request->user()->toChuc;
-        abort_if($toChuc === null || (int) $loThuoc->toChucId !== (int) $toChuc->id, 404);
+        abort_if($toChuc === null, 404);
+
+        // Lấy maLo từ request, query LoThuoc theo maLo
+        $maLo = $request->validate(['maLo' => 'required|string']);
+        $loThuoc = App\Models\LoThuoc::where('maLo', $maLo)->first();
+
+        abort_if($loThuoc === null, 404);
+        abort_if((int) $loThuoc->toChucId !== (int) $toChuc->id, 404);
 
         $validated = $request->validate([
             'txHash' => ['required', 'string', 'regex:/^0x[a-fA-F0-9]{64}$/'],

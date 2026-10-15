@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\Blockchain\BlockchainGateway;
 use App\Services\Blockchain\FakeBlockchainGateway;
+use App\Services\Blockchain\MetaMaskBlockchainGateway;
 use App\Services\Blockchain\PolygonBlockchainGateway;
 use Illuminate\Support\ServiceProvider;
 
@@ -14,8 +15,10 @@ class AppServiceProvider extends ServiceProvider
         $driver = config('truyXuat.blockchain.driver', 'fake');
 
         $this->app->bind(BlockchainGateway::class, match ($driver) {
-            'polygon' => PolygonBlockchainGateway::class,
-            default => FakeBlockchainGateway::class,
+            'polygon'  => PolygonBlockchainGateway::class,
+            'sepolia'  => \App\Services\Blockchain\SepoliaBlockchainGateway::class,
+            'metamask' => MetaMaskBlockchainGateway::class,
+            default    => FakeBlockchainGateway::class,
         });
     }
 

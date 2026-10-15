@@ -106,19 +106,14 @@ class LoThuocService
             $this->qrService->sinhChoLo($loThuoc);
 
             $txHash = $this->ghiNhanBlockchain->ghi('BatchRegistered', $loThuoc->maLo, $nhaSanXuat, $loThuoc);
-            LichSuLoThuoc::query()->create([
-                'loThuocId' => $loThuoc->id,
-                'suKien' => 'DANG_KY_LO',
-                'moTa' => "Nhà sản xuất {$nhaSanXuat->tenToChuc} đăng ký lô {$loThuoc->maLoNghiepVu}",
-                'txHash' => $txHash,
-            ]);
 
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $nguoiDung->id,
+                'doiTuongId' => $nguoiDung->id,
                 'hanhDong' => 'DANG_KY_LO',
+                'ketQua' => 'THANH_CONG',
                 'thoiGian' => now(),
-                'noiDung' => "Đăng ký lô {$loThuoc->maLoNghiepVu}; giao dịch {$txHash}.",
-                'diaChiIP' => $diaChiIP,
+                'chiTiet' => "Đăng ký lô {$loThuoc->maLoNghiepVu}; giao dịch {$txHash}.",
             ]);
 
             return $loThuoc;

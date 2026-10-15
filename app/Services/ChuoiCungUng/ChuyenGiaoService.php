@@ -78,20 +78,14 @@ class ChuyenGiaoService
                 $loThuoc,
                 ['chuyenGiaoId' => $chuyenGiao->id, 'benNhanId' => $benNhan->id, 'soLuong' => $chuyenGiao->soLuong],
             );
-            $chuyenGiao->update(['txHash' => $txHash]);
 
-            LichSuLoThuoc::query()->create([
-                'loThuocId' => $loThuoc->id,
-                'suKien' => 'CHUYEN_GIAO_CHO_NHAN',
-                'moTa' => "Chuyển {$chuyenGiao->soLuong} đơn vị đến {$benNhan->tenToChuc}.",
-                'txHash' => $txHash,
-            ]);
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
+                'doiTuongId' => $taiKhoan->id,
                 'hanhDong' => 'TAO_CHUYEN_GIAO',
+                'ketQua' => 'THANH_CONG',
                 'thoiGian' => now(),
-                'noiDung' => "Tạo giao dịch {$chuyenGiao->maChuyenGiao}.",
-                'diaChiIP' => $ip,
+                'chiTiet' => "Tạo giao dịch chuyển giao {$chuyenGiao->maChuyenGiao}; số lượng {$chuyenGiao->soLuong} đến {$benNhan->tenToChuc}; txHash {$txHash}.",
             ]);
 
             return $chuyenGiao;

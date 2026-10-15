@@ -51,9 +51,9 @@ class LoThuoc extends Model
         return $this->hasMany(ChuyenGiao::class, 'loThuocId');
     }
 
-    public function lichSus(): HasMany
+    public function blockchainTransactions(): HasMany
     {
-        return $this->hasMany(LichSuLoThuoc::class, 'loThuocId');
+        return $this->hasMany(BlockchainTransaction::class, 'loThuocId');
     }
 
     public function baoCaoNghiVans(): HasMany

@@ -79,7 +79,62 @@
             <div class="flex items-center gap-1.5" id="cumNutPhanTrangLo"></div>
         </div>
     </div>
+</div>
 
+<!-- TAB BLOCKCHAIN CHO LÔ THUỐC -->
+<div class="mt-6 pt-6 border-t border-emerald-900/10">
+    <h2 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+        <i class="fa-solid fa-network-watched text-cyan-800"></i> Blockchain Integration
+    </h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- Card: Thông tin lô -->
+        <div class="bg-white rounded-2xl p-4 border border-emerald-900/10">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-database text-emerald-700"></i> Dữ Liệu CSDL Thật
+            </h3>
+            <div id="cardLoTuDB" class="space-y-1.5 text-xs text-slate-600">
+                <p>Tổng số lô trong hệ thống: <strong class="text-emerald-800 font-mono">{{ $blockchainConfig['tongSoLo'] ?? 0 }} lô</strong></p>
+                <p>Giao dịch on-chain đã ghi: <strong class="text-cyan-800 font-mono">{{ $blockchainConfig['tongSoGiaoDich'] ?? 0 }} tx</strong></p>
+                <p class="text-[11px] text-slate-500 italic">Chọn một dòng lô bất kỳ để xem nhanh chi tiết</p>
+            </div>
+        </div>
+
+        <!-- Card: Trạng thái blockchain -->
+        <div class="bg-white rounded-2xl p-4 border border-emerald-900/10">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <i class="fa-brands fa-ethereum text-indigo-700"></i> Mạng {{ $blockchainConfig['network'] ?? 'Ethereum Sepolia' }}
+            </h3>
+            <div id="cardTrangThaiBC" class="space-y-1.5 text-xs text-slate-600">
+                <p class="truncate" title="{{ $blockchainConfig['contractAddress'] }}">
+                    Hợp đồng: 
+                    <a href="https://sepolia.etherscan.io/address/{{ $blockchainConfig['contractAddress'] }}" target="_blank" class="font-mono text-[11px] text-cyan-800 font-bold hover:underline">
+                        {{ substr($blockchainConfig['contractAddress'], 0, 8) }}...{{ substr($blockchainConfig['contractAddress'], -6) }}
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                    </a>
+                </p>
+                <p>Cơ chế: <span class="px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 font-bold text-[10px] border border-emerald-200">Event-based Proof</span></p>
+                <p class="text-[11px] text-slate-500">Khóa on-chain: <code>batchId = Keccak(maLo)</code></p>
+            </div>
+        </div>
+
+        <!-- Card: Tác vụ -->
+        <div class="bg-white rounded-2xl p-4 border border-emerald-900/10">
+            <h3 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt text-amber-600"></i> Tác Vụ Chuỗi Cung Ứng
+            </h3>
+            <div id="cardTacVu" class="space-y-1.5 text-xs text-slate-600">
+                <p class="flex items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-emerald-600"></i>
+                    <span>Tự động sinh QR 2 cấp (Thùng & Đơn vị)</span>
+                </p>
+                <p class="flex items-center gap-2">
+                    <i class="fa-solid fa-truck-arrow-right text-cyan-600"></i>
+                    <span>Khởi tạo chuyển giao tới Nhà phân phối (PENDING)</span>
+                </p>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- MODAL 1: ĐĂNG KÝ LÔ MỚI & SINH MÃ QR 2 CẤP -->
@@ -101,9 +156,11 @@
                     <label for="chonSanPhamDaDuyet" class="font-bold text-slate-700">Chọn Sản Phẩm Đã Được Cơ Quan Quản Lý Phê Duyệt <span class="text-red-500">*</span></label>
                     <select id="chonSanPhamDaDuyet" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                         <option value="">-- Chọn sản phẩm dược hợp lệ --</option>
-                        <option value="SP01" data-ten="Paracetamol 500mg">Paracetamol 500mg (SĐK: VD-28491-18) – [Đã duyệt]</option>
-                        <option value="SP02" data-ten="Deslotid OPV 5mg">Deslotid OPV 5mg (SĐK: VD-19234-15) – [Đã duyệt]</option>
-                        <option value="SP03" data-ten="Cefalexin 500mg">Cefalexin 500mg (SĐK: VD-33012-20) – [Đã duyệt]</option>
+                        @forelse ($sanPhams as $sp)
+                            <option value="{{ $sp->id }}" data-ten="{{ $sp->tenSanPham }}">{{ $sp->tenSanPham }} (SĐK: {{ $sp->soDangKy }}) – [Đã duyệt]</option>
+                        @empty
+                            <option value="" disabled>Chưa có sản phẩm nào được duyệt</option>
+                        @endforelse
                     </select>
                 </div>
 
@@ -114,7 +171,7 @@
                     </div>
                     <div class="space-y-1">
                         <label for="nhapSoLuong" class="font-bold text-slate-700">Tổng Số Lượng (hộp) <span class="text-red-500">*</span></label>
-                        <input type="number" id="nhapSoLuong" required min="10" placeholder="VD: 5000" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                        <input type="number" id="nhapSoLuong" required min="1" placeholder="VD: 5000" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                     </div>
                     <div class="space-y-1">
                         <label for="nhapNgaySX" class="font-bold text-slate-700">Ngày Sản Xuất <span class="text-red-500">*</span></label>
@@ -224,9 +281,14 @@
                 <label for="chonNhaPhanPhoi" class="font-bold text-slate-700">Đơn Vị Tiếp Nhận (Nhà Phân Phối Đã Duyệt) <span class="text-red-500">*</span></label>
                 <select id="chonNhaPhanPhoi" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                     <option value="">-- Chọn Nhà phân phối hợp lệ --</option>
-                    <option value="NPP01">Công ty Cổ phần Dược phẩm CPC1 Hà Nội (Ví: 0x3a...11C)</option>
-                    <option value="NPP02">Tổng Công ty Dược Việt Nam - Vinapharm (Ví: 0x7c...88D)</option>
-                    <option value="NPP03">Công ty Dược phẩm Vimedimex TP.HCM (Ví: 0x1e...44E)</option>
+                    @forelse ($nhaPhanPhois as $npp)
+                        @php
+                            $vi = $npp->blockchainIdentity?->address ? substr($npp->blockchainIdentity->address, 0, 6) . '...' . substr($npp->blockchainIdentity->address, -4) : 'Chưa cấp ví';
+                        @endphp
+                        <option value="{{ $npp->id }}">{{ $npp->tenToChuc }} (MST: {{ $npp->maSoThue }} – Ví: {{ $vi }})</option>
+                    @empty
+                        <option value="" disabled>Chưa có nhà phân phối nào được phê duyệt</option>
+                    @endforelse
                 </select>
             </div>
 
@@ -237,7 +299,7 @@
             </div>
 
             <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức[cite: 8].
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức.
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -285,7 +347,7 @@
         </div>
 
         <div class="space-y-1.5 text-xs">
-            <span class="font-bold text-slate-700">Bằng chứng Blockchain (Polygon Testnet Explorer):</span>
+            <span class="font-bold text-slate-700">Bằng chứng Blockchain (Ethereum Sepolia Etherscan):</span>
             <div class="flex items-center gap-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
                 <a id="modalChiTietTxLink" href="#" target="_blank" class="flex-1 font-mono text-[11px] text-cyan-800 hover:underline break-all flex items-center gap-1.5">
                     <span id="modalChiTietTxHash">0x...</span>
@@ -334,5 +396,13 @@
 @endsection
 
 @push('scripts')
+    <script>
+        window.DANH_SACH_LO_BAN_DAU = @json($danhSachLo ?? []);
+        window.EXPLORER_BASE_URL = "{{ $blockchainConfig['explorerUrl'] ?? 'https://sepolia.etherscan.io/tx/' }}";
+        window.CSRF_TOKEN = "{{ csrf_token() }}";
+        window.URL_DANG_KY_LO = "{{ route('nha-san-xuat.lo-thuoc.store') }}";
+        window.URL_PHAN_PHOI_LO = "{{ route('nha-san-xuat.lo-thuoc.phan-phoi') }}";
+        window.BLOCKCHAIN_CONFIG = @json($blockchainConfig ?? []);
+    </script>
     <script src="{{ asset('assets/js/nhaSanXuat/quanLyLoThuoc.js') }}"></script>
 @endpush

@@ -39,6 +39,9 @@
         <link rel="stylesheet" href="{{ asset($fileCssRieng) }}">
     <?php } ?>
     @stack('styles')
+
+    <!-- ethers.js v6 CDN – dùng để tương tác MetaMask & Smart Contract Sepolia -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 
 <body class="bg-nenChinh text-slate-900 font-sans min-h-screen flex flex-col antialiased">

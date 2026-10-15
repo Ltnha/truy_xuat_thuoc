@@ -57,7 +57,9 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // --- NHÀ SẢN XUẤT ---
     Route::middleware(['kiem.tra.vai.tro:NHA_SAN_XUAT', 'to.chuc.da.duyet'])->prefix('nha-san-xuat')->group(function () {
-        Route::get('/quan-ly-lo-thuoc', fn() => view('nhaSanXuat.quanLyLoThuoc'))->name('nha-san-xuat.lo-thuoc');
+        Route::get('/quan-ly-lo-thuoc', [\App\Http\Controllers\LoThuoc\LoThuocController::class, 'index'])->name('nha-san-xuat.lo-thuoc');
+        Route::post('/quan-ly-lo-thuoc', [\App\Http\Controllers\LoThuoc\LoThuocController::class, 'store'])->name('nha-san-xuat.lo-thuoc.store');
+        Route::post('/quan-ly-lo-thuoc/phan-phoi', [\App\Http\Controllers\LoThuoc\LoThuocController::class, 'phanPhoi'])->name('nha-san-xuat.lo-thuoc.phan-phoi');
         Route::get('/quan-ly-san-pham', fn() => view('nhaSanXuat.quanLySanPham'))->name('nha-san-xuat.san-pham');
     });
 
@@ -76,5 +78,18 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     Route::middleware(['kiem.tra.vai.tro:QUAN_TRI_VIEN'])->prefix('quan-tri')->group(function () {
         Route::get('/quan-ly-tai-khoan', fn() => view('quanTriVien.quanLyTaiKhoan'))->name('quan-tri.tai-khoan');
         Route::get('/nhat-ky-he-thong', fn() => view('quanTriVien.nhatKyHeThong'))->name('quan-tri.nhat-ky');
+    });
+
+    // --- BLOCKCHAIN SEPOLIA ---
+    Route::middleware('auth')->prefix('blockchain')->group(function () {
+        Route::get('/sepolia/batch', [App\Http\Controllers\Blockchain\SepoliaTransactionController::class, 'show'])->name('blockchain.sepolia.batch');
+        Route::post('/sepolia/synchronize', [App\Http\Controllers\Blockchain\SepoliaTransactionController::class, 'synchronize'])->name('blockchain.sepolia.synchronize');
+    });
+
+    // --- API ROUTES ---
+    Route::prefix('api')->group(function () {
+        Route::get('/lo-thuoc/danh-sach', [App\Http\Controllers\Api\LoThuocApiController::class, 'danhSach'])->name('api.lo-thuoc.danh-sach');
+        // Nhận txHash thật từ MetaMask sau khi giao dịch Sepolia được xác nhận trên trình duyệt
+        Route::post('/blockchain/confirm-tx', [App\Http\Controllers\Api\BlockchainConfirmController::class, 'confirmTx'])->name('api.blockchain.confirm-tx');
     });
 });
