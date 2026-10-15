@@ -1,3 +1,10 @@
+-- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION 3.2)
+-- Database Schema chuẩn hóa kết hợp giữa v3 và v3.1
+
+CREATE DATABASE IF NOT EXISTS truyxuatthuoc CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE truyxuatthuoc;
+
+-- 1. Bảng toChuc
 CREATE TABLE toChuc (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenToChuc VARCHAR(255) NOT NULL,
@@ -19,7 +26,7 @@ CREATE TABLE taiKhoan (
     matKhau VARCHAR(255) NOT NULL,
     email VARCHAR(100) UNIQUE,
     vaiTro ENUM('NHA_SAN_XUAT','NHA_PHAN_PHOI','NHA_THUOC','CO_QUAN_QUAN_LY','QUAN_TRI_VIEN') NOT NULL,
-    trangThai ENUM('PENDING','ACTIVE','LOCKED','REVOKED') NOT NULL DEFAULT 'PENDING',
+    trangThai ENUM('PENDING','ACTIVE','LOCKED') NOT NULL DEFAULT 'PENDING',
     toChucId BIGINT NULL,
     ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
@@ -99,6 +106,7 @@ CREATE TABLE yeuCauDangKySanPham (
     dangBaoChe VARCHAR(100),
     quyCachDongGoi VARCHAR(255),
     versionHoSo INT NOT NULL DEFAULT 1,
+    soDangKy VARCHAR(50) NOT NULL,
     ngayGui DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     trangThai ENUM('CHO_DUYET','DA_DUYET','TU_CHOI') NOT NULL DEFAULT 'CHO_DUYET',
     nguoiXuLyId BIGINT NULL,
@@ -141,7 +149,6 @@ CREATE TABLE banLe (
 CREATE TABLE donViSanPham (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maDonVi VARCHAR(50) NOT NULL UNIQUE,
-    serialNumber VARCHAR(100) NOT NULL UNIQUE,
     loThuocId BIGINT NOT NULL,
     banLeId BIGINT NULL,
     trangThai ENUM('AVAILABLE','DISPENSED') NOT NULL DEFAULT 'AVAILABLE',
@@ -203,7 +210,7 @@ CREATE TABLE chuyenGiao (
 -- 15. Bảng baoCaoNghiVan
 CREATE TABLE baoCaoNghiVan (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    maBaoCao VARCHAR(50) NOT NULL UNIQUE,
+    maBaoCao VARCHAR(255) NOT NULL UNIQUE,
     loThuocId BIGINT NULL, -- NULL nếu mã lô không tồn tại trên hệ thống
     maLoKhaiBao VARCHAR(50) NOT NULL,
     taiKhoanId BIGINT NULL, -- NULL nếu người tiêu dùng báo cáo ẩn danh
@@ -242,7 +249,7 @@ CREATE TABLE ketQuaXuLyBaoCao (
 -- 18. Bảng thuHoiLoHang
 CREATE TABLE thuHoiLoHang (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    loThuocId BIGINT NOT NULL,
+    loThuocId BIGINT NOT NULL UNIQUE,
     coQuanQuyetDinhId BIGINT NOT NULL,
     ketQuaXuLyBaoCaoId BIGINT NULL UNIQUE,
     lyDo TEXT NOT NULL,
@@ -255,8 +262,9 @@ CREATE TABLE thuHoiLoHang (
 -- 19. Bảng blockchainIdentity
 CREATE TABLE blockchainIdentity (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    toChucId BIGINT NOT NULL UNIQUE,
-    network VARCHAR(50) NOT NULL DEFAULT 'Polygon Testnet',
+    toChucId BIGINT NOT NULL,
+    khoaRiengMaHoa VARCHAR(255) NOT NULL,
+    network VARCHAR(50) NOT NULL DEFAULT 'sepolia Testnet',
     address VARCHAR(42) NOT NULL UNIQUE,
     certificateId VARCHAR(100) NULL,
     trangThai ENUM('ACTIVE','INACTIVE','REVOKED') NOT NULL DEFAULT 'ACTIVE',
@@ -269,6 +277,7 @@ CREATE TABLE blockchainTransaction (
     txHash VARCHAR(66) NOT NULL UNIQUE,
     blockNumber BIGINT NULL,
     eventName VARCHAR(100) NOT NULL,
+    doiTuongToChucId BIGINT NULL,
     businessId VARCHAR(36) NOT NULL,
     thoiGian DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     network VARCHAR(50) NOT NULL DEFAULT 'Polygon Testnet',
@@ -309,3 +318,11 @@ CREATE INDEX idx_thuhoi_lothuoc ON thuHoiLoHang(loThuocId);
 CREATE INDEX idx_bctx_lothuoc ON blockchainTransaction(loThuocId);
 CREATE INDEX idx_bctx_tochuc ON blockchainTransaction(toChucId);
 CREATE INDEX idx_bctx_businessid ON blockchainTransaction(businessId);
+CREATE INDEX idx_lothuoc_trangthai ON loThuoc(trangThai);
+CREATE INDEX idx_chuyengiao_trangthai ON chuyenGiao(trangThai);
+CREATE INDEX idx_donvi_trangthai ON donViSanPham(trangThai);
+CREATE INDEX idx_baocao_trangthai ON baoCaoNghiVan(trangThai);
+CREATE INDEX idx_yeucaudk_trangthai ON yeuCauDangKy(trangThai);
+CREATE INDEX idx_yeucausp_trangthai ON yeuCauDangKySanPham(trangThai);
+CREATE INDEX idx_nhatky_ketqua ON nhatKyHeThong(ketQua);
+CREATE INDEX idx_bctx_eventname ON blockchainTransaction(eventName);
