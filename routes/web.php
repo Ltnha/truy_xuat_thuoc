@@ -59,13 +59,17 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // --- NHÀ SẢN XUẤT ---
     Route::middleware(['auth'])->prefix('nha-san-xuat')->name('nha-san-xuat.')->group(function () {
-       // Quản lý lô thuốc
+       // 1. Giao diện Quản lý Lô thuốc & API danh sách
         Route::get('/quan-ly-lo-thuoc', [LoThuocController::class, 'index'])->name('lo-thuoc.index');
         Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
-        Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
-        Route::post('/lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
 
-        // Đồng bộ Sepolia
+        // 2. API Khởi tạo lô thuốc mới & Tính toán 4 mã bytes32
+        Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
+
+        // 3. API Tiếp nhận & Lưu mã txHash do MetaMask Pop-up gửi về sau khi xác nhận
+        Route::post('/api/lo-thuoc/{id}/luu-txhash', [LoThuocController::class, 'saveTxHash'])->name('lo-thuoc.luu-txhash');
+
+        // 4. Trang xem chi tiết & Xác minh đồng bộ Sepolia
         Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('lo-thuoc.dong-bo');
         Route::post('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'verifyAndSave'])->name('lo-thuoc.dong-bo.luu');
 

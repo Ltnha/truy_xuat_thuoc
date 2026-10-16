@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\LoThuoc;
 use App\Models\SanPham;
 use App\Models\BlockchainTransaction;
-use App\Services\Blockchain\BlockchainService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
@@ -35,7 +34,7 @@ class LoThuocController extends Controller
             'data' => $danhSachLo
         ]);
     }
-    // THÊM HÀM LƯU LÔ THUỐC MỚI VÀO MYSQL
+    // 1. Tạo lô thuốc & trả về 4 mã bytes32 để MetaMask gọi Smart Contract
     public function store(Request $request)
     {
         $request->validate([
@@ -48,7 +47,6 @@ class LoThuocController extends Controller
 
         $user = Auth::user();
 
-        // 1. Tạo lô trong MySQL
         $loThuoc = LoThuoc::create([
             'maLo' => (string) Str::uuid(),
             'maLoNghiepVu' => $request->maLoNghiepVu,
@@ -60,26 +58,58 @@ class LoThuocController extends Controller
             'trangThai' => 'CREATED'
         ]);
 
-        // 2. TỰ ĐỘNG GỬI LÊN BLOCKCHAIN VÀ LƯU TXHASH
-        $txHash = BlockchainService::recordBatchAuto($loThuoc);
-
-        BlockchainTransaction::create([
-            'txHash' => $txHash,
-            'blockNumber' => 0,
-            'eventName' => 'BatchEventRecorded',
-            'businessId' => $loThuoc->maLo,
-            'network' => env('BLOCKCHAIN_NETWORK', 'Ethereum Sepolia'),
-            'trangThai' => 'PENDING',
-            'toChucId' => $loThuoc->toChucId,
-            'sanPhamId' => $loThuoc->sanPhamId,
-            'loThuocId' => $loThuoc->id,
-            'thoiGian' => now()
-        ]);
+        // Tính toán sẵn 4 mã bytes32 gửi về cho JavaScript frontend
+        $batchId = '0x' . hash('sha256', 'BATCH_' . $loThuoc->maLo);
+        $businessId = '0x' . hash('sha256', $loThuoc->maLoNghiepVu);
+        $eventType = '0x' . hash('sha256', 'RECORD_BATCH');
+        $payloadHash = '0x' . hash('sha256', json_encode([
+            'maLo' => $loThuoc->maLo,
+            'maLoNghiepVu' => $loThuoc->maLoNghiepVu,
+            'soLuong' => $loThuoc->soLuong,
+            'ngaySanXuat' => $loThuoc->ngaySanXuat,
+            'hanSuDung' => $loThuoc->hanSuDung
+        ]));
 
         return response()->json([
             'success' => true,
-            'message' => 'Đăng ký lô thuốc và tự động đồng bộ Blockchain thành công!',
-            'data' => $loThuoc
+            'message' => 'Khởi tạo thông tin lô thành công! Đang kích hoạt MetaMask...',
+            'data' => $loThuoc,
+            'hashes' => [
+                'batchId' => $batchId,
+                'businessId' => $businessId,
+                'eventType' => $eventType,
+                'payloadHash' => $payloadHash,
+            ]
+        ]);
+    }
+
+    // 2. Lưu txHash do MetaMask trả về vào CSDL
+    public function saveTxHash(Request $request, $id)
+    {
+        $request->validate([
+            'txHash' => 'required|string|regex:/^0x[a-fA-F0-9]{64}$/'
+        ]);
+
+        $loThuoc = LoThuoc::findOrFail($id);
+
+        BlockchainTransaction::updateOrCreate(
+            ['txHash' => $request->txHash],
+            [
+                'blockNumber' => 0,
+                'eventName' => 'BatchEventRecorded',
+                'businessId' => $loThuoc->maLo,
+                'network' => env('BLOCKCHAIN_NETWORK', 'Ethereum Sepolia'),
+                'trangThai' => 'PENDING',
+                'toChucId' => $loThuoc->toChucId,
+                'sanPhamId' => $loThuoc->sanPhamId,
+                'loThuocId' => $loThuoc->id,
+                'thoiGian' => now()
+            ]
+        );
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã lưu Transaction Hash thành công!'
         ]);
     }
 }

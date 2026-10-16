@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta name="contract-address" content="{{ env('BLOCKCHAIN_CONTRACT_ADDRESS') }}">
     <title>@yield('title', 'Quản Trị Hệ Thống - PharmaChain')</title>
     <!-- Tối ưu kết nối sớm tới các CDN -->
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
