@@ -7,6 +7,7 @@ use App\Enums\BlockchainIdentityStatus;
 use App\Enums\OrganizationApprovalStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BlockchainIdentity;
+use App\Models\BlockchainTransaction;
 use App\Models\NhatKyHeThong;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
@@ -14,6 +15,7 @@ use App\Services\Blockchain\SepoliaBlockchainGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class DuyetHoSoController extends Controller
@@ -65,6 +67,8 @@ class DuyetHoSoController extends Controller
         $duLieu = $request->validate([
             'trangThaiDuyet' => ['required', 'in:DA_DUYET,TU_CHOI'],
             'lyDo' => ['nullable', 'required_if:trangThaiDuyet,TU_CHOI', 'string', 'max:500'],
+            'txHash' => ['nullable', 'string'],
+            'diaChiVi' => ['nullable', 'string'],
         ]);
 
         DB::transaction(function () use ($request, $toChuc, $duLieu): void {
@@ -85,22 +89,43 @@ class DuyetHoSoController extends Controller
             $taiKhoanDaiDien = TaiKhoan::query()->where('toChucId', $toChuc->id)->first();
 
             if ($status === OrganizationApprovalStatus::daDuyet) {
-                // Kích hoạt tài khoản đại diện
+                // 1. Kích hoạt tài khoản đại diện
                 if ($taiKhoanDaiDien) {
                     $taiKhoanDaiDien->update(['trangThai' => AccountStatus::active]);
                 }
 
-                // Cấp ví Custodial Wallet trên Sepolia Testnet cho Doanh nghiệp mới
-                if (! $toChuc->blockchainIdentity) {
-                    $walletInfo = $this->blockchainGateway->taoViCustodial();
+                $address = $duLieu['diaChiVi'] ?? null;
+                $txHash = $duLieu['txHash'] ?? null;
 
-                    BlockchainIdentity::create([
+                // 2. Tạo hoặc Cập nhật Ví Custodial Wallet cho Doanh nghiệp
+                $identity = $toChuc->blockchainIdentity;
+                if (! $identity) {
+                    $walletInfo = $address
+                        ? ['address' => $address, 'privateKey' => bin2hex(random_bytes(32))]
+                        : $this->blockchainGateway->taoViCustodial();
+
+                    $identity = BlockchainIdentity::create([
                         'toChucId' => $toChuc->id,
-                        'khoaRiengMaHoa' => $walletInfo['privateKey'],
+                        'khoaRiengMaHoa' => encrypt($walletInfo['privateKey']),
                         'network' => 'Sepolia Testnet',
                         'address' => $walletInfo['address'],
-                        'certificateId' => $walletInfo['certificateId'],
+                        'certificateId' => 'CERT-SEPOLIA-' . strtoupper(Str::random(8)),
                         'trangThai' => BlockchainIdentityStatus::active,
+                    ]);
+                } elseif ($address && $identity->address !== $address) {
+                    $identity->update(['address' => $address]);
+                }
+
+                // 3. Ghi nhận giao dịch Blockchain THẬT từ MetaMask vào CSDL
+                if ($txHash) {
+                    BlockchainTransaction::create([
+                        'txHash' => $txHash,
+                        'eventName' => 'RoleGranted',
+                        'doiTuongToChucId' => $toChuc->id,
+                        'businessId' => (string) Str::uuid(),
+                        'network' => 'Sepolia Testnet',
+                        'trangThai' => 'CONFIRMED',
+                        'toChucId' => $toChuc->id,
                     ]);
                 }
             }
@@ -112,12 +137,12 @@ class DuyetHoSoController extends Controller
                 'hanhDong' => $status === OrganizationApprovalStatus::daDuyet ? 'DUYET_TO_CHUC' : 'TU_CHOI_TO_CHUC',
                 'ketQua' => 'THANH_CONG',
                 'thoiGian' => now(),
-                'chiTiet' => "Xử lý phê duyệt tổ chức [{$toChuc->tenToChuc}]. Trạng thái: {$status->value}." . (! empty($duLieu['lyDo']) ? " Lý do từ chối: {$duLieu['lyDo']}" : ''),
+                'chiTiet' => "Xử lý phê duyệt tổ chức [{$toChuc->tenToChuc}]. Trạng thái: {$status->value}." . (! empty($duLieu['txHash']) ? " TxHash Sepolia: {$duLieu['txHash']}" : '') . (! empty($duLieu['lyDo']) ? " Lý do từ chối: {$duLieu['lyDo']}" : ''),
             ]);
         });
 
         $thongBao = $duLieu['trangThaiDuyet'] === 'DA_DUYET'
-            ? "Đã phê duyệt tổ chức [{$toChuc->tenToChuc}] và cấp ví Blockchain Sepolia thành công."
+            ? "Đã phê duyệt tổ chức [{$toChuc->tenToChuc}] và cấp quyền vai trò On-chain trên Sepolia thành công!"
             : "Đã từ chối hồ sơ đăng ký của tổ chức [{$toChuc->tenToChuc}].";
 
         return back()->with('thanhCong', $thongBao);

@@ -1,4 +1,5 @@
 <?php
+
 return [
     'blockchain' => [
         'driver' => env('BLOCKCHAIN_DRIVER', 'fake'),
@@ -8,6 +9,7 @@ return [
         'rpcUrl' => env('BLOCKCHAIN_RPC_URL'),
         'diaChiHopDong' => env('BLOCKCHAIN_CONTRACT_ADDRESS'),
         'signerUrl' => env('BLOCKCHAIN_SIGNER_URL'),
+        'privateKey' => env('BLOCKCHAIN_PRIVATE_KEY'), // <-- Thêm dòng này vào đây
     ],
     'choPhepNsxDenNhaThuoc' => false,
     'soDonViBanToiDaMoiLan' => 50,

@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const txtLyDoTuChoi = document.getElementById('nhapLyDoTuChoiToChuc');
     const nutXacNhanTuChoi = document.getElementById('nutXacNhanTuChoi');
 
+    const inputDiaChiVi = document.getElementById('duyetModalDiaChiVi');
+    const textAddressDisplay = document.getElementById('duyetModalAddressText');
+
     function renderDanhSachFile(fileList) {
         const containerFiles = document.getElementById('panelDanhSachTepMinhChung');
         if (!containerFiles) return;
@@ -44,6 +47,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const id = this.getAttribute('data-id');
             const tendangnhap = this.getAttribute('data-tendangnhap');
             const trangthai = this.getAttribute('data-trangthai');
+            const loaiToChuc = this.getAttribute('data-loai-to-chuc') || 'NHA_SAN_XUAT';
+            const diaChiVi = this.getAttribute('data-dia-chi-vi') || '';
             const lichsuList = JSON.parse(this.getAttribute('data-lichsu') || '[]');
 
             document.getElementById('panelTenDangNhap').textContent = tendangnhap || 'Chưa tạo';
@@ -105,11 +110,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            if (formActionDuyet) formActionDuyet.action = `/co-quan/phe-duyet-to-chuc/${id}`;
-            if (formActionTuChoi) formActionTuChoi.action = `/co-quan/phe-duyet-to-chuc/${id}`;
+            // Gán action URL & dữ liệu loại tổ chức vào Form Duyệt
+            if (formActionDuyet) {
+                formActionDuyet.action = `/co-quan/phe-duyet-to-chuc/${id}`;
+                formActionDuyet.setAttribute('data-loai-to-chuc', loaiToChuc);
+            }
+            if (formActionTuChoi) {
+                formActionTuChoi.action = `/co-quan/phe-duyet-to-chuc/${id}`;
+            }
 
             document.getElementById('duyetModalTenToChuc').textContent = lanMoiNhat.tenToChuc || '';
             document.getElementById('duyetModalMST').textContent = lanMoiNhat.maSoThue || '';
+
+            // Cập nhật giá trị địa chỉ ví vào ô Input & phần hiển thị giao diện
+            if (inputDiaChiVi) {
+                inputDiaChiVi.value = diaChiVi;
+            }
+            if (textAddressDisplay) {
+                textAddressDisplay.textContent = (diaChiVi && diaChiVi.length === 42) ? diaChiVi : 'Tự động khởi tạo';
+            }
 
             const cumNut = document.getElementById('panelCumNutHanhDong');
             if (trangthai !== 'CHO_DUYET') {

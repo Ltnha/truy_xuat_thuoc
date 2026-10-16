@@ -68,9 +68,10 @@
                 <tbody class="divide-y divide-slate-100 font-medium">
                     @forelse ($toChucs as $toChuc)
                     @php
-                    $yeuCauMoiNhat = $toChuc->yeuCauDangKys->sortByDesc('id')->first();
-                    $taiKhoanDaiDien = $toChuc->taiKhoans->first();
-                    $soLanNop = $toChuc->yeuCauDangKys->max('versionHoSo') ?? 1;
+                    $yeuCauMoiNhat =$toChuc->yeuCauDangKys->sortByDesc('id')->first();
+                    $taiKhoanDaiDien =$toChuc->taiKhoans->first();
+                    $soLanNop =$toChuc->yeuCauDangKys->max('versionHoSo') ?? 1;
+                    $diaChiViIdentity =$toChuc->blockchainIdentity?->address;
                     @endphp
                     <tr class="hover:bg-slate-50/80 transition-colors">
                         <td class="py-3 px-3">
@@ -114,6 +115,8 @@
                         <td class="py-3 px-3 text-center">
                             <button type="button" class="btn-xem-ho-so px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 transition-all text-[11px] cursor-pointer"
                                 data-id="{{ $toChuc->id }}"
+                                data-loai-to-chuc="{{ $toChuc->loaiToChuc->value }}"
+                                data-dia-chi-vi="{{ $diaChiViIdentity }}"
                                 data-tendangnhap="{{ $taiKhoanDaiDien?->tenDangNhap }}"
                                 data-trangthai="{{ $toChuc->trangThaiDuyet->value }}"
                                 data-lichsu="{{ json_encode($toChuc->yeuCauDangKys->sortByDesc('id')->map(fn($y) => [
@@ -129,7 +132,7 @@
                                         'soGiayPhepDuoc' => $y->soGiayPhepDuoc ?? $toChuc->soGiayPhepDuoc,
                                         'coQuanCap' => $y->coQuanCap ?? $toChuc->coQuanCap,
                                         'ngayCapGiayPhep' => $y->ngayCapGiayPhep ? \Carbon\Carbon::parse($y->ngayCapGiayPhep)->format('d/m/Y') : 'N/A',
-                                        'taiLieus' => $y->taiLieus->map(fn($t) => ['id' => $t->id, 'ten' => $t->tenTaiLieu])->values(),
+                                        'taiLieus' => $y->taiLieus->map(fn($t) => ['id' => $t->id, 'ten' =>$t->tenTaiLieu])->values(),
                                     ])->values()) }}">
                                 <i class="fa-solid fa-eye mr-1"></i> Xem hồ sơ
                             </button>
@@ -232,14 +235,24 @@
         <form id="formActionDuyetToChuc" method="POST" action="" class="space-y-4 text-xs">
             @csrf
             <input type="hidden" name="trangThaiDuyet" value="DA_DUYET">
+            <input type="hidden" name="txHash" id="duyetModalTxHash" value="">
+            <input type="hidden" name="diaChiVi" id="duyetModalDiaChiVi" value="">
+
             <div class="p-3.5 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1.5">
                 <div class="flex justify-between"><span class="text-slate-500">Tổ chức:</span><span id="duyetModalTenToChuc" class="font-bold text-slate-900"></span></div>
                 <div class="flex justify-between"><span class="text-slate-500">Mã số thuế:</span><span id="duyetModalMST" class="font-mono font-bold text-slate-900"></span></div>
+                <div class="flex justify-between"><span class="text-slate-500">Địa chỉ ví On-chain:</span><span id="duyetModalAddressText" class="font-mono text-indigo-900 font-bold truncate max-w-[180px]">Tự động khởi tạo</span></div>
             </div>
+
+            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 flex items-start gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 text-sm mt-0.5"></i>
+                <span>Thao tác này sẽ yêu cầu xác nhận giao dịch qua ví **MetaMask** của bạn để cấp vai trò On-chain trên mạng Sepolia.</span>
+            </div>
+
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                 <button type="button" class="dong-modal-duyet px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl cursor-pointer">Hủy</button>
-                <button type="submit" class="px-6 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer">
-                    <i class="fa-solid fa-shield-halved"></i> Xác Nhận Phê Duyệt
+                <button type="submit" id="btnSubmitConfirmDuyet" class="px-6 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer">
+                    <i class="fa-solid fa-shield-halved"></i> Phê Duyệt qua MetaMask
                 </button>
             </div>
         </form>
@@ -271,5 +284,119 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
 <script src="{{ asset('assets/js/coQuanQuanLy/pheDuyetTaiKhoanToChuc.js') }}"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const CONTRACT_ADDRESS = "{{ config('truyXuat.blockchain.diaChiHopDong') }}";
+        const CONTRACT_ABI = [
+            "function grantRole(address account, bytes32 role) external"
+        ];
+
+        const ROLE_HASHES = {
+            'NHA_SAN_XUAT': '0x2c68e1a6136d0a7a03009653a1a1f0d3674681729f64bf501b4c8030f81d1134',
+            'NHA_PHAN_PHOI': '0xed2090967332f14aa52a132e49c71e84d436efb3d1bc848f0701198544b6c318',
+            'NHA_THUOC': '0xb23b33379ec8f121df4c6b63d9178db7ae4045f36e89eeff0ee0279d6f0be20d'
+        };
+
+        const formDuyet = document.getElementById('formActionDuyetToChuc');
+        const inputTxHash = document.getElementById('duyetModalTxHash');
+        const inputDiaChiVi = document.getElementById('duyetModalDiaChiVi');
+        const btnSubmitDuyet = document.getElementById('btnSubmitConfirmDuyet');
+
+        if (formDuyet) {
+            formDuyet.addEventListener('submit', async function(e) {
+                // Nếu đã ký thành công và có txHash thì cho submit về server
+                if (inputTxHash && inputTxHash.value) {
+                    return true;
+                }
+
+                e.preventDefault();
+
+                if (typeof window.ethereum === 'undefined') {
+                    alert('Vui lòng cài đặt tiện ích MetaMask trên trình duyệt để phê duyệt On-chain!');
+                    return;
+                }
+
+                const loaiToChuc = formDuyet.getAttribute('data-loai-to-chuc') || 'NHA_SAN_XUAT';
+                const roleHash = ROLE_HASHES[loaiToChuc];
+
+                if (!roleHash) {
+                    alert('Loại hình tổ chức không hợp lệ để cấp vai trò On-chain!');
+                    return;
+                }
+
+                try {
+                    if (btnSubmitDuyet) {
+                        btnSubmitDuyet.disabled = true;
+                        btnSubmitDuyet.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang chờ MetaMask...';
+                    }
+
+                    // 1. Kết nối ví MetaMask
+                    const provider = new ethers.BrowserProvider(window.ethereum);
+                    await provider.send("eth_requestAccounts", []);
+
+                    // 2. Kiểm tra & chuyển sang mạng Sepolia (ChainID: 11155111 = 0xaa36a7)
+                    const network = await provider.getNetwork();
+                    if (network.chainId !== 11155111n) {
+                        try {
+                            await window.ethereum.request({
+                                method: 'wallet_switchEthereumChain',
+                                params: [{
+                                    chainId: '0xaa36a7'
+                                }],
+                            });
+                        } catch (switchErr) {
+                            alert('Vui lòng chuyển MetaMask sang mạng Ethereum Sepolia Testnet!');
+                            if (btnSubmitDuyet) {
+                                btnSubmitDuyet.disabled = false;
+                                btnSubmitDuyet.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> Phê Duyệt qua MetaMask';
+                            }
+                            return;
+                        }
+                    }
+
+                    const signer = await provider.getSigner();
+
+                    // 3. Đảm bảo có địa chỉ ví cho Tổ chức (Nếu chưa có thì tự sinh ngẫu nhiên)
+                    let targetAddress = inputDiaChiVi ? inputDiaChiVi.value : '';
+                    if (!targetAddress || targetAddress.length !== 42) {
+                        const randomWallet = ethers.Wallet.createRandom();
+                        targetAddress = randomWallet.address;
+                        if (inputDiaChiVi) inputDiaChiVi.value = targetAddress;
+                    }
+
+                    // 4. Gọi hàm grantRole trên Smart Contract
+                    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                    console.log(`Gửi giao dịch grantRole: Address=${targetAddress}, RoleHash=${roleHash}`);
+
+                    const tx = await contract.grantRole(targetAddress, roleHash);
+
+                    // Gán mã TxHash thu được
+                    if (inputTxHash) inputTxHash.value = tx.hash;
+
+                    if (btnSubmitDuyet) {
+                        btnSubmitDuyet.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang lưu CSDL...';
+                    }
+
+                    // Gửi form về Laravel Backend
+                    formDuyet.submit();
+
+                } catch (error) {
+                    console.error("Lỗi giao dịch MetaMask:", error);
+                    if (btnSubmitDuyet) {
+                        btnSubmitDuyet.disabled = false;
+                        btnSubmitDuyet.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> Phê Duyệt qua MetaMask';
+                    }
+
+                    if (error.code === 4001 || error.code === 'ACTION_REJECTED') {
+                        alert('Bạn đã hủy/từ chối xác nhận giao dịch trên MetaMask.');
+                    } else {
+                        alert('Giao dịch Blockchain thất bại: ' + (error.reason || error.message));
+                    }
+                }
+            });
+        }
+    });
+</script>
 @endpush

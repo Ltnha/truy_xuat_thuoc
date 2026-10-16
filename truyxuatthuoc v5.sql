@@ -276,7 +276,7 @@ CREATE TABLE thuHoiLoHang (
 CREATE TABLE blockchainIdentity (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     toChucId BIGINT NOT NULL,
-    khoaRiengMaHoa VARCHAR(255) NOT NULL,
+    khoaRiengMaHoa TEXT NOT NULL,
     network VARCHAR(50) NOT NULL DEFAULT 'sepolia Testnet',
     address VARCHAR(42) NOT NULL UNIQUE,
     certificateId VARCHAR(100) NULL,
@@ -849,7 +849,7 @@ INSERT INTO blockchainIdentity
     (id, toChucId, network, address, certificateId, trangThai)
 VALUES
     (1, 1, 'Polygon Testnet', '0x1111111111111111111111111111111111111111', 'DEMO-CERT-NSX-001', 'ACTIVE'),
-    (2, 2, 'Polygon Testnet', '0x2222222222222222222222222222222222222222', 'DEMO-CERT-NPP-001', 'ACTIVE'),
+   
     (3, 3, 'Polygon Testnet', '0x3333333333333333333333333333333333333333', 'DEMO-CERT-NT-001', 'ACTIVE'),
     (4, 4, 'Polygon Testnet', '0x4444444444444444444444444444444444444444', 'DEMO-CERT-CQ-001', 'ACTIVE'),
     (5, 6, 'Polygon Testnet', '0xc78c8a47d7fabc536420bec3b7ed0bc95598c201', 'DEMO-CERT-EXP-001', 'ACTIVE'),
@@ -858,6 +858,14 @@ VALUES
     (8, 9, 'Polygon Testnet', '0x1e60991f6b1f4b0594227d9a8bbe36b84d1856ba', 'DEMO-CERT-EXP-004', 'ACTIVE'),
     (9, 10, 'Polygon Testnet', '0xb840087a6457de1ef6a838b26ffdabcfef5c069f', 'DEMO-CERT-EXP-005', 'INACTIVE');
 
+INSERT INTO `blockchainIdentity` 
+    (`id`, `toChucId`, `khoaRiengMaHoa`, `network`, `address`, `certificateId`, `trangThai`) 
+VALUES 
+    (2, 2, 'CQQL_ROOT_PRIVATE_KEY_SEPOLIA', 'Ethereum Sepolia', '0x0285C31E1Cb022a4637533e75E505E811CBdF869', 'CERT-CQQL-001', 'ACTIVE')
+ON DUPLICATE KEY UPDATE 
+    `address` = '0x0285C31E1Cb022a4637533e75E505E811CBdF869',
+    `network` = 'Ethereum Sepolia',
+    `trangThai` = 'ACTIVE';
 -- 19. Bảng blockchainTransaction
 INSERT INTO blockchainTransaction
     (id, txHash, blockNumber, eventName, businessId, thoiGian, network, trangThai, toChucId, loThuocId, chuyenGiaoId, donViSanPhamId, banLeId)
