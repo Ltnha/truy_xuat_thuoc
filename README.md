@@ -112,7 +112,6 @@ truy_xuat_thuoc
 │     │  └─ QrService.php
 │     ├─ NhatKyService.php
 │     ├─ QuanTri
-│     │  └─ NhatKyService.php
 │     ├─ Service.php
 │     ├─ ToChuc
 │     │  └─ ToChucService.php
@@ -124,6 +123,7 @@ truy_xuat_thuoc
 │  ├─ app.php
 │  ├─ cache
 │  │  ├─ packages.php
+│  │  ├─ routes-v7.php
 │  │  └─ services.php
 │  └─ providers.php
 ├─ composer.json
@@ -282,11 +282,13 @@ truy_xuat_thuoc
 │  │  │     └─ OFuGdXAhMEy1jmo67l9OT9yPhji3u1YU0WyD0ThU.jpg
 │  │  └─ public
 │  │     └─ tai-lieu-dang-ky
+│  │        ├─ 6sMeZfSs4cJQNKAlQgxNEVbcxYYcZUxkWoJQMHE9.jpg
 │  │        ├─ 7AsYltpBUIDiLZNztdw7ywwNCCvHPIbCXZdTdvq1.pdf
 │  │        ├─ 9tBtHGgIYmtkbNqk8vhAg98EjxwI5PEXMGl7m9ts.pdf
 │  │        ├─ bEQhmyQYuL1feRKnBNVse8NGwZJgroB5ASMqvNfx.jpg
 │  │        ├─ bxX4mCJvSxv2Xsn5TIfhU4KP6iGo5lbInGDxXGrD.jpg
 │  │        ├─ fZt7hd4bBjnspck1JNO6ocwGNUiBjxxE1TJ2r6Kn.pdf
+│  │        ├─ GeucZpXFGAJCoVJHF7HMvdJfcPVuBo8sRvX8yRQ1.jpg
 │  │        ├─ hjGDt5OZCMCr3enOd3CfMT5zom4I9t28h4GiN9GC.pdf
 │  │        ├─ LaCzQt8cqih0MXhQZ8SK4wFBfEZzdnxta8SiNgCj.png
 │  │        ├─ lsakk7uDwI6rNjxtKj57hwAeWoBgwokswf5L39Cv.jpg
@@ -296,30 +298,55 @@ truy_xuat_thuoc
 │  │  ├─ cache
 │  │  │  └─ data
 │  │  ├─ sessions
-│  │  │  ├─ AvOlHE0XDEnRYtx6bdWodhwJeSI3BBZMvhUoqm7v
-│  │  │  ├─ MuVYpJAJaKxZ2EPE3JQtkEpmjjkSt6eqczF3MEjj
-│  │  │  ├─ oKCf9maIbY9q1QxU2Z0tdT14g4fCxmfMEPjgSGJ8
-│  │  │  ├─ PwkLy2HCQA5aP4vpxfyDqqC60ximwMzcnnqRZtw5
-│  │  │  ├─ rd6S6ODgqwiH1aU93Skt90yycSKgbyqiaXmCSWCi
-│  │  │  ├─ SOfmjNldhOT0MCKUuE5N2GRIqElvI07cHdk8HpV6
-│  │  │  ├─ UmD9ut53eNPZ8nkOHMuOa99NEdspnCWMXg7Vf8dM
-│  │  │  └─ wDPvsqh70RnXiO9xDBYLrfgyIdLXTjYm4Hxezl2W
+│  │  │  └─ l1nzqLbM8DQ20N2ET1YeFCPpBKTtSt8SgPhTf2Lo
 │  │  ├─ testing
 │  │  └─ views
-│  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
-│  │     ├─ 1878de6f35923c583b84d5595cb57dde.php
-│  │     ├─ 2305f106441e1f9a23c54e332fd4f3da.php
-│  │     ├─ 3a21b499124aa2e727ce7f19eba89c83.php
-│  │     ├─ 4b6b03a8365874d03bcd495e4b77ff8d.php
-│  │     ├─ 7e8c5fb405b097e2cc35e76bcb580f1f.php
+│  │     ├─ 035731246571d2843ed8806b895b1df3.php
+│  │     ├─ 0421cdad5b572f8bb719588f1d726fa9.php
+│  │     ├─ 0d04c670e3e803c183a03541de2acaa3.php
+│  │     ├─ 0d8b13144357f330d7c8c861a4c9ab2c.php
+│  │     ├─ 1773df56c706204342805adcb42a7115.php
+│  │     ├─ 1b8e9dac5559a14c209fd36df5a15225.php
+│  │     ├─ 22eb8eae42c599ba8c9dd4876fc849a7.php
+│  │     ├─ 28219c8155a2f356df928011d80046b0.php
+│  │     ├─ 396143b79356ad0b0f1053b49e224ec7.php
+│  │     ├─ 4a3814166a7e64ed0e5a84c7112895db.php
+│  │     ├─ 4be7b176892a5509639bee1b760f8b80.php
+│  │     ├─ 50c3ad9c21b4ebd5e5aa809c983c90f6.php
+│  │     ├─ 50f7d82012c2b3e18db56975b1882785.php
+│  │     ├─ 54d74bdf29555370c479a3af59307076.php
+│  │     ├─ 5855bba434fe8dc0965bf9e7541af038.php
+│  │     ├─ 5942872b258bb3280fbbb51877cd5e8a.php
+│  │     ├─ 61969e8957d6d1d8ed2b2f33d228bccd.php
+│  │     ├─ 68268c164e30a32f372d9ef32daec3bd.php
+│  │     ├─ 69f732ec30bf92e8cd6e4b11d123593e.php
+│  │     ├─ 6ead2b88bff4f2585ae1d45acb9f9b26.php
+│  │     ├─ 789fe0400d66a3ce25e508b35006a3db.php
+│  │     ├─ 7d3d11463513c682f5e829a82c2b2df4.php
+│  │     ├─ 8273b6b455b6a1d9d2a065dde11b4ada.php
+│  │     ├─ 8621b4c20348f86febdc9411ac4bc8e0.php
+│  │     ├─ 887d9f1000bd04da7ecddac96d054b17.php
+│  │     ├─ 8c0cf3c13e4b27bf441bb098299e6494.php
+│  │     ├─ 8ca1b0eea16fb29146e1d683f8c7a85a.php
+│  │     ├─ 90e942402fed7819e694b59d917bc2e0.php
 │  │     ├─ 95245472938aae797b87da43d15b8f9a.php
-│  │     ├─ ab26b96cc32f28f88682afd59e65469d.php
+│  │     ├─ 97ab56c3b983bbe1b81c63e51377ff9c.php
+│  │     ├─ a60c944afcd7edc87fbb06a01759eafb.php
 │  │     ├─ ab8753b4461257f4fb85f889052e5f11.php
 │  │     ├─ bc0d81ad3032929d6ccdbef00c943fae.php
-│  │     ├─ c22a38954b4ecbc916871f419f6dee35.php
+│  │     ├─ bd505a601cfcb0aa18d9f5ea11becc5c.php
+│  │     ├─ be4c7eec3eb4b90497fa3aee52cec1bc.php
+│  │     ├─ c02c224546c00467333c876706465c6a.php
+│  │     ├─ d0428481c2156e6982ac40bc84442f15.php
 │  │     ├─ d2cc06a7e3b34c2db5f7d30b1964491a.php
-│  │     ├─ e718ffa9359ce16c3ea7996405287ba2.php
-│  │     └─ ee1870d7ed41d671d963a57255e294bc.php
+│  │     ├─ daf4e8367eee70874eb348faa52286b3.php
+│  │     ├─ df99fd61a7bfa684895dfdef8df20304.php
+│  │     ├─ e0702df386324677ea105eed8692b265.php
+│  │     ├─ ee6f5b342e2a2da600f0da9ac26c373c.php
+│  │     ├─ f3d283dc88ac91e1769c92151406293d.php
+│  │     ├─ f6416e93d5de273fb2236af3973588ab.php
+│  │     ├─ f95e45b15ea80ddfea0df4b22e7ac57b.php
+│  │     └─ ff4e1f4a1ae284b553dbaee3d587464f.php
 │  └─ logs
 ├─ tests
 │  ├─ Feature
