@@ -5,68 +5,153 @@ namespace App\Http\Controllers\XacThuc;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Models\TaiLieuDangKy;
+use App\Services\NhatKyService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Validation\Rule;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Illuminate\View\View;
 
 class HoSoController extends Controller
 {
-    public function updateContact(Request $request): RedirectResponse
+    /**
+     * Hiển thị thông tin cá nhân động theo từng vai trò
+     */
+    public function index(): View
     {
-        $user = $request->user();
-        $data = $request->validate([
-            'email' => ['required', 'email', 'max:100', Rule::unique('taiKhoan', 'email')->ignore($user->id)],
-            'soDienThoai' => ['nullable', 'string', 'max:20'],
-        ]);
+        /** @var \App\Models\TaiKhoan $user */ $user = Auth::user();
 
-        $user->email = $data['email'];
-        // Cập nhật số điện thoại vào bảng toChuc nếu tài khoản thuộc về một tổ chức
-        if ($user->toChuc) {
-            $user->toChuc->soDienThoai = $data['soDienThoai'] ?? null;
-            $user->toChuc->save();
+        // Chỉ nạp thông tin tổ chức & tài liệu khi tài khoản có liên kết tổ chức
+        if ($user->toChucId) {
+            $user->load([
+                'toChuc' => function ($query) {
+                    $query->with(['yeuCauDangKys', 'taiLieuDangKys']);
+                }
+            ]);
         }
-        $user->save();
 
-        return back()->with('thanhCong', 'Đã cập nhật thông tin liên hệ thành công.');
+        // Cấu hình giao diện & đặc thù quyền hạn cho từng Vai Trò
+        $roleConfig = match ($user->vaiTro) {
+            Role::quanTriVien => [
+                'ten' => 'Quản trị viên kỹ thuật hệ thống',
+                'bgNhanClass' => 'bg-slate-100',
+                'textClass' => 'text-slate-800',
+                'btnClass' => 'bg-slate-800 hover:bg-slate-900 text-white',
+                'coThePhapLy' => false,
+                'coDiaChiVi' => false,
+            ],
+            Role::coQuanQuanLy => [
+                'ten' => 'Cơ quan quản lý nhà nước về Dược',
+                'bgNhanClass' => 'bg-indigo-100',
+                'textClass' => 'text-indigo-800',
+                'btnClass' => 'bg-indigo-700 hover:bg-indigo-800 text-white',
+                'coThePhapLy' => false,
+                'coDiaChiVi' => true,
+            ],
+            Role::nhaSanXuat => [
+                'ten' => 'Doanh nghiệp sản xuất dược phẩm',
+                'bgNhanClass' => 'bg-emerald-100',
+                'textClass' => 'text-emerald-800',
+                'btnClass' => 'bg-emerald-700 hover:bg-emerald-800 text-white',
+                'coThePhapLy' => true,
+                'coDiaChiVi' => true,
+            ],
+            Role::nhaPhanPhoi => [
+                'ten' => 'Đơn vị phân phối dược phẩm',
+                'bgNhanClass' => 'bg-blue-100',
+                'textClass' => 'text-blue-800',
+                'btnClass' => 'bg-blue-700 hover:bg-blue-800 text-white',
+                'coThePhapLy' => true,
+                'coDiaChiVi' => true,
+            ],
+            Role::nhaThuoc => [
+                'ten' => 'Cơ sở bán lẻ thuốc (Nhà thuốc GPP)',
+                'bgNhanClass' => 'bg-cyan-100',
+                'textClass' => 'text-cyan-800',
+                'btnClass' => 'bg-cyan-700 hover:bg-cyan-800 text-white',
+                'coThePhapLy' => true,
+                'coDiaChiVi' => true,
+            ],
+            default => [
+                'ten' => 'Tài khoản người dùng',
+                'bgNhanClass' => 'bg-emerald-100',
+                'textClass' => 'text-emerald-800',
+                'btnClass' => 'bg-emerald-700 hover:bg-emerald-800 text-white',
+                'coThePhapLy' => false,
+                'coDiaChiVi' => false,
+            ]
+        };
+
+        return view('trangDungChung.thongTinCaNhan', compact('user', 'roleConfig'));
     }
 
+    /**
+     * Thao tác đổi mật khẩu tài khoản cá nhân
+     */
     public function updatePassword(Request $request): RedirectResponse
     {
-        $data = $request->validate([
-            'matKhauHienTai' => ['required', 'current_password'],
-            'matKhauMoi' => ['required', 'string', 'min:8', 'confirmed', 'different:matKhauHienTai'],
+        $request->validate([
+            'matKhauHienTai' => ['required', 'string'],
+            'matKhauMoi' => ['required', 'string', 'min:8', 'different:matKhauHienTai'],
+            'xacNhanMatKhauMoi' => ['required', 'string', 'same:matKhauMoi'],
+        ], [
+            'matKhauHienTai.required' => 'Vui lòng nhập mật khẩu hiện tại.',
+            'matKhauMoi.required' => 'Vui lòng nhập mật khẩu mới.',
+            'matKhauMoi.min' => 'Mật khẩu mới phải có tối thiểu 8 ký tự.',
+            'matKhauMoi.different' => 'Mật khẩu mới không được trùng với mật khẩu hiện tại.',
+            'xacNhanMatKhauMoi.required' => 'Vui lòng xác nhận mật khẩu mới.',
+            'xacNhanMatKhauMoi.same' => 'Mật khẩu xác nhận không khớp với mật khẩu mới.',
         ]);
 
-        $user = $request->user();
-        // Gán trực tiếp text thô vì Model TaiKhoan đã khai báo cast 'matKhau' => 'hashed'
-        $user->matKhau = $data['matKhauMoi'];
-        $user->save();
-        $request->session()->regenerate();
+        /** @var \App\Models\TaiKhoan $user */ $user = Auth::user();
 
-        return back()->with('thanhCong', 'Đã đổi mật khẩu thành công.');
-    }
-
-    public function downloadDocument(Request $request, TaiLieuDangKy $taiLieu): StreamedResponse
-    {
-        $user = $request->user();
-        $vaiTro = $user->vaiTro instanceof \BackedEnum ? $user->vaiTro->value : $user->vaiTro;
-
-        // Cho phép Cơ quan quản lý hoặc chính doanh nghiệp sở hữu hồ sơ tải tệp
-        if ($vaiTro !== Role::coQuanQuanLy->value) {
-            $organizationId = $user->toChucId;
-            abort_if($organizationId === null, 403, 'Bạn không có quyền truy cập tệp này.');
-            abort_unless(
-                $taiLieu->yeuCauDangKy()->where('toChucId', $organizationId)->exists(),
-                403,
-                'Tệp không thuộc sở hữu của tổ chức bạn.'
-            );
+        // Kiểm tra mật khẩu hiện tại
+        if (! Hash::check($request->input('matKhauHienTai'), $user->matKhau)) {
+            return back()->withErrors(['matKhauHienTai' => 'Mật khẩu hiện tại không chính xác.'])->withInput();
         }
 
-        // Kiểm tra tệp trên đĩa 'public' đồng bộ với DangKyToChucController
-        abort_unless(Storage::disk('public')->exists($taiLieu->duongDan), 404, 'Tệp đính kèm không tồn tại trên máy chủ.');
+        // Cập nhật mật khẩu mới
+        $user->update([
+            'matKhau' => $request->input('matKhauMoi'),
+        ]);
 
-        return Storage::disk('public')->download($taiLieu->duongDan, $taiLieu->tenTaiLieu);
+        // Ghi log sự kiện đổi mật khẩu thành công
+        NhatKyService::ghiLog(
+            hanhDong: 'DOI_MAT_KHAU',
+            ketQua: 'THANH_CONG',
+            chiTiet: "Tài khoản [{$user->tenDangNhap}] đổi mật khẩu cá nhân thành công."
+        );
+
+        return back()->with('thanhCong', 'Đổi mật khẩu thành công! Vui lòng sử dụng mật khẩu mới cho các lần đăng nhập tiếp theo.');
+    }
+
+    /**
+     * Xem / Tải về tệp tin minh chứng giấy phép của tổ chức
+     */
+    public function downloadDocument(TaiLieuDangKy $taiLieu)
+    {
+        /** @var \App\Models\TaiKhoan $user */ $user = Auth::user();
+
+        // Nạp quan hệ yeuCauDangKy để lấy toChucId chính xác từ CSDL
+        $taiLieu->loadMissing('yeuCauDangKy');
+        $toChucIdSoHuu = $taiLieu->yeuCauDangKy?->toChucId;
+
+        // Kiểm tra quyền xem: Là chính chủ tổ chức sở hữu tệp, hoặc Admin, hoặc Cơ quan quản lý
+        $isChinhChu = $user->toChucId && ((int)$user->toChucId === (int) $toChucIdSoHuu);
+        $isAdminOrCoQuan = $user->vaiTro === Role::quanTriVien || $user->vaiTro === Role::coQuanQuanLy;
+
+        if (! $isChinhChu && !$isAdminOrCoQuan) {
+            abort(403, 'Bạn không có quyền xem tệp tin hồ sơ này.');
+        }
+
+        // Đọc đường dẫn tệp từ cột `duongDan` trong CSDL
+        $filePath = $taiLieu->duongDan ?? $taiLieu->duongDanFile;
+
+        if ($filePath && Storage::disk('public')->exists($filePath)) {
+            return Storage::disk('public')->response($filePath);
+        }
+
+        return back()->with('loi', 'Tệp tin hồ sơ không tồn tại hoặc đã bị xóa khỏi hệ thống.');
     }
 }

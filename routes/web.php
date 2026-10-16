@@ -37,9 +37,8 @@ Route::post('/dang-xuat', [DangNhapController::class, 'logout'])->name('logout')
 // --- 3. NHÓM BẢO VỆ BỞI AUTH & TRẠNG THÁI TÀI KHOẢN ---
 Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
-    // Trang cá nhân
-    Route::get('/thong-tin-ca-nhan', fn() => view('trangDungChung.thongTinCaNhan'))->name('ho-so.index');
-    Route::put('/thong-tin-ca-nhan/lien-he', [HoSoController::class, 'updateContact'])->name('ho-so.updateContact');
+    // Trang cá nhân & Đổi mật khẩu
+    Route::get('/thong-tin-ca-nhan', [HoSoController::class, 'index'])->name('ho-so.index');
     Route::put('/thong-tin-ca-nhan/mat-khau', [HoSoController::class, 'updatePassword'])->name('ho-so.updatePassword');
     Route::get('/ho-so/tai-lieu/{taiLieu}', [HoSoController::class, 'downloadDocument'])->name('ho-so.downloadDocument');
 

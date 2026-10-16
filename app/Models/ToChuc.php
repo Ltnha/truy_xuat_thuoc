@@ -1,10 +1,12 @@
 <?php
+
 namespace App\Models;
 
 use App\Enums\OrganizationApprovalStatus;
 use App\Enums\OrganizationType;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class ToChuc extends Model
@@ -31,6 +33,21 @@ class ToChuc extends Model
     public function yeuCauDangKys(): HasMany
     {
         return $this->hasMany(YeuCauDangKy::class, 'toChucId');
+    }
+
+    /**
+     * Quan hệ Xuyên qua bảng yeuCauDangKy để lấy danh sách tài liệu
+     */
+    public function taiLieuDangKys(): HasManyThrough
+    {
+        return $this->hasManyThrough(
+            TaiLieuDangKy::class,
+            YeuCauDangKy::class,
+            'toChucId',        // Khóa ngoại trên bảng yeuCauDangKy
+            'yeuCauDangKyId',  // Khóa ngoại trên bảng taiLieuDangKy
+            'id',              // Khóa chính trên bảng toChuc
+            'id'               // Khóa chính trên bảng yeuCauDangKy
+        );
     }
 
     public function sanPhams(): HasMany
