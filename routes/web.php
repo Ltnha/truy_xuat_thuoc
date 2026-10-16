@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Blockchain\SepoliaTransactionController;
 use App\Http\Controllers\CoQuan\DuyetHoSoController;
+use App\Http\Controllers\LoThuoc\LoThuocController;
 use App\Http\Controllers\XacThuc\DangKyToChucController;
 use App\Http\Controllers\XacThuc\DangNhapController;
 use App\Http\Controllers\XacThuc\HoSoController;
@@ -56,9 +58,19 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     });
 
     // --- NHÀ SẢN XUẤT ---
-    Route::middleware(['kiem.tra.vai.tro:NHA_SAN_XUAT', 'to.chuc.da.duyet'])->prefix('nha-san-xuat')->group(function () {
-        Route::get('/quan-ly-lo-thuoc', fn() => view('nhaSanXuat.quanLyLoThuoc'))->name('nha-san-xuat.lo-thuoc');
+    Route::middleware(['auth'])->prefix('nha-san-xuat')->name('nha-san-xuat.')->group(function () {
+       // Quản lý lô thuốc
+        Route::get('/quan-ly-lo-thuoc', [LoThuocController::class, 'index'])->name('lo-thuoc.index');
+        Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
+        Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
+        Route::post('/lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
+
+        // Đồng bộ Sepolia
+        Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('lo-thuoc.dong-bo');
+        Route::post('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'verifyAndSave'])->name('lo-thuoc.dong-bo.luu');
+
         Route::get('/quan-ly-san-pham', fn() => view('nhaSanXuat.quanLySanPham'))->name('nha-san-xuat.san-pham');
+        Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('nha-san-xuat.lo-thuoc.dong-bo');
     });
 
     // --- NHÀ PHÂN PHỐI ---
@@ -79,5 +91,11 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::post('/tai-khoan/{taiKhoan}/mo-khoa', [TaiKhoanController::class, 'unlock'])->name('quan-tri.tai-khoan.mo-khoa');
 
         Route::get('/nhat-ky-he-thong', [NhatKyController::class, 'index'])->name('quan-tri.nhat-ky');
+    });
+
+    // --- BLOCKCHAIN API ---
+    Route::prefix('blockchain')->group(function () {
+        Route::get('/generate-hashes/{id}', [SepoliaTransactionController::class, 'generateBatchHashes'])->name('blockchain.generate-hashes');
+        Route::post('/save-transaction', [SepoliaTransactionController::class, 'saveTransaction'])->name('blockchain.save-transaction');
     });
 });

@@ -96,14 +96,17 @@
                 </button>
             </div>
 
-            <form id="formSubmitDangKyLo" class="space-y-4 text-xs">
+            <form id="formSubmitDangKyLo" data-url="{{ route('nha-san-xuat.lo-thuoc.store') }}" class="space-y-4 text-xs">
+                @csrf
                 <div class="space-y-1">
                     <label for="chonSanPhamDaDuyet" class="font-bold text-slate-700">Chọn Sản Phẩm Đã Được Cơ Quan Quản Lý Phê Duyệt <span class="text-red-500">*</span></label>
                     <select id="chonSanPhamDaDuyet" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                         <option value="">-- Chọn sản phẩm dược hợp lệ --</option>
-                        <option value="SP01" data-ten="Paracetamol 500mg">Paracetamol 500mg (SĐK: VD-28491-18) – [Đã duyệt]</option>
-                        <option value="SP02" data-ten="Deslotid OPV 5mg">Deslotid OPV 5mg (SĐK: VD-19234-15) – [Đã duyệt]</option>
-                        <option value="SP03" data-ten="Cefalexin 500mg">Cefalexin 500mg (SĐK: VD-33012-20) – [Đã duyệt]</option>
+                        @if(isset($danhSachSanPham) && count($danhSachSanPham) > 0)
+                            @foreach($danhSachSanPham as $sp)
+                                <option value="{{ $sp->id }}" data-ten="{{ $sp->tenSanPham }}">{{ $sp->tenSanPham }} (SĐK: {{ $sp->soDangKy }}) – [Đã duyệt]</option>
+                            @endforeach
+                        @endif
                     </select>
                 </div>
 
@@ -224,9 +227,15 @@
                 <label for="chonNhaPhanPhoi" class="font-bold text-slate-700">Đơn Vị Tiếp Nhận (Nhà Phân Phối Đã Duyệt) <span class="text-red-500">*</span></label>
                 <select id="chonNhaPhanPhoi" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                     <option value="">-- Chọn Nhà phân phối hợp lệ --</option>
-                    <option value="NPP01">Công ty Cổ phần Dược phẩm CPC1 Hà Nội (Ví: 0x3a...11C)</option>
-                    <option value="NPP02">Tổng Công ty Dược Việt Nam - Vinapharm (Ví: 0x7c...88D)</option>
-                    <option value="NPP03">Công ty Dược phẩm Vimedimex TP.HCM (Ví: 0x1e...44E)</option>
+                    @if(isset($danhSachNhaPhanPhoi) && count($danhSachNhaPhanPhoi) > 0)
+                        @foreach($danhSachNhaPhanPhoi as $npp)
+                            <option value="{{ $npp->id }}">{{ $npp->tenToChuc }} (MST: {{ $npp->maSoThue }})</option>
+                        @endforeach
+                    @else
+                        <option value="NPP01">Công ty Cổ phần Dược phẩm CPC1 Hà Nội (Ví: 0x3a...11C)</option>
+                        <option value="NPP02">Tổng Công ty Dược Việt Nam - Vinapharm (Ví: 0x7c...88D)</option>
+                        <option value="NPP03">Công ty Dược phẩm Vimedimex TP.HCM (Ví: 0x1e...44E)</option>
+                    @endif
                 </select>
             </div>
 
@@ -237,7 +246,7 @@
             </div>
 
             <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức[cite: 8].
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức[cite: 4].
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">

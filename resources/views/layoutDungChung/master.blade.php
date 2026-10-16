@@ -2,6 +2,7 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Quản Trị Hệ Thống - PharmaChain')</title>
     <!-- Tối ưu kết nối sớm tới các CDN -->
     <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">

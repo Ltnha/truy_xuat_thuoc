@@ -68,7 +68,7 @@ class DangNhapController extends Controller
         $request->session()->regenerate();
 
         $redirectUrl = match ($taiKhoan->vaiTro) {
-            Role::nhaSanXuat => route('nha-san-xuat.lo-thuoc'),
+            Role::nhaSanXuat => route('nha-san-xuat.lo-thuoc.index'),
             Role::nhaPhanPhoi => route('nha-phan-phoi.lo-hang'),
             Role::nhaThuoc => route('nha-thuoc.tiep-nhan'),
             Role::coQuanQuanLy => route('co-quan.phe-duyet-tai-khoan'),

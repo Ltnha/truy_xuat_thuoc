@@ -1,34 +1,28 @@
 <?php
+
 namespace App\Models;
 
-use App\Enums\ProductApprovalStatus;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SanPham extends Model
 {
     protected $table = 'sanPham';
-    public $timestamps = false;
-    protected $guarded = ['id'];
+    public $timestamps = false; // Bảng không có cột created_at/updated_at
 
-    protected function casts(): array
-    {
-        return ['trangThaiDuyet' => ProductApprovalStatus::class];
-    }
+    protected $fillable = [
+        'maSanPham',
+        'tenSanPham',
+        'soDangKy',
+        'thanhPhan',
+        'hamLuong',
+        'dangBaoChe',
+        'quyCachDongGoi',
+        'nhaSanXuatId',
+        'trangThaiDuyet'
+    ];
 
-    public function nhaSanXuat(): BelongsTo
+    public function nhaSanXuat()
     {
         return $this->belongsTo(ToChuc::class, 'nhaSanXuatId');
-    }
-
-    public function loThuocs(): HasMany
-    {
-        return $this->hasMany(LoThuoc::class, 'sanPhamId');
-    }
-
-    public function yeuCauDangKySanPhams(): HasMany
-    {
-        return $this->hasMany(YeuCauDangKySanPham::class, 'sanPhamId');
     }
 }
