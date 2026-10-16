@@ -310,8 +310,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 const p3 = formatBytes32(eventType);
                 const p4 = formatBytes32(payloadHash);
 
-                // 4. Ghép chuỗi Calldata (Selector recordBatchEvent: 0x6b2b73ad + 4 x 64 hex = 266 ký tự)
-                const encodedData = '0x6b2b73ad' + p1 + p2 + p3 + p4;
+                // 4. Ghép chuỗi Calldata (Selector recordBatchEvent: 0xb24a0fc4 + 4 x 64 hex = 266 ký tự)
+                const encodedData = '0xb24a0fc4' + p1 + p2 + p3 + p4;
 
                 console.log('--- CHI TIẾT CALLDATA METAMASK ---');
                 console.log('Contract Address:', contractAddress);

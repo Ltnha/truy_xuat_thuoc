@@ -53,8 +53,8 @@ class SepoliaBlockchainGateway implements BlockchainGateway
         $eventTypeHex  = str_pad(substr(bin2hex(hash('sha256', $tenNghiepVu, true)), 0, 64), 64, '0', STR_PAD_RIGHT);
         $payloadHashHex = str_pad(substr(bin2hex(hash('sha256', json_encode($duLieu), true)), 0, 64), 64, '0', STR_PAD_RIGHT);
 
-        // 2. Function Selector của recordBatchEvent(bytes32,bytes32,bytes32,bytes32) -> 0x6a2c27b0
-        $functionSelector = '6a2c27b0';
+        // 2. Function Selector của recordBatchEvent(bytes32,bytes32,bytes32,bytes32) -> 0xb24a0fc4
+        $functionSelector = 'b24a0fc4';
         $callData = '0x' . $functionSelector . $batchIdHex . $businessIdHex . $eventTypeHex . $payloadHashHex;
 
         // 3. Gửi giao dịch và lấy txHash

@@ -33,8 +33,8 @@ class BlockchainService
             'hanSuDung' => $loThuoc->hanSuDung
         ]));
 
-        // 2. Encode Data gọi hàm recordBatchEvent(bytes32,bytes32,bytes32,bytes32) - Selector: 0x6b2b73ad
-        $data = '0x6b2b73ad' 
+        // 2. Encode Data gọi hàm recordBatchEvent(bytes32,bytes32,bytes32,bytes32) - Selector: 0xb24a0fc4
+        $data = '0xb24a0fc4' 
             . substr($batchId, 2) 
             . substr($businessId, 2) 
             . substr($eventType, 2) 
