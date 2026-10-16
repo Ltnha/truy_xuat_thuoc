@@ -12,7 +12,7 @@ class NhatKyController extends Controller
     public function index(Request $request): View
     {
         $tuKhoa = $request->input('tuKhoa');
-        $khoangThoiGian = $request->input('khoangThoiGian', '7_NGAY');
+        $khoangThoiGian = $request->input('khoangThoiGian', 'TAT_CA'); // Đổi mặc định sang TAT_CA để không ẩn dữ liệu cũ
         $hanhDong = $request->input('hanhDong', 'TAT_CA');
         $ketQua = $request->input('ketQua', 'TAT_CA');
         $tuNgay = $request->input('tuNgay');
