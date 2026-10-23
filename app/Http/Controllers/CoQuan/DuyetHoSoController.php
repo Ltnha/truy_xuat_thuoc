@@ -3,25 +3,23 @@
 namespace App\Http\Controllers\CoQuan;
 
 use App\Enums\AccountStatus;
-use App\Enums\BlockchainIdentityStatus;
 use App\Enums\OrganizationApprovalStatus;
 use App\Http\Controllers\Controller;
-use App\Models\BlockchainIdentity;
-use App\Models\BlockchainTransaction;
+use App\Jobs\ProcessOrganizationApprovalJob;
+use App\Jobs\RevokeOrganizationRoleJob;
 use App\Models\NhatKyHeThong;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
-use App\Services\Blockchain\SepoliaBlockchainGateway;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class DuyetHoSoController extends Controller
 {
-    public function __construct(protected SepoliaBlockchainGateway $blockchainGateway) {}
-
+    /**
+     * Hiển thị danh sách hồ sơ đăng ký tổ chức
+     */
     public function index(Request $request): View
     {
         $tuKhoa = trim($request->input('tuKhoa', ''));
@@ -36,7 +34,6 @@ class DuyetHoSoController extends Controller
                 'blockchainIdentity',
             ]);
 
-        // 1. Tìm kiếm theo từ khóa (Tên tổ chức, Mã số thuế, Số GPKD)
         if ($tuKhoa !== '') {
             $query->where(function ($q) use ($tuKhoa) {
                 $q->where('tenToChuc', 'like', "%{$tuKhoa}%")
@@ -45,14 +42,12 @@ class DuyetHoSoController extends Controller
             });
         }
 
-        // 2. Lọc theo loại hình tổ chức (Loại trừ Cơ quan quản lý)
         if ($loaiToChuc !== 'TAT_CA' && in_array($loaiToChuc, ['NHA_SAN_XUAT', 'NHA_PHAN_PHOI', 'NHA_THUOC'], true)) {
             $query->where('loaiToChuc', $loaiToChuc);
         } else {
             $query->where('loaiToChuc', '<>', 'CO_QUAN_QUAN_LY');
         }
 
-        // 3. Lọc theo trạng thái phê duyệt
         if ($trangThaiDuyet !== 'TAT_CA') {
             $query->where('trangThaiDuyet', $trangThaiDuyet);
         }
@@ -62,89 +57,84 @@ class DuyetHoSoController extends Controller
         return view('coQuanQuanLy.pheDuyetTaiKhoanToChuc', compact('toChucs', 'tuKhoa', 'loaiToChuc', 'trangThaiDuyet'));
     }
 
+    /**
+     * Phê duyệt hoặc Từ chối hồ sơ tổ chức
+     */
     public function approveOrganization(Request $request, ToChuc $toChuc): RedirectResponse
     {
         $duLieu = $request->validate([
             'trangThaiDuyet' => ['required', 'in:DA_DUYET,TU_CHOI'],
-            'lyDo' => ['nullable', 'required_if:trangThaiDuyet,TU_CHOI', 'string', 'max:500'],
-            'txHash' => ['nullable', 'string'],
-            'diaChiVi' => ['nullable', 'string'],
+            'lyDo'           => ['nullable', 'required_if:trangThaiDuyet,TU_CHOI', 'string', 'max:500'],
         ]);
 
-        DB::transaction(function () use ($request, $toChuc, $duLieu): void {
-            $status = OrganizationApprovalStatus::from($duLieu['trangThaiDuyet']);
-            $toChuc->trangThaiDuyet = $status;
-            $toChuc->save();
+        // 1. TRƯỜNG HỢP PHÊ DUYỆT:
+        if ($duLieu['trangThaiDuyet'] === 'DA_DUYET') {
+            // Đẩy Job ngầm vào hàng đợi xử lý On-chain
+            // Job sẽ tự sinh ví, nạp gas, gọi grantRole và chỉ chuyển toChuc.trangThaiDuyet = 'DA_DUYET' khi On-chain thành công 100%
+            ProcessOrganizationApprovalJob::dispatch($toChuc->id, $request->user()->id);
 
-            // Cập nhật Yêu cầu đăng ký mới nhất
+            return back()->with('thanhCong', "Đã tiếp nhận yêu cầu phê duyệt tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang khởi tạo Ví Custodial và cấp quyền On-chain ngầm.");
+        }
+
+        // 2. TRƯỜNG HỢP TỪ CHỐI:
+        DB::transaction(function () use ($toChuc, $duLieu, $request): void {
+            $status = OrganizationApprovalStatus::tuChoi;
+            $toChuc->update(['trangThaiDuyet' => $status]);
+
             $yeuCau = $toChuc->yeuCauDangKys()->latest('id')->first();
             if ($yeuCau) {
-                $yeuCau->trangThai = $status->value;
-                $yeuCau->nguoiDuyetId = $request->user()->id;
-                $yeuCau->ngayXuLy = now();
-                $yeuCau->lyDoTuChoi = $duLieu['lyDo'] ?? null;
-                $yeuCau->save();
+                $yeuCau->update([
+                    'trangThai'    => 'TU_CHOI',
+                    'nguoiDuyetId' => $request->user()->id,
+                    'ngayXuLy'     => now(),
+                    'lyDoTuChoi'   => $duLieu['lyDo'] ?? null,
+                ]);
             }
 
-            $taiKhoanDaiDien = TaiKhoan::query()->where('toChucId', $toChuc->id)->first();
+            $taiKhoanDaiDien = $toChuc->taiKhoans()->first();
 
-            if ($status === OrganizationApprovalStatus::daDuyet) {
-                // 1. Kích hoạt tài khoản đại diện
-                if ($taiKhoanDaiDien) {
-                    $taiKhoanDaiDien->update(['trangThai' => AccountStatus::active]);
-                }
-
-                $address = $duLieu['diaChiVi'] ?? null;
-                $txHash = $duLieu['txHash'] ?? null;
-
-                // 2. Tạo hoặc Cập nhật Ví Custodial Wallet cho Doanh nghiệp
-                $identity = $toChuc->blockchainIdentity;
-                if (! $identity) {
-                    $walletInfo = $address
-                        ? ['address' => $address, 'privateKey' => bin2hex(random_bytes(32))]
-                        : $this->blockchainGateway->taoViCustodial();
-
-                    $identity = BlockchainIdentity::create([
-                        'toChucId' => $toChuc->id,
-                        'khoaRiengMaHoa' => encrypt($walletInfo['privateKey']),
-                        'network' => 'Sepolia Testnet',
-                        'address' => $walletInfo['address'],
-                        'certificateId' => 'CERT-SEPOLIA-' . strtoupper(Str::random(8)),
-                        'trangThai' => BlockchainIdentityStatus::active,
-                    ]);
-                } elseif ($address && $identity->address !== $address) {
-                    $identity->update(['address' => $address]);
-                }
-
-                // 3. Ghi nhận giao dịch Blockchain THẬT từ MetaMask vào CSDL
-                if ($txHash) {
-                    BlockchainTransaction::create([
-                        'txHash' => $txHash,
-                        'eventName' => 'RoleGranted',
-                        'doiTuongToChucId' => $toChuc->id,
-                        'businessId' => (string) Str::uuid(),
-                        'network' => 'Sepolia Testnet',
-                        'trangThai' => 'CONFIRMED',
-                        'toChucId' => $toChuc->id,
-                    ]);
-                }
-            }
-
-            // Ghi vết nhật ký hệ thống
-            NhatKyHeThong::query()->create([
+            NhatKyHeThong::create([
                 'taiKhoanId' => $request->user()->id,
                 'doiTuongId' => $taiKhoanDaiDien?->id,
-                'hanhDong' => $status === OrganizationApprovalStatus::daDuyet ? 'DUYET_TO_CHUC' : 'TU_CHOI_TO_CHUC',
-                'ketQua' => 'THANH_CONG',
-                'thoiGian' => now(),
-                'chiTiet' => "Xử lý phê duyệt tổ chức [{$toChuc->tenToChuc}]. Trạng thái: {$status->value}." . (! empty($duLieu['txHash']) ? " TxHash Sepolia: {$duLieu['txHash']}" : '') . (! empty($duLieu['lyDo']) ? " Lý do từ chối: {$duLieu['lyDo']}" : ''),
+                'hanhDong'   => 'TU_CHOI_TO_CHUC',
+                'ketQua'     => 'THANH_CONG',
+                'thoiGian'   => now(),
+                'chiTiet'    => "Từ chối hồ sơ đăng ký của tổ chức [{$toChuc->tenToChuc}]. Lý do: " . ($duLieu['lyDo'] ?? 'Không có'),
             ]);
         });
 
-        $thongBao = $duLieu['trangThaiDuyet'] === 'DA_DUYET'
-            ? "Đã phê duyệt tổ chức [{$toChuc->tenToChuc}] và cấp quyền vai trò On-chain trên Sepolia thành công!"
-            : "Đã từ chối hồ sơ đăng ký của tổ chức [{$toChuc->tenToChuc}].";
+        return back()->with('thanhCong', "Đã từ chối hồ sơ đăng ký của tổ chức [{$toChuc->tenToChuc}].");
+    }
 
-        return back()->with('thanhCong', $thongBao);
+    /**
+     * Thu hồi quyền Tổ chức (Revoke Role On-chain)
+     */
+    public function thuHoiQuyenToChuc(Request $request, ToChuc $toChuc): RedirectResponse
+    {
+        DB::transaction(function () use ($request, $toChuc): void {
+            // 1. Khóa Off-chain ngay lập tức
+            $toChuc->update([
+                'trangThaiDuyet' => OrganizationApprovalStatus::biThuHoi ?? 'BI_THU_HOI',
+            ]);
+
+            // Vô hiệu hóa tài khoản đăng nhập của doanh nghiệp
+            $toChuc->taiKhoans()->update([
+                'trangThai' => AccountStatus::locked,
+            ]);
+
+            // 2. Đẩy Job ngầm tước quyền On-chain (revokeRole)
+            RevokeOrganizationRoleJob::dispatch($toChuc->id, $request->user()->id);
+
+            NhatKyHeThong::create([
+                'taiKhoanId' => $request->user()->id,
+                'doiTuongId' => $toChuc->taiKhoans()->first()?->id,
+                'hanhDong'   => 'THU_HOI_QUYEN_TO_CHUC',
+                'ketQua'     => 'THANH_CONG',
+                'thoiGian'   => now(),
+                'chiTiet'    => "Đã đình chỉ tổ chức [{$toChuc->tenToChuc}]. Đang tước quyền On-chain ngầm.",
+            ]);
+        });
+
+        return back()->with('thanhCong', "Đã đình chỉ tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang gửi lệnh tước quyền On-chain lên Sepolia.");
     }
 }
