@@ -9,15 +9,15 @@ CREATE TABLE toChuc (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenToChuc VARCHAR(255) NOT NULL,
     loaiToChuc ENUM('NHA_SAN_XUAT','NHA_PHAN_PHOI','NHA_THUOC','CO_QUAN_QUAN_LY') NOT NULL,
-    diaChi VARCHAR(255),
-    soDienThoai VARCHAR(20),
+    diaChi VARCHAR(255) NULL, --v6
+    soDienThoai VARCHAR(20) NULL, --v6
     maSoThue VARCHAR(20) UNIQUE,
     soGiayPhepDuoc VARCHAR(50) NULL,
     ngayCapGiayPhep DATE NULL,
     ngayHetHanGiayPhep DATE NULL,
     coQuanCap VARCHAR(255) NULL,
     trangThaiDuyet ENUM('CHO_DUYET','DA_DUYET','TU_CHOI','BI_THU_HOI') NOT NULL DEFAULT 'CHO_DUYET'
-);
+)
 
 -- 2. Bảng taiKhoan
 CREATE TABLE taiKhoan (
@@ -76,11 +76,12 @@ CREATE TABLE thuHoiQuyenToChuc (
     toChucId BIGINT NOT NULL,
     nguoiThuHoiId BIGINT NOT NULL,
     lyDoThuHoi TEXT NOT NULL,
+    trangThaiDongBo ENUM('PENDING', 'SUCCESS', 'FAILED') NOT NULL DEFAULT 'PENDING', --v6
+    txHash VARCHAR(66) NULL, --v6
     ngayThuHoi DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (toChucId) REFERENCES toChuc(id),
     FOREIGN KEY (nguoiThuHoiId) REFERENCES taiKhoan(id)
-);
-
+)
 -- 6. Bảng nhatKyHeThong
 CREATE TABLE nhatKyHeThong (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -276,13 +277,13 @@ CREATE TABLE thuHoiLoHang (
 CREATE TABLE blockchainIdentity (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     toChucId BIGINT NOT NULL,
-    khoaRiengMaHoa VARCHAR(255) NOT NULL,
-    network VARCHAR(50) NOT NULL DEFAULT 'sepolia Testnet',
-    address VARCHAR(42) NOT NULL UNIQUE,
-    certificateId VARCHAR(100) NULL,
-    trangThai ENUM('ACTIVE','INACTIVE','REVOKED') NOT NULL DEFAULT 'ACTIVE',
+    signerKeyId VARCHAR(100) NULL, --v6 mã định danh tham chiếu ví bên Signer Service
+    diaChiVi VARCHAR(42) NOT NULL UNIQUE, --v6
+    network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet',
+    trangThai ENUM('KHOI_TAO', 'DA_NAP_GAS', 'ACTIVE', 'INACTIVE', 'REVOKED') NOT NULL DEFAULT 'KHOI_TAO', --v6
+    ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, --v6
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 20. Bảng blockchainTransaction (Nguồn tham chiếu duy nhất cho mọi TxHash)
 CREATE TABLE blockchainTransaction (
@@ -293,7 +294,7 @@ CREATE TABLE blockchainTransaction (
     doiTuongToChucId BIGINT NULL,
     businessId VARCHAR(36) NOT NULL,
     thoiGian DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    network VARCHAR(50) NOT NULL DEFAULT 'Polygon Testnet',
+    network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet', --v6
     trangThai ENUM('PENDING','CONFIRMED','FAILED') NOT NULL DEFAULT 'PENDING',
     toChucId BIGINT NOT NULL,
     sanPhamId BIGINT NULL,

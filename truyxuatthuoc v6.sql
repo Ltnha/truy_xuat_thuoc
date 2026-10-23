@@ -9,8 +9,8 @@ CREATE TABLE toChuc (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenToChuc VARCHAR(255) NOT NULL,
     loaiToChuc ENUM('NHA_SAN_XUAT','NHA_PHAN_PHOI','NHA_THUOC','CO_QUAN_QUAN_LY') NOT NULL,
-    diaChi VARCHAR(255),
-    soDienThoai VARCHAR(20),
+    diaChi VARCHAR(255) NULL, -- v6
+    soDienThoai VARCHAR(20) NULL, -- v6
     maSoThue VARCHAR(20) UNIQUE,
     soGiayPhepDuoc VARCHAR(50) NULL,
     ngayCapGiayPhep DATE NULL,
@@ -76,11 +76,12 @@ CREATE TABLE thuHoiQuyenToChuc (
     toChucId BIGINT NOT NULL,
     nguoiThuHoiId BIGINT NOT NULL,
     lyDoThuHoi TEXT NOT NULL,
+    trangThaiDongBo ENUM('PENDING', 'SUCCESS', 'FAILED') NOT NULL DEFAULT 'PENDING', -- v6
+    txHash VARCHAR(66) NULL, -- v6
     ngayThuHoi DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (toChucId) REFERENCES toChuc(id),
     FOREIGN KEY (nguoiThuHoiId) REFERENCES taiKhoan(id)
 );
-
 -- 6. Bảng nhatKyHeThong
 CREATE TABLE nhatKyHeThong (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -276,13 +277,13 @@ CREATE TABLE thuHoiLoHang (
 CREATE TABLE blockchainIdentity (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     toChucId BIGINT NOT NULL,
-    khoaRiengMaHoa TEXT NOT NULL,
-    network VARCHAR(50) NOT NULL DEFAULT 'sepolia Testnet',
-    address VARCHAR(42) NOT NULL UNIQUE,
-    certificateId VARCHAR(100) NULL,
-    trangThai ENUM('ACTIVE','INACTIVE','REVOKED') NOT NULL DEFAULT 'ACTIVE',
+    signerKeyId VARCHAR(100) NULL, -- v6 mã định danh tham chiếu ví bên Signer Service
+    diaChiVi VARCHAR(42) NOT NULL UNIQUE, -- v6
+    network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet',
+    trangThai ENUM('KHOI_TAO', 'DA_NAP_GAS', 'ACTIVE', 'INACTIVE', 'REVOKED') NOT NULL DEFAULT 'KHOI_TAO', -- v6
+    ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- v6
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
-);
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 20. Bảng blockchainTransaction (Nguồn tham chiếu duy nhất cho mọi TxHash)
 CREATE TABLE blockchainTransaction (
@@ -293,7 +294,7 @@ CREATE TABLE blockchainTransaction (
     doiTuongToChucId BIGINT NULL,
     businessId VARCHAR(36) NOT NULL,
     thoiGian DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    network VARCHAR(50) NOT NULL DEFAULT 'Polygon Testnet',
+    network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet', -- v6
     trangThai ENUM('PENDING','CONFIRMED','FAILED') NOT NULL DEFAULT 'PENDING',
     toChucId BIGINT NOT NULL,
     sanPhamId BIGINT NULL,
@@ -846,27 +847,22 @@ VALUES
 
 -- 18. Bảng blockchainIdentity
 INSERT INTO blockchainIdentity
-    (id, toChucId, network, address, certificateId, trangThai)
+    (id, toChucId, signerKeyId, diaChiVi, network, trangThai)
 VALUES
-    (1, 1, 'Polygon Testnet', '0x1111111111111111111111111111111111111111', 'DEMO-CERT-NSX-001', 'ACTIVE'),
-   
-    (3, 3, 'Polygon Testnet', '0x3333333333333333333333333333333333333333', 'DEMO-CERT-NT-001', 'ACTIVE'),
-    (4, 4, 'Polygon Testnet', '0x4444444444444444444444444444444444444444', 'DEMO-CERT-CQ-001', 'ACTIVE'),
-    (5, 6, 'Polygon Testnet', '0xc78c8a47d7fabc536420bec3b7ed0bc95598c201', 'DEMO-CERT-EXP-001', 'ACTIVE'),
-    (6, 7, 'Polygon Testnet', '0xcaf40b8269540029e17267490dbf7690dd6ac41f', 'DEMO-CERT-EXP-002', 'ACTIVE'),
-    (7, 8, 'Polygon Testnet', '0xe4805774a21fe5a653d7ddb2aa59483a949a81f9', 'DEMO-CERT-EXP-003', 'ACTIVE'),
-    (8, 9, 'Polygon Testnet', '0x1e60991f6b1f4b0594227d9a8bbe36b84d1856ba', 'DEMO-CERT-EXP-004', 'ACTIVE'),
-    (9, 10, 'Polygon Testnet', '0xb840087a6457de1ef6a838b26ffdabcfef5c069f', 'DEMO-CERT-EXP-005', 'INACTIVE');
-
-INSERT INTO `blockchainIdentity` 
-    (`id`, `toChucId`, `khoaRiengMaHoa`, `network`, `address`, `certificateId`, `trangThai`) 
-VALUES 
-    (2, 2, 'CQQL_ROOT_PRIVATE_KEY_SEPOLIA', 'Ethereum Sepolia', '0x0285C31E1Cb022a4637533e75E505E811CBdF869', 'CERT-CQQL-001', 'ACTIVE')
+    (1, 1, 'KEY-DEMO-NSX-001', '0x1111111111111111111111111111111111111111', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (2, 2, 'KEY-DEMO-CQQL-001', '0x0285C31E1Cb022a4637533e75E505E811CBdF869', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (3, 3, 'KEY-DEMO-NT-001',   '0x3333333333333333333333333333333333333333', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (4, 4, 'KEY-DEMO-CQ-001',   '0x4444444444444444444444444444444444444444', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (5, 6, 'KEY-DEMO-EXP-001',  '0xc78c8a47d7fabc536420bec3b7ed0bc95598c201', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (6, 7, 'KEY-DEMO-EXP-002',  '0xcaf40b8269540029e17267490dbf7690dd6ac41f', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (7, 8, 'KEY-DEMO-EXP-003',  '0xe4805774a21fe5a653d7ddb2aa59483a949a81f9', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (8, 9, 'KEY-DEMO-EXP-004',  '0x1e60991f6b1f4b0594227d9a8bbe36b84d1856ba', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (9, 10, 'KEY-DEMO-EXP-005', '0xb840087a6457de1ef6a838b26ffdabcfef5c069f', 'Ethereum Sepolia Testnet', 'INACTIVE')
 ON DUPLICATE KEY UPDATE 
-    `address` = '0x0285C31E1Cb022a4637533e75E505E811CBdF869',
-    `network` = 'Ethereum Sepolia',
-    `trangThai` = 'ACTIVE';
--- 19. Bảng blockchainTransaction
+    `signerKeyId` = VALUES(`signerKeyId`),
+    `diaChiVi`   = VALUES(`diaChiVi`),
+    `network`     = VALUES(`network`),
+    `trangThai`   = VALUES(`trangThai`);
 INSERT INTO blockchainTransaction
     (id, txHash, blockNumber, eventName, businessId, thoiGian, network, trangThai, toChucId, loThuocId, chuyenGiaoId, donViSanPhamId, banLeId)
 VALUES
