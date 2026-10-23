@@ -16,11 +16,7 @@ const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
 const adminWallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
 
 // ABI tối giản khớp với Smart Contract BatchTraceability.sol
-const CONTRACT_ABI = [
-    "function grantRole(address account, bytes32 role) external",
-    "function revokeRole(address account, bytes32 role) external",
-    "function hasRole(address account, bytes32 role) public view returns (bool)"
-];
+const CONTRACT_ABI = require('../API.json');
 
 // --- HÀM MÃ HÓA & GIẢI MÃ BẢO MẬT PRIVATE KEY (AES-256-CBC) ---
 const ALGORITHM = 'aes-256-cbc';
