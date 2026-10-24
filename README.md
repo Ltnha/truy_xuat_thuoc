@@ -1,6 +1,7 @@
 ```
 truy_xuat_thuoc
 ├─ .editorconfig
+├─ API.json
 ├─ app
 │  ├─ Enums
 │  │  ├─ AccountStatus.php
@@ -61,6 +62,9 @@ truy_xuat_thuoc
 │  │     └─ XacThuc
 │  │        ├─ DangKyToChucRequest.php
 │  │        └─ DangNhapRequest.php
+│  ├─ Jobs
+│  │  ├─ ProcessOrganizationApprovalJob.php
+│  │  └─ RevokeOrganizationRoleJob.php
 │  ├─ Models
 │  │  ├─ BanLe.php
 │  │  ├─ BaoCaoNghiVan.php
@@ -94,12 +98,15 @@ truy_xuat_thuoc
 │  └─ Services
 │     ├─ Blockchain
 │     │  ├─ BlockchainGateway.php
+│     │  ├─ BlockchainService.php
 │     │  ├─ ChainId.php
 │     │  ├─ FakeBlockchainGateway.php
 │     │  ├─ GhiNhanBlockchain.php
+│     │  ├─ RoleMap.php
 │     │  ├─ SepoliaBatchEvent.php
 │     │  ├─ SepoliaBlockchainGateway.php
-│     │  └─ SepoliaTransactionSynchronizer.php
+│     │  ├─ SepoliaTransactionSynchronizer.php
+│     │  └─ SignerClient.php
 │     ├─ ChuoiCungUng
 │     │  ├─ BanLeService.php
 │     │  ├─ ChuyenGiaoService.php
@@ -123,7 +130,6 @@ truy_xuat_thuoc
 │  ├─ app.php
 │  ├─ cache
 │  │  ├─ packages.php
-│  │  ├─ routes-v7.php
 │  │  └─ services.php
 │  └─ providers.php
 ├─ composer.json
@@ -143,12 +149,15 @@ truy_xuat_thuoc
 ├─ contracts
 │  └─ BatchTraceability.sol
 ├─ database
+│  ├─ migrations
+│  │  └─ 2026_10_23_235455_create_jobs_table.php
 │  └─ seeders
 │     ├─ DatabaseSeeder.php
 │     ├─ DemoDataExpansionSeeder.php
 │     ├─ QuanTriSeeder.php
 │     └─ QuyenHanSeeder.php
 ├─ docs
+│  ├─ các cấu lệnh chạy.md
 │  └─ huong-dan-blockchain-testnet.md
 ├─ monolog_check.txt
 ├─ package-lock.json
@@ -261,6 +270,7 @@ truy_xuat_thuoc
 │     ├─ nhaPhanPhoi
 │     │  └─ quanLyLoHang.blade.php
 │     ├─ nhaSanXuat
+│     │  ├─ dongBoSepolia.blade.php
 │     │  ├─ quanLyLoThuoc.blade.php
 │     │  └─ quanLySanPham.blade.php
 │     ├─ nhaThuoc
@@ -275,6 +285,11 @@ truy_xuat_thuoc
 ├─ routes
 │  ├─ console.php
 │  └─ web.php
+├─ signer-service
+│  ├─ index.js
+│  ├─ package-lock.json
+│  ├─ package.json
+│  └─ wallets.json
 ├─ storage
 │  ├─ app
 │  │  ├─ private
@@ -284,33 +299,50 @@ truy_xuat_thuoc
 │  │     └─ tai-lieu-dang-ky
 │  │        ├─ 6sMeZfSs4cJQNKAlQgxNEVbcxYYcZUxkWoJQMHE9.jpg
 │  │        ├─ 7AsYltpBUIDiLZNztdw7ywwNCCvHPIbCXZdTdvq1.pdf
+│  │        ├─ 9lUxHnkDiWbC3SEkovTEJERX9OjMJ8YuhvlxjIEr.pdf
 │  │        ├─ 9tBtHGgIYmtkbNqk8vhAg98EjxwI5PEXMGl7m9ts.pdf
+│  │        ├─ aNZQaGKL79VPXkRF7tT6x0NKhXno18v03ICnXdfj.pdf
 │  │        ├─ bEQhmyQYuL1feRKnBNVse8NGwZJgroB5ASMqvNfx.jpg
 │  │        ├─ bxX4mCJvSxv2Xsn5TIfhU4KP6iGo5lbInGDxXGrD.jpg
 │  │        ├─ fZt7hd4bBjnspck1JNO6ocwGNUiBjxxE1TJ2r6Kn.pdf
 │  │        ├─ GeucZpXFGAJCoVJHF7HMvdJfcPVuBo8sRvX8yRQ1.jpg
+│  │        ├─ GZI26WWdx971uYzb0R4o0tZd7lBpRwFJpcOawhnf.pdf
 │  │        ├─ hjGDt5OZCMCr3enOd3CfMT5zom4I9t28h4GiN9GC.pdf
+│  │        ├─ hOxO3A5XF3dzY95DzML9RKtmaPnB5t7SPG8bS8va.pdf
+│  │        ├─ kkje5Xi4hq0NXIDGjC9WPo4EWbSzViVcn1gFCjri.pdf
 │  │        ├─ LaCzQt8cqih0MXhQZ8SK4wFBfEZzdnxta8SiNgCj.png
+│  │        ├─ lhT6l4v3HNwf280AY3NzGi5LHFik3HejyrLCGRFs.pdf
+│  │        ├─ ljsMFuDl4D7qtYiozZODwtZ9YjmTNESi5vXG5KY4.pdf
 │  │        ├─ lsakk7uDwI6rNjxtKj57hwAeWoBgwokswf5L39Cv.jpg
+│  │        ├─ MujsiK7C8ZwACOWpaCPKG0hyPzs3PXDMABGy7j4b.pdf
 │  │        ├─ nXMDEF2EX4KZEfguijtXDu0Z8c1kxdfT66MTgznr.jpg
-│  │        └─ T6ag19jfEKZqL5ymvC2gQ6ogSVsO1vC5SNOycgIo.jpg
+│  │        ├─ RmRcFyVuDwkam0faDtPp0KpPKIlGBWbMzA6TN2fT.pdf
+│  │        ├─ T6ag19jfEKZqL5ymvC2gQ6ogSVsO1vC5SNOycgIo.jpg
+│  │        ├─ uuihWj9GYTsvIrRBPfqGPa9Ya61sX7H36uqtP6rK.pdf
+│  │        └─ yfPtKCxKlTRXPFW9J8lY6XjGpJyI1JIMWKF3u5Mg.pdf
 │  ├─ framework
 │  │  ├─ cache
 │  │  │  └─ data
 │  │  ├─ sessions
-│  │  │  └─ l1nzqLbM8DQ20N2ET1YeFCPpBKTtSt8SgPhTf2Lo
+│  │  │  └─ mXdDPVS89tX0Ud1f0L27jsGYXVVELdCEH58qEzIr
 │  │  ├─ testing
 │  │  └─ views
+│  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
 │  │     ├─ 035731246571d2843ed8806b895b1df3.php
 │  │     ├─ 0421cdad5b572f8bb719588f1d726fa9.php
 │  │     ├─ 0d04c670e3e803c183a03541de2acaa3.php
 │  │     ├─ 0d8b13144357f330d7c8c861a4c9ab2c.php
 │  │     ├─ 1773df56c706204342805adcb42a7115.php
+│  │     ├─ 1878de6f35923c583b84d5595cb57dde.php
 │  │     ├─ 1b8e9dac5559a14c209fd36df5a15225.php
 │  │     ├─ 22eb8eae42c599ba8c9dd4876fc849a7.php
+│  │     ├─ 2305f106441e1f9a23c54e332fd4f3da.php
 │  │     ├─ 28219c8155a2f356df928011d80046b0.php
+│  │     ├─ 37fb0fc92ef29363203344bab840c906.php
 │  │     ├─ 396143b79356ad0b0f1053b49e224ec7.php
+│  │     ├─ 3a21b499124aa2e727ce7f19eba89c83.php
 │  │     ├─ 4a3814166a7e64ed0e5a84c7112895db.php
+│  │     ├─ 4b6b03a8365874d03bcd495e4b77ff8d.php
 │  │     ├─ 4be7b176892a5509639bee1b760f8b80.php
 │  │     ├─ 50c3ad9c21b4ebd5e5aa809c983c90f6.php
 │  │     ├─ 50f7d82012c2b3e18db56975b1882785.php
@@ -323,6 +355,7 @@ truy_xuat_thuoc
 │  │     ├─ 6ead2b88bff4f2585ae1d45acb9f9b26.php
 │  │     ├─ 789fe0400d66a3ce25e508b35006a3db.php
 │  │     ├─ 7d3d11463513c682f5e829a82c2b2df4.php
+│  │     ├─ 7e8c5fb405b097e2cc35e76bcb580f1f.php
 │  │     ├─ 8273b6b455b6a1d9d2a065dde11b4ada.php
 │  │     ├─ 8621b4c20348f86febdc9411ac4bc8e0.php
 │  │     ├─ 887d9f1000bd04da7ecddac96d054b17.php
@@ -331,17 +364,23 @@ truy_xuat_thuoc
 │  │     ├─ 90e942402fed7819e694b59d917bc2e0.php
 │  │     ├─ 95245472938aae797b87da43d15b8f9a.php
 │  │     ├─ 97ab56c3b983bbe1b81c63e51377ff9c.php
+│  │     ├─ 9a21565cdcf3e0661a81b02469a74939.php
 │  │     ├─ a60c944afcd7edc87fbb06a01759eafb.php
+│  │     ├─ ab26b96cc32f28f88682afd59e65469d.php
 │  │     ├─ ab8753b4461257f4fb85f889052e5f11.php
 │  │     ├─ bc0d81ad3032929d6ccdbef00c943fae.php
 │  │     ├─ bd505a601cfcb0aa18d9f5ea11becc5c.php
 │  │     ├─ be4c7eec3eb4b90497fa3aee52cec1bc.php
 │  │     ├─ c02c224546c00467333c876706465c6a.php
+│  │     ├─ c22a38954b4ecbc916871f419f6dee35.php
 │  │     ├─ d0428481c2156e6982ac40bc84442f15.php
 │  │     ├─ d2cc06a7e3b34c2db5f7d30b1964491a.php
 │  │     ├─ daf4e8367eee70874eb348faa52286b3.php
 │  │     ├─ df99fd61a7bfa684895dfdef8df20304.php
 │  │     ├─ e0702df386324677ea105eed8692b265.php
+│  │     ├─ e718ffa9359ce16c3ea7996405287ba2.php
+│  │     ├─ eb2030d8040d006fa181017a4cdc3deb.php
+│  │     ├─ ee1870d7ed41d671d963a57255e294bc.php
 │  │     ├─ ee6f5b342e2a2da600f0da9ac26c373c.php
 │  │     ├─ f3d283dc88ac91e1769c92151406293d.php
 │  │     ├─ f6416e93d5de273fb2236af3973588ab.php
@@ -366,8 +405,8 @@ truy_xuat_thuoc
 │     ├─ EnumTest.php
 │     ├─ ExampleTest.php
 │     └─ RoleMiddlewareTest.php
-├─ truyxuatthuoc v5 cấu trúc bảng.sql
-├─ truyxuatthuoc v5.sql
+├─ truyxuatthuoc v6 cấu trúc bảng.sql
+├─ truyxuatthuoc v6.sql
 └─ vite.config.js
 
 ```

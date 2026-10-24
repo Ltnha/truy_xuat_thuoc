@@ -10,50 +10,24 @@
 		"type": "error"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "businessId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "eventType",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "payloadHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "recordBatchEvent",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
+		"inputs": [],
+		"name": "InvalidAddress",
+		"type": "error"
 	},
 	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "writer",
-				"type": "address"
-			},
-			{
-				"internalType": "bool",
-				"name": "enabled",
-				"type": "bool"
-			}
-		],
-		"name": "setWriter",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
+		"inputs": [],
+		"name": "InvalidEventData",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "RoleAlreadyGranted",
+		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "RoleNotGranted",
+		"type": "error"
 	},
 	{
 		"inputs": [],
@@ -104,6 +78,207 @@
 		"type": "event"
 	},
 	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "previousOwner",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "OwnershipTransferred",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "bytes32",
+				"name": "role",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			}
+		],
+		"name": "RoleGranted",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "bytes32",
+				"name": "role",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "sender",
+				"type": "address"
+			}
+		],
+		"name": "RoleRevoked",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "writer",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "bool",
+				"name": "enabled",
+				"type": "bool"
+			}
+		],
+		"name": "WriterPermissionChanged",
+		"type": "event"
+	},
+	{
+		"inputs": [],
+		"name": "ROLE_CO_QUAN",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "ROLE_NHA_THUOC",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "ROLE_NPP",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "ROLE_NSX",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "role",
+				"type": "bytes32"
+			}
+		],
+		"name": "grantRole",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "role",
+				"type": "bytes32"
+			}
+		],
+		"name": "hasRole",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			}
+		],
+		"name": "isAuthorizedRole",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
 		"inputs": [],
 		"name": "owner",
 		"outputs": [
@@ -120,11 +295,39 @@
 		"inputs": [
 			{
 				"internalType": "bytes32",
+				"name": "batchId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "businessId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "eventType",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "payloadHash",
+				"type": "bytes32"
+			}
+		],
+		"name": "recordBatchEvent",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
 				"name": "",
 				"type": "bytes32"
 			}
 		],
-		"name": "recordedEvents",
+		"name": "recordedEventKeys",
 		"outputs": [
 			{
 				"internalType": "bool",
@@ -133,6 +336,55 @@
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "role",
+				"type": "bytes32"
+			}
+		],
+		"name": "revokeRole",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "writer",
+				"type": "address"
+			},
+			{
+				"internalType": "bool",
+				"name": "enabled",
+				"type": "bool"
+			}
+		],
+		"name": "setWriter",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "newOwner",
+				"type": "address"
+			}
+		],
+		"name": "transferOwnership",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{

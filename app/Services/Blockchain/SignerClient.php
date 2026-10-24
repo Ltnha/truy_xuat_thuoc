@@ -82,4 +82,23 @@ class SignerClient
 
         return $response->successful() && $response->json('hasRole') === true;
     }
+
+    /**
+     * Yêu cầu Signer Service xoay ví (Rotate Wallet) sinh cặp khóa ví mới
+     */
+    public function doiViMoi(int $toChucId): array
+    {
+        $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/wallets/rotate", [
+            'toChucId' => $toChucId,
+        ]);
+
+        if ($response->failed() || !$response->json('ok')) {
+            throw new \Exception("Lỗi Signer [doiViMoi]: " . ($response->json('reason') ?? $response->body()));
+        }
+
+        return [
+            'keyId' => $response->json('keyId'),
+            'diaChiVi' => $response->json('diaChiVi'),
+        ];
+    }
 }

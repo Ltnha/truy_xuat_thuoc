@@ -11,14 +11,11 @@ app.use(express.json());
 const PORT = process.env.PORT || 3000;
 const WALLETS_FILE = path.join(__dirname, 'wallets.json');
 
-// Khởi tạo RPC Provider và Ví Admin
 const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
 const adminWallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
 
-// ABI tối giản khớp với Smart Contract BatchTraceability.sol
 const CONTRACT_ABI = require('../API.json');
 
-// --- HÀM MÃ HÓA & GIẢI MÃ BẢO MẬT PRIVATE KEY (AES-256-CBC) ---
 const ALGORITHM = 'aes-256-cbc';
 const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '12345678901234567890123456789012');
 
@@ -39,7 +36,6 @@ function decrypt(text) {
     return decrypted;
 }
 
-// --- QUẢN LÝ LƯU TRỮ VÍ VÀO FILE wallets.json ---
 function loadWallets() {
     if (!fs.existsSync(WALLETS_FILE)) {
         fs.writeFileSync(WALLETS_FILE, JSON.stringify({}));
@@ -51,7 +47,6 @@ function saveWallets(data) {
     fs.writeFileSync(WALLETS_FILE, JSON.stringify(data, null, 2));
 }
 
-// --- MIDDLEWARE XÁC THỰC API TOKEN TỪ LARAVEL ---
 const authMiddleware = (req, res, next) => {
     const authHeader = req.headers.authorization;
     const token = authHeader && authHeader.split(' ')[1];
@@ -61,21 +56,17 @@ const authMiddleware = (req, res, next) => {
     next();
 };
 
-// -----------------------------------------------------------------
-// ENDPOINT 1: Sinh ví Custodial mới cho Tổ chức
-// -----------------------------------------------------------------
+// 1. Sinh ví Custodial
 app.post('/wallets', authMiddleware, async (req, res) => {
     try {
         const { toChucId } = req.body;
         const wallets = loadWallets();
 
-        // Kiểm tra nếu tổ chức đã có ví thì trả lại keyId cũ
-        const existing = Object.values(wallets).find(w => w.toChucId === toChucId);
+        const existing = Object.values(wallets).find(w => w.toChucId === toChucId && w.status !== 'REVOKED');
         if (existing) {
             return res.json({ ok: true, keyId: existing.keyId, diaChiVi: existing.diaChiVi });
         }
 
-        // Sinh cặp khóa ngẫu nhiên mới
         const randomWallet = ethers.Wallet.createRandom();
         const keyId = `KEY_TOCHUC_${toChucId}_${Date.now()}`;
 
@@ -84,30 +75,24 @@ app.post('/wallets', authMiddleware, async (req, res) => {
             toChucId,
             diaChiVi: randomWallet.address,
             encryptedPk: encrypt(randomWallet.privateKey),
+            status: 'ACTIVE',
             createdAt: new Date().toISOString()
         };
 
         saveWallets(wallets);
 
-        return res.json({
-            ok: true,
-            keyId: keyId,
-            diaChiVi: randomWallet.address
-        });
+        return res.json({ ok: true, keyId: keyId, diaChiVi: randomWallet.address });
     } catch (err) {
         return res.status(500).json({ ok: false, reason: err.message });
     }
 });
 
-// -----------------------------------------------------------------
-// ENDPOINT 2: Kiểm tra & Tự động Nạp Gas từ Ví Admin (ensureGas)
-// -----------------------------------------------------------------
+// 2. Tự động nạp Gas
 app.post('/gas/ensure', authMiddleware, async (req, res) => {
     try {
         const { target } = req.body;
         let targetAddress = target;
 
-        // Nếu truyền vào keyId thì tra cứu ra địa chỉ ví
         if (target === process.env.ADMIN_MASTER_KEY_ID || target === 'ADMIN_MASTER_KEY') {
             targetAddress = adminWallet.address;
         } else if (target.startsWith('KEY_')) {
@@ -120,14 +105,13 @@ app.post('/gas/ensure', authMiddleware, async (req, res) => {
         }
 
         const balance = await provider.getBalance(targetAddress);
-        const minBalance = ethers.parseEther("0.001"); // Ngưỡng tối thiểu 0.001 SepoliaETH
+        const minBalance = ethers.parseEther("0.001");
 
-        // Nếu số dư dưới ngưỡng thì trích từ Ví Admin chuyển sang
         if (balance < minBalance) {
             console.log(`[GAS] Số dư ví ${targetAddress} thấp (${ethers.formatEther(balance)} ETH). Đang nạp Gas...`);
             const tx = await adminWallet.sendTransaction({
                 to: targetAddress,
-                value: ethers.parseEther("0.003") // Nạp 0.003 SepoliaETH
+                value: ethers.parseEther("0.003")
             });
             await tx.wait();
             console.log(`[GAS] Nạp Gas thành công cho ${targetAddress}. TxHash: ${tx.hash}`);
@@ -140,15 +124,16 @@ app.post('/gas/ensure', authMiddleware, async (req, res) => {
     }
 });
 
-// -----------------------------------------------------------------
-// ENDPOINT 3: Ký và Gửi Giao dịch On-chain (grantRole, revokeRole,...)
-// -----------------------------------------------------------------
+// 3. Ký và Gửi Giao dịch On-chain (Đã sửa thứ tự tham số chuẩn: role, account)
 app.post('/tx', authMiddleware, async (req, res) => {
     try {
         const { keyId, action, params } = req.body;
+
+        console.log(`[DEBUG /tx] Action: ${action} | Contract: ${process.env.BLOCKCHAIN_CONTRACT_ADDRESS}`);
+        console.log(`[DEBUG Params]`, params);
+
         let walletToUse = adminWallet;
 
-        // Nếu keyId không phải Admin thì giải mã Private Key của ví tổ chức để ký
         if (keyId !== process.env.ADMIN_MASTER_KEY_ID && keyId !== 'ADMIN_MASTER_KEY') {
             const wallets = loadWallets();
             const wData = wallets[keyId];
@@ -181,9 +166,7 @@ app.post('/tx', authMiddleware, async (req, res) => {
     }
 });
 
-// -----------------------------------------------------------------
-// ENDPOINT 4: Kiểm tra trạng thái Vai trò On-chain (hasRole)
-// -----------------------------------------------------------------
+// 4. Kiểm tra vai trò On-chain (Thứ tự tham số chuẩn theo BatchTraceability.sol: account, role)
 app.get('/roles/check', authMiddleware, async (req, res) => {
     try {
         const { role, account } = req.query;
@@ -196,7 +179,39 @@ app.get('/roles/check', authMiddleware, async (req, res) => {
     }
 });
 
-// KHOI CHAY SERVER
+// 5. Đổi ví mới (Wallet Rotation)
+app.post('/wallets/rotate', authMiddleware, async (req, res) => {
+    try {
+        const { toChucId } = req.body;
+        const wallets = loadWallets();
+
+        Object.keys(wallets).forEach(k => {
+            if (wallets[k].toChucId === toChucId) {
+                wallets[k].status = 'REVOKED';
+            }
+        });
+
+        const randomWallet = ethers.Wallet.createRandom();
+        const keyId = `KEY_TOCHUC_${toChucId}_ROTATE_${Date.now()}`;
+
+        wallets[keyId] = {
+            keyId,
+            toChucId,
+            diaChiVi: randomWallet.address,
+            encryptedPk: encrypt(randomWallet.privateKey),
+            status: 'ACTIVE',
+            createdAt: new Date().toISOString()
+        };
+
+        saveWallets(wallets);
+
+        return res.json({ ok: true, keyId: keyId, diaChiVi: randomWallet.address });
+    } catch (err) {
+        return res.status(500).json({ ok: false, reason: err.message });
+    }
+});
+
+// Khởi chạy Server
 app.listen(PORT, () => {
     console.log(`==================================================`);
     console.log(`  Signer Service Node.js đang chạy tại port ${PORT}`);

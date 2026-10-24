@@ -2,7 +2,8 @@
     mục đích: mở serve laravel
     tần suất: chạy mỗi lần khi mở web
 1.  php artisan queue:table
-    Mục đích: Sinh ra file migration tạo bảng jobs trong thư mục database/migrations/.
+    php artisan queue:failed-table
+    Mục đích: Sinh ra file migration tạo bảng jobs và bảng failed_jobs trong thư mục database/migrations/.
     Tần suất: Chỉ chạy 1 lần duy nhất khi thiết lập Queue. Nếu bạn chạy lại lần nữa, Laravel sẽ báo lỗi vì file migration tạo bảng jobs đã tồn tại sẵn trong dự án rồi.
 2.  php artisan migrate
     Mục đích: Đọc các file migration chưa chạy trong thư mục database/migrations/ và tạo bảng tương ứng vào MySQL.

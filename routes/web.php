@@ -46,12 +46,19 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // --- CƠ QUAN QUẢN LÝ ---
     Route::middleware(['kiem.tra.vai.tro:CO_QUAN_QUAN_LY'])->prefix('co-quan')->group(function () {
+        // Phê duyệt tài khoản tổ chức & sản phẩm
         Route::get('/phe-duyet-tai-khoan', [DuyetHoSoController::class, 'index'])->name('co-quan.phe-duyet-tai-khoan');
         Route::post('/phe-duyet-to-chuc/{toChuc}', [DuyetHoSoController::class, 'approveOrganization'])->name('co-quan.approve-organization');
         Route::post('/phe-duyet-san-pham/{sanPham}', [DuyetHoSoController::class, 'approveProduct'])->name('co-quan.approve-product');
 
+        // Quản lý quyền hạn & ví On-chain (Thu hồi, Khôi phục, Đổi ví)
+        Route::get('/quan-ly-quyen-han', [DuyetHoSoController::class, 'quanLyQuyenHan'])->name('co-quan.quan-ly-quyen-han');
+        Route::post('/thu-hoi-quyen/{toChuc}', [DuyetHoSoController::class, 'thuHoiQuyenToChuc'])->name('co-quan.thu-hoi-quyen');
+        Route::post('/khoi-phuc-quyen/{toChuc}', [DuyetHoSoController::class, 'khoiPhucQuyenToChuc'])->name('co-quan.khoi-phuc-quyen');
+        Route::post('/doi-vi-moi/{toChuc}', [DuyetHoSoController::class, 'doiViMoi'])->name('co-quan.doi-vi-moi');
+
+        // Trang tính năng khác
         Route::get('/xet-duyet-san-pham', fn() => view('coQuanQuanLy.xetDuyetSanPham'));
-        Route::get('/quan-ly-quyen-han', fn() => view('coQuanQuanLy.quanLyQuyenHan'));
         Route::get('/quan-ly-thu-hoi', fn() => view('coQuanQuanLy.quanLyThuHoi'));
         Route::get('/thong-ke-bao-cao', fn() => view('coQuanQuanLy.thongKeBaoCao'));
         Route::get('/xu-ly-nghi-van', fn() => view('coQuanQuanLy.xuLyNghiVan'));
@@ -59,7 +66,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // --- NHÀ SẢN XUẤT ---
     Route::middleware(['auth'])->prefix('nha-san-xuat')->name('nha-san-xuat.')->group(function () {
-       // 1. Giao diện Quản lý Lô thuốc & API danh sách
+        // 1. Giao diện Quản lý Lô thuốc & API danh sách
         Route::get('/quan-ly-lo-thuoc', [LoThuocController::class, 'index'])->name('lo-thuoc.index');
         Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
 
@@ -73,8 +80,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('lo-thuoc.dong-bo');
         Route::post('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'verifyAndSave'])->name('lo-thuoc.dong-bo.luu');
 
-        Route::get('/quan-ly-san-pham', fn() => view('nhaSanXuat.quanLySanPham'))->name('nha-san-xuat.san-pham');
-        Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('nha-san-xuat.lo-thuoc.dong-bo');
+        Route::get('/quan-ly-san-pham', fn() => view('nhaSanXuat.quanLySanPham'))->name('san-pham');
     });
 
     // --- NHÀ PHÂN PHỐI ---

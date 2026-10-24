@@ -77,7 +77,12 @@ class ToChuc extends Model
 
     public function blockchainIdentity(): HasOne
     {
-        return $this->hasOne(BlockchainIdentity::class, 'toChucId');
+        return $this->hasOne(BlockchainIdentity::class, 'toChucId')->latestOfMany('id');
+    }
+
+    public function blockchainIdentities(): HasMany
+    {
+        return $this->hasMany(BlockchainIdentity::class, 'toChucId');
     }
 
     public function daDuyet(): bool

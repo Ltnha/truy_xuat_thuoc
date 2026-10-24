@@ -7,6 +7,8 @@ use App\Enums\OrganizationApprovalStatus;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessOrganizationApprovalJob;
 use App\Jobs\RevokeOrganizationRoleJob;
+use App\Jobs\RestoreOrganizationRoleJob;
+use App\Jobs\RotateOrganizationWalletJob;
 use App\Models\NhatKyHeThong;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
@@ -136,5 +138,59 @@ class DuyetHoSoController extends Controller
         });
 
         return back()->with('thanhCong', "Đã đình chỉ tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang gửi lệnh tước quyền On-chain lên Sepolia.");
+    }
+
+    /**
+     * Hiển thị trang Quản lý quyền hạn tổ chức
+     */
+    public function quanLyQuyenHan(Request $request): View
+    {
+        $tuKhoa = trim($request->input('tuKhoa', ''));
+        $loaiToChuc = $request->input('loaiToChuc', 'TAT_CA');
+        $trangThaiPheDuyet = $request->input('trangThaiPheDuyet', 'TAT_CA');
+
+        $query = ToChuc::query()
+            ->with(['blockchainIdentity', 'taiKhoans', 'yeuCauDangKys.taiLieus'])
+            ->where('loaiToChuc', '<>', 'CO_QUAN_QUAN_LY');
+
+        if ($tuKhoa !== '') {
+            $query->where(function ($q) use ($tuKhoa) {
+                $q->where('tenToChuc', 'like', "%{$tuKhoa}%")
+                    ->orWhere('maSoThue', 'like', "%{$tuKhoa}%")
+                    ->orWhere('soGiayPhepDuoc', 'like', "%{$tuKhoa}%");
+            });
+        }
+
+        if ($loaiToChuc !== 'TAT_CA') {
+            $query->where('loaiToChuc', $loaiToChuc);
+        }
+
+        if ($trangThaiPheDuyet !== 'TAT_CA') {
+            $query->where('trangThaiDuyet', $trangThaiPheDuyet);
+        }
+
+        $toChucs = $query->latest('id')->paginate(15)->withQueryString();
+
+        return view('coQuanQuanLy.quanLyQuyenHan', compact('toChucs', 'tuKhoa', 'loaiToChuc', 'trangThaiPheDuyet'));
+    }
+
+    /**
+     * Khôi phục quyền Tổ chức (Restore Role On-chain)
+     */
+    public function khoiPhucQuyenToChuc(Request $request, ToChuc $toChuc): RedirectResponse
+    {
+        RestoreOrganizationRoleJob::dispatch($toChuc->id, $request->user()->id);
+
+        return back()->with('thanhCong', "Đã gửi yêu cầu khôi phục quyền cho tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang cấp lại quyền On-chain ngầm.");
+    }
+
+    /**
+     * Đổi ví mới (Rotate Wallet) cho Tổ chức
+     */
+    public function doiViMoi(Request $request, ToChuc $toChuc): RedirectResponse
+    {
+        RotateOrganizationWalletJob::dispatch($toChuc->id, $request->user()->id);
+
+        return back()->with('thanhCong', "Đã gửi yêu cầu cấp ví mới cho tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang thu hồi ví cũ, khởi tạo ví mới và cấp quyền On-chain ngầm.");
     }
 }
