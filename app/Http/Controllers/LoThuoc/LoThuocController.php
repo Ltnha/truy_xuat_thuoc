@@ -3,11 +3,14 @@
 namespace App\Http\Controllers\LoThuoc;
 
 use App\Http\Controllers\Controller;
+use App\Jobs\ProcessBatchRegistrationJob;
+use App\Models\BlockchainIdentity;
+use App\Models\BlockchainTransaction;
 use App\Models\LoThuoc;
 use App\Models\SanPham;
-use App\Models\BlockchainTransaction;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class LoThuocController extends Controller
@@ -15,7 +18,9 @@ class LoThuocController extends Controller
     public function index()
     {
         $user = Auth::user();
-        $danhSachSanPham = SanPham::where('nhaSanXuatId', $user->toChucId ?? null)->get();
+        $danhSachSanPham = SanPham::where('nhaSanXuatId', $user->toChucId ?? null)
+            ->where('trangThaiDuyet', 'DA_DUYET')
+            ->get();
 
         return view('nhaSanXuat.quanLyLoThuoc', compact('danhSachSanPham'));
     }
@@ -24,7 +29,7 @@ class LoThuocController extends Controller
     {
         $user = Auth::user();
 
-        $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions'])
+        $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc'])
             ->where('toChucId', $user->toChucId ?? null)
             ->orderBy('id', 'desc')
             ->get();
@@ -34,82 +39,114 @@ class LoThuocController extends Controller
             'data' => $danhSachLo
         ]);
     }
-    // 1. Tạo lô thuốc & trả về 4 mã bytes32 để MetaMask gọi Smart Contract
+
+    /**
+     * Quy trình tạo lô thuốc mới theo kiến trúc Microservice Custodial Signer:
+     * 1. Kiểm tra sản phẩm đã được duyệt.
+     * 2. Kiểm tra tổ chức đang hoạt động và ví đang ACTIVE.
+     * 3. Kiểm tra ngày sản xuất, hạn sử dụng và số lượng.
+     * 4. Tạo maBusinessId cho lô.
+     * 5. Lưu yêu cầu tạo lô ở trạng thái chờ blockchain (DB transaction).
+     * 6. Dispatch Job sau commit.
+     */
     public function store(Request $request)
     {
+        // 3. Kiểm tra ngày sản xuất, hạn sử dụng và số lượng
         $request->validate([
-            'sanPhamId' => 'required|exists:sanPham,id',
-            'maLoNghiepVu' => 'required|string|unique:loThuoc,maLoNghiepVu',
-            'soLuong' => 'required|integer|min:1',
-            'ngaySanXuat' => 'required|date',
-            'hanSuDung' => 'required|date|after:ngaySanXuat',
+            'sanPhamId'    => 'required|integer|exists:sanPham,id',
+            'maLoNghiepVu' => 'required|string|max:50|unique:loThuoc,maLoNghiepVu',
+            'soLuong'      => 'required|integer|min:1',
+            'ngaySanXuat'  => 'required|date|before_or_equal:today',
+            'hanSuDung'    => 'required|date|after:ngaySanXuat',
+        ], [
+            'sanPhamId.required'        => 'Vui lòng chọn sản phẩm dược.',
+            'sanPhamId.exists'          => 'Sản phẩm đã chọn không tồn tại.',
+            'maLoNghiepVu.required'     => 'Mã lô thuốc không được để trống.',
+            'maLoNghiepVu.unique'       => 'Mã lô thuốc nghiệp vụ này đã tồn tại trên hệ thống.',
+            'soLuong.required'          => 'Vui lòng nhập số lượng sản xuất.',
+            'soLuong.min'               => 'Số lượng sản xuất tối thiểu là 1 đơn vị.',
+            'ngaySanXuat.required'      => 'Ngày sản xuất không được để trống.',
+            'ngaySanXuat.before_or_equal' => 'Ngày sản xuất không thể lớn hơn ngày hiện tại.',
+            'hanSuDung.required'        => 'Hạn sử dụng không được để trống.',
+            'hanSuDung.after'           => 'Hạn sử dụng phải sau ngày sản xuất.',
         ]);
 
         $user = Auth::user();
+        $toChuc = $user->toChuc;
 
-        $loThuoc = LoThuoc::create([
-            'maLo' => (string) Str::uuid(),
-            'maLoNghiepVu' => $request->maLoNghiepVu,
-            'sanPhamId' => $request->sanPhamId,
-            'toChucId' => $user->toChucId ?? 1,
-            'soLuong' => $request->soLuong,
-            'ngaySanXuat' => $request->ngaySanXuat,
-            'hanSuDung' => $request->hanSuDung,
-            'trangThai' => 'CREATED'
-        ]);
+        // 2. Kiểm tra tổ chức đang hoạt động
+        $trangThaiToChuc = $toChuc?->trangThaiDuyet instanceof \BackedEnum 
+            ? $toChuc->trangThaiDuyet->value 
+            : (string) $toChuc?->trangThaiDuyet;
 
-        // Tính toán sẵn 4 mã bytes32 gửi về cho JavaScript frontend
-        $batchId = '0x' . hash('sha256', 'BATCH_' . $loThuoc->maLo);
-        $businessId = '0x' . hash('sha256', $loThuoc->maLoNghiepVu);
-        $eventType = '0x' . hash('sha256', 'RECORD_BATCH');
-        $payloadHash = '0x' . hash('sha256', json_encode([
-            'maLo' => $loThuoc->maLo,
-            'maLoNghiepVu' => $loThuoc->maLoNghiepVu,
-            'soLuong' => $loThuoc->soLuong,
-            'ngaySanXuat' => $loThuoc->ngaySanXuat,
-            'hanSuDung' => $loThuoc->hanSuDung
-        ]));
+        if (!$toChuc || $trangThaiToChuc !== 'DA_DUYET') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tổ chức của bạn chưa được cơ quan quản lý phê duyệt hoặc đang bị tạm khóa!'
+            ], 403);
+        }
+
+        // 2b. Kiểm tra ví blockchain của tổ chức đang ACTIVE
+        $identity = BlockchainIdentity::where('toChucId', $toChuc->id)->first();
+        if (!$identity || $identity->trangThai !== 'ACTIVE') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Ví Blockchain của tổ chức chưa ở trạng thái ACTIVE (chưa được cấp vai trò On-chain). Vui lòng liên hệ Cơ quan quản lý!'
+            ], 403);
+        }
+
+        // 1. Kiểm tra sản phẩm đã được duyệt và thuộc tổ chức
+        $sanPham = SanPham::where('id', $request->sanPhamId)
+            ->where('nhaSanXuatId', $toChuc->id)
+            ->first();
+
+        if (!$sanPham || $sanPham->trangThaiDuyet !== 'DA_DUYET') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sản phẩm chưa được cơ quan quản lý phê duyệt hoặc không thuộc nhà sản xuất của bạn!'
+            ], 422);
+        }
+
+        // 4. Tạo maBusinessId cho lô (UUID v4)
+        $maBusinessId = (string) Str::uuid();
+
+        // 5. Lưu yêu cầu tạo lô ở trạng thái chờ blockchain trong MySQL
+        $loThuoc = DB::transaction(function () use ($request, $toChuc, $sanPham, $maBusinessId) {
+            $lo = LoThuoc::create([
+                'maLo'         => $maBusinessId,
+                'maLoNghiepVu' => trim($request->maLoNghiepVu),
+                'sanPhamId'    => $sanPham->id,
+                'toChucId'     => $toChuc->id,
+                'soLuong'      => (int) $request->soLuong,
+                'ngaySanXuat'  => $request->ngaySanXuat,
+                'hanSuDung'    => $request->hanSuDung,
+                'trangThai'    => 'CREATED',
+            ]);
+
+            BlockchainTransaction::create([
+                'txHash'           => 'PENDING_' . str_replace('-', '', $maBusinessId),
+                'blockNumber'      => null,
+                'eventName'        => 'BatchEventRecorded',
+                'doiTuongToChucId' => $toChuc->id,
+                'businessId'       => $maBusinessId,
+                'network'          => config('truyXuat.blockchain.network', 'Ethereum Sepolia Testnet'),
+                'trangThai'        => 'PENDING',
+                'toChucId'         => $toChuc->id,
+                'sanPhamId'        => $sanPham->id,
+                'loThuocId'        => $lo->id,
+                'thoiGian'         => now(),
+            ]);
+
+            return $lo;
+        });
+
+        // 6. Dispatch Job sau commit
+        ProcessBatchRegistrationJob::dispatch($loThuoc->id, $user->id)->afterCommit();
 
         return response()->json([
             'success' => true,
-            'message' => 'Khởi tạo thông tin lô thành công! Đang kích hoạt MetaMask...',
-            'data' => $loThuoc,
-            'hashes' => [
-                'batchId' => $batchId,
-                'businessId' => $businessId,
-                'eventType' => $eventType,
-                'payloadHash' => $payloadHash,
-            ]
-        ]);
-    }
-
-    // 2. Lưu txHash do MetaMask trả về vào CSDL
-    public function saveTxHash(Request $request, $id)
-    {
-        $request->validate([
-            'txHash' => 'required|string|regex:/^0x[a-fA-F0-9]{64}$/'
-        ]);
-
-        $loThuoc = LoThuoc::findOrFail($id);
-
-        BlockchainTransaction::updateOrCreate(
-            ['txHash' => $request->txHash],
-            [
-                'blockNumber' => 0,
-                'eventName' => 'BatchEventRecorded',
-                'businessId' => $loThuoc->maLo,
-                'network' => env('BLOCKCHAIN_NETWORK', 'Ethereum Sepolia'),
-                'trangThai' => 'PENDING',
-                'toChucId' => $loThuoc->toChucId,
-                'sanPhamId' => $loThuoc->sanPhamId,
-                'loThuocId' => $loThuoc->id,
-                'thoiGian' => now()
-            ]
-        );
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã lưu Transaction Hash thành công!'
+            'message' => 'Đã tiếp nhận yêu cầu tạo lô thuốc thành công! Hệ thống đang xử lý và đồng bộ lên Blockchain.',
+            'data'    => $loThuoc->load(['sanPham', 'blockchainTransactions']),
         ]);
     }
 }

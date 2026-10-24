@@ -101,4 +101,18 @@ class SignerClient
             'diaChiVi' => $response->json('diaChiVi'),
         ];
     }
+
+    /**
+     * Kiểm tra sự kiện Lô đã được ghi nhận On-chain chưa
+     */
+    public function isBatchEventRecorded(string $batchId, string $businessId, string $eventType): bool
+    {
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/events/check-batch", [
+            'batchId'    => $batchId,
+            'businessId' => $businessId,
+            'eventType'  => $eventType,
+        ]);
+
+        return $response->successful() && $response->json('isRecorded') === true;
+    }
 }

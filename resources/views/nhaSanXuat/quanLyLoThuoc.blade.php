@@ -130,15 +130,15 @@
                 </div>
 
                 <div class="p-3 bg-cyan-50 rounded-xl border border-cyan-800/15 text-[11px] text-cyan-900 flex items-start gap-2">
-                    <i class="fa-solid fa-cube text-cyan-800 mt-0.5 shrink-0"></i>
-                    <span>Hệ thống sẽ ghi nhận lô lên blockchain, tạo mã QR lô và mã QR cho từng hộp.</span>
+                    <i class="fa-solid fa-shield-halved text-cyan-800 mt-0.5 shrink-0"></i>
+                    <span>Hệ thống sử dụng kiến trúc <strong>Custodial Signer Service</strong>. Khi gửi yêu cầu, hệ thống sẽ tự động đưa vào hàng đợi xử lý ngầm (Queue Worker) để ký On-chain, tạo mã QR kép và khởi tạo kho mà không cần thao tác ví cá nhân MetaMask.</span>
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
                     <button type="button" class="dong-modal-lo px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
                         Hủy
                     </button>
-                    <button type="submit" class="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
+                    <button type="submit" id="btnXacNhanDangKyLo" class="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
                         <i class="fa-solid fa-check"></i> Xác nhận đăng ký
                     </button>
                 </div>
@@ -146,49 +146,33 @@
         </div>
 
         <div id="manHinhKetQuaSinhQR" class="hidden space-y-5">
-            <div class="text-center space-y-1">
+            <div class="text-center space-y-2">
                 <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl">
                     <i class="fa-solid fa-circle-check"></i>
                 </div>
-                <h3 class="text-base font-bold text-slate-900">Khởi Tạo Lô Thuốc Thành Công!</h3>
-                <p class="text-xs text-slate-500 font-mono" id="hienThiTxHashTaoLo">TxHash: 0x9f1b...28c4</p>
+                <h3 class="text-base font-bold text-slate-900">Đã Tiếp Nhận Yêu Cầu Tạo Lô!</h3>
+                <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+                    <i class="fa-solid fa-spinner fa-spin text-amber-600"></i>
+                    <span>Hàng đợi (Queue Job) đang thực hiện ký On-chain & sinh mã QR...</span>
+                </div>
+                <p class="text-xs text-slate-500 font-mono" id="hienThiTxHashTaoLo">Mã lô: <strong id="hienThiMaLoQR" class="text-emerald-700 font-bold"></strong></p>
             </div>
 
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div class="p-4 bg-nenChinh rounded-xl border border-emerald-900/15 text-center space-y-2.5">
-                    <div class="text-xs font-bold text-emerald-800 uppercase tracking-wide">Mã QR Cấp Lô (Thùng Lớn)</div>
-                    <div class="w-32 h-32 mx-auto bg-white p-2 rounded-xl border border-slate-200 flex items-center justify-center shadow-2xs">
-                        <i class="fa-solid fa-qrcode text-7xl text-slate-800"></i>
-                    </div>
-                    <div class="text-[11px] font-mono font-bold text-slate-700" id="hienThiMaLoQR">LOT-PARA-2026-03</div>
-                    <button type="button" id="nutTaiQRLoModal" class="w-full py-2 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-700 font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5" title="Tải QR lô">
-                        <i class="fa-solid fa-download"></i> Tải Tem QR Thùng
-                    </button>
+            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
+                <div class="flex items-center gap-2 text-emerald-800 font-bold">
+                    <i class="fa-solid fa-circle-info"></i> Quy trình tự động đang được tiến hành ngầm:
                 </div>
-
-                <div class="p-4 bg-cyan-50/70 rounded-xl border border-cyan-800/15 text-center space-y-2.5 flex flex-col justify-between">
-                    <div>
-                        <div class="text-xs font-bold text-cyan-900 uppercase tracking-wide">Mã QR Cấp Đơn Vị Lẻ (Serial)</div>
-                        <p class="text-[11px] text-slate-600 mt-1">Đã tự động tạo <strong id="hienThiSoLuongDonVi">5,000</strong> mã định danh duy nhất.</p>
-                    </div>
-
-                    <div class="p-3 bg-white rounded-lg border border-slate-200 font-mono text-[11px] text-slate-700 text-left space-y-1">
-                        <div>• UNIT-00001 (In hộp 1)</div>
-                        <div>• UNIT-00002 (In hộp 2)</div>
-                        <div class="text-slate-400">... và các đơn vị tiếp theo</div>
-                    </div>
-
-                    <div class="space-y-1.5 pt-1">
-                        <button type="button" id="nutXuatQRDonViModal" class="w-full py-2 bg-cyan-800 hover:bg-cyan-900 text-white font-bold rounded-lg text-xs transition-all flex items-center justify-center gap-1.5 shadow-2xs" title="Tải QR đơn vị (ZIP)">
-                            <i class="fa-solid fa-file-zipper"></i> Xuất Trọn Bộ QR Đơn Vị (.ZIP)
-                        </button>
-                    </div>
-                </div>
+                <ul class="list-disc list-inside space-y-1 text-[11px] pl-1 text-slate-700">
+                    <li>Signer Service gọi Smart Contract đăng ký lô thuốc trên Sepolia.</li>
+                    <li>Khởi tạo mã QR kép (tem thùng và tem hộp).</li>
+                    <li>Khởi tạo số lượng tồn kho ban đầu chính xác một lần.</li>
+                    <li>Ghi vết Audit Log và Transaction Hash vào hệ thống.</li>
+                </ul>
             </div>
 
             <div class="pt-2">
                 <button type="button" class="dong-modal-lo w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md transition-all">
-                    Hoàn Tất & Đóng Cửa Sổ
+                    Đã hiểu & Xem Danh Sách Lô
                 </button>
             </div>
         </div>

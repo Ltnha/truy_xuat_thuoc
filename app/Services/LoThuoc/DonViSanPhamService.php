@@ -20,7 +20,6 @@ class DonViSanPhamService
             for ($soThuTu = $batDau; $soThuTu <= $ketThuc; $soThuTu++) {
                 $cacDonVi[] = [
                     'maDonVi' => $loThuoc->maLoNghiepVu.'-'.str_pad((string) $soThuTu, 6, '0', STR_PAD_LEFT),
-                    'serialNumber' => strtoupper(Str::random(16)),
                     'loThuocId' => $loThuoc->id,
                     'trangThai' => UnitStatus::available->value,
                     'ngayTao' => now(),

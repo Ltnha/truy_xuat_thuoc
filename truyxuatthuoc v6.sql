@@ -9,8 +9,8 @@ CREATE TABLE toChuc (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     tenToChuc VARCHAR(255) NOT NULL,
     loaiToChuc ENUM('NHA_SAN_XUAT','NHA_PHAN_PHOI','NHA_THUOC','CO_QUAN_QUAN_LY') NOT NULL,
-    diaChi VARCHAR(255) NULL, -- v6
-    soDienThoai VARCHAR(20) NULL, -- v6
+    diaChi VARCHAR(255) NULL,
+    soDienThoai VARCHAR(20) NULL,
     maSoThue VARCHAR(20) UNIQUE,
     soGiayPhepDuoc VARCHAR(50) NULL,
     ngayCapGiayPhep DATE NULL,
@@ -76,12 +76,13 @@ CREATE TABLE thuHoiQuyenToChuc (
     toChucId BIGINT NOT NULL,
     nguoiThuHoiId BIGINT NOT NULL,
     lyDoThuHoi TEXT NOT NULL,
-    trangThaiDongBo ENUM('PENDING', 'SUCCESS', 'FAILED') NOT NULL DEFAULT 'PENDING', -- v6
-    txHash VARCHAR(66) NULL, -- v6
+    trangThaiDongBo ENUM('PENDING', 'SUCCESS', 'FAILED') NOT NULL DEFAULT 'PENDING',
+    txHash VARCHAR(66) NULL,
     ngayThuHoi DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (toChucId) REFERENCES toChuc(id),
     FOREIGN KEY (nguoiThuHoiId) REFERENCES taiKhoan(id)
 );
+
 -- 6. Bảng nhatKyHeThong
 CREATE TABLE nhatKyHeThong (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
@@ -98,7 +99,7 @@ CREATE TABLE nhatKyHeThong (
 -- 7. Bảng sanPham
 CREATE TABLE sanPham (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    maSanPham CHAR(36) NOT NULL UNIQUE, -- Business ID mã hóa ánh xạ blockchain
+    maSanPham CHAR(36) NOT NULL UNIQUE,
     tenSanPham VARCHAR(255) NOT NULL,
     soDangKy VARCHAR(50) NOT NULL UNIQUE,
     thanhPhan VARCHAR(255),
@@ -110,7 +111,7 @@ CREATE TABLE sanPham (
     FOREIGN KEY (nhaSanXuatId) REFERENCES toChuc(id)
 );
 
--- 8. Bảng yeuCauDangKySanPham (Lưu thông tin kê khai tại thời điểm nộp)
+-- 8. Bảng yeuCauDangKySanPham
 CREATE TABLE yeuCauDangKySanPham (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     sanPhamId BIGINT NOT NULL,
@@ -133,10 +134,10 @@ CREATE TABLE yeuCauDangKySanPham (
 -- 9. Bảng loThuoc
 CREATE TABLE loThuoc (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    maLo CHAR(36) NOT NULL UNIQUE, -- Business ID duy nhất trên blockchain
+    maLo CHAR(36) NOT NULL UNIQUE,
     maLoNghiepVu VARCHAR(50) NOT NULL UNIQUE,
     sanPhamId BIGINT NOT NULL,
-    toChucId BIGINT NOT NULL, -- Nhà sản xuất đăng ký
+    toChucId BIGINT NOT NULL,
     soLuong INT NOT NULL,
     ngaySanXuat DATE NOT NULL,
     hanSuDung DATE NOT NULL,
@@ -147,11 +148,11 @@ CREATE TABLE loThuoc (
     CONSTRAINT chk_lo_han CHECK (hanSuDung > ngaySanXuat)
 );
 
--- 10. Bảng banLe (Đơn bán lẻ hàng loạt tại nhà thuốc)
+-- 10. Bảng banLe
 CREATE TABLE banLe (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maBanLe CHAR(36) NOT NULL UNIQUE,
-    toChucId BIGINT NOT NULL, -- Nhà thuốc thực hiện
+    toChucId BIGINT NOT NULL,
     ngayBan DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     soLuong INT NOT NULL,
     trangThai ENUM('PENDING','CONFIRMED','CANCELLED') NOT NULL DEFAULT 'CONFIRMED',
@@ -225,9 +226,9 @@ CREATE TABLE chuyenGiao (
 CREATE TABLE baoCaoNghiVan (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maBaoCao VARCHAR(255) NOT NULL UNIQUE,
-    loThuocId BIGINT NULL, -- NULL nếu mã lô không tồn tại trên hệ thống
+    loThuocId BIGINT NULL,
     maLoKhaiBao VARCHAR(50) NOT NULL,
-    taiKhoanId BIGINT NULL, -- NULL nếu người tiêu dùng báo cáo ẩn danh
+    taiKhoanId BIGINT NULL,
     lyDo TEXT NOT NULL,
     moTa TEXT NULL,
     ngayGui DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -277,15 +278,15 @@ CREATE TABLE thuHoiLoHang (
 CREATE TABLE blockchainIdentity (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     toChucId BIGINT NOT NULL,
-    signerKeyId VARCHAR(100) NULL, -- v6 mã định danh tham chiếu ví bên Signer Service
-    diaChiVi VARCHAR(42) NOT NULL UNIQUE, -- v6
+    signerKeyId VARCHAR(100) NULL,
+    diaChiVi VARCHAR(42) NOT NULL UNIQUE,
     network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet',
-    trangThai ENUM('KHOI_TAO', 'DA_NAP_GAS', 'ACTIVE', 'INACTIVE', 'REVOKED') NOT NULL DEFAULT 'KHOI_TAO', -- v6
-    ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, -- v6
+    trangThai ENUM('KHOI_TAO', 'DA_NAP_GAS', 'ACTIVE', 'INACTIVE', 'REVOKED') NOT NULL DEFAULT 'KHOI_TAO',
+    ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 20. Bảng blockchainTransaction (Nguồn tham chiếu duy nhất cho mọi TxHash)
+-- 20. Bảng blockchainTransaction
 CREATE TABLE blockchainTransaction (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     txHash VARCHAR(66) NOT NULL UNIQUE,
@@ -294,7 +295,7 @@ CREATE TABLE blockchainTransaction (
     doiTuongToChucId BIGINT NULL,
     businessId VARCHAR(36) NOT NULL,
     thoiGian DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet', -- v6
+    network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet',
     trangThai ENUM('PENDING','CONFIRMED','FAILED') NOT NULL DEFAULT 'PENDING',
     toChucId BIGINT NOT NULL,
     sanPhamId BIGINT NULL,
@@ -340,19 +341,14 @@ CREATE INDEX idx_yeucaudk_trangthai ON yeuCauDangKy(trangThai);
 CREATE INDEX idx_yeucausp_trangthai ON yeuCauDangKySanPham(trangThai);
 CREATE INDEX idx_nhatky_ketqua ON nhatKyHeThong(ketQua);
 CREATE INDEX idx_bctx_eventname ON blockchainTransaction(eventName);
--- ============================================================================
--- DỮ LIỆU MẪU KIỂM THỦ (DEMO DATA) CHO HỆ THỐNG TRUY XUẤT THUỐC V3.2
--- ============================================================================
 
 -- ============================================================================
--- CHUYỂN ĐỔI TOÀN BỘ DỮ LIỆU INSERT TỪ V3.1 SANG CẤU TRÚC V4 (v3.2)
+-- DỮ LIỆU MẪU KIỂM THỦ (DEMO DATA)
 -- ============================================================================
-
-USE truyxuatthuoc;
 
 START TRANSACTION;
 
--- 1. Bảng toChuc
+-- 1. Bảng toChuc (Bổ sung id = 11 cho Cơ quan quản lý Cần Thơ)
 INSERT INTO toChuc
     (id, tenToChuc, loaiToChuc, diaChi, soDienThoai, maSoThue, soGiayPhepDuoc, ngayCapGiayPhep, ngayHetHanGiayPhep, coQuanCap, trangThaiDuyet)
 VALUES
@@ -365,9 +361,10 @@ VALUES
     (7, 'Duoc pham Cao Nguyen (DEMO)', 'NHA_SAN_XUAT', 'Dak Lak', '02623900102', 'DEMO-EXP-2026-02', 'GP-DEMO-NSX-102', '2025-02-10', '2030-02-09', 'So Y te Dak Lak', 'DA_DUYET'),
     (8, 'Phan phoi Duoc Mien Tay (DEMO)', 'NHA_PHAN_PHOI', 'Can Tho', '02923900103', 'DEMO-EXP-2026-03', 'GP-DEMO-PP-103', '2025-03-10', '2030-03-09', 'So Y te Can Tho', 'DA_DUYET'),
     (9, 'Nha thuoc Hoa Sen (DEMO)', 'NHA_THUOC', 'Can Tho', '02923900104', 'DEMO-EXP-2026-04', 'GP-DEMO-NT-104', '2025-04-10', '2030-04-09', 'So Y te Can Tho', 'DA_DUYET'),
-    (10, 'Co quan Quan ly Duoc Can Tho (DEMO)', 'CO_QUAN_QUAN_LY', 'Can Tho', '02923900105', 'DEMO-EXP-2026-05', NULL, NULL, NULL, 'Bo Y te', 'DA_DUYET');
+    (10, 'Co quan Quan ly Duoc Can Tho (DEMO)', 'CO_QUAN_QUAN_LY', 'Can Tho', '02923900105', 'DEMO-EXP-2026-05', NULL, NULL, NULL, 'Bo Y te', 'DA_DUYET'),
+    (11, 'So Y te Thanh pho Can Tho (DEMO)', 'CO_QUAN_QUAN_LY', 'So 10 Ly Tu Trong, Quan Ninh Kieu, Can Tho', '02923888999', '0402190011', NULL, NULL, NULL, 'Bo Y te', 'DA_DUYET');
 
--- 2. Bảng taiKhoan (Đã lược bỏ soDienThoai theo v4)
+-- 2. Bảng taiKhoan (Bổ sung tài khoản id = 13 thuộc toChucId = 11)
 INSERT INTO taiKhoan
     (id, tenDangNhap, matKhau, email, vaiTro, trangThai, toChucId, ngayTao)
 VALUES
@@ -382,7 +379,8 @@ VALUES
     (9, 'mientay.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'mientay.demo@example.test', 'NHA_PHAN_PHOI', 'ACTIVE', 8, '2026-10-03 09:00:00'),
     (10, 'hoasen.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'hoasen.demo@example.test', 'NHA_THUOC', 'ACTIVE', 9, '2026-10-04 09:00:00'),
     (11, 'cantho.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'cantho.demo@example.test', 'CO_QUAN_QUAN_LY', 'PENDING', 10, '2026-10-05 09:00:00'),
-    (12, 'admin.mo-rong.demo', '$2y$12$6/7/OIsgR39uGvQyD.2Oq.76cM8Jq3xN4A/8fP7mD2z1L3uX4kK1C', 'admin.mo-rong.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-10-06 09:00:00');
+    (12, 'admin.mo-rong.demo', '$2y$12$6/7/OIsgR39uGvQyD.2Oq.76cM8Jq3xN4A/8fP7mD2z1L3uX4kK1C', 'admin.mo-rong.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-10-06 09:00:00'),
+    (13, 'cqql.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'cqql.cantho@example.test', 'CO_QUAN_QUAN_LY', 'ACTIVE', 11, '2026-10-06 10:00:00');
 
 -- 3. Bảng nhatKyHeThong
 INSERT INTO nhatKyHeThong (id, taiKhoanId, doiTuongId, hanhDong, ketQua, thoiGian, chiTiet)
@@ -399,8 +397,7 @@ VALUES
     (10, 11, NULL, 'TAO_TAI_KHOAN_DEMO', 'THANH_CONG', '2026-10-05 09:30:00', 'Tao tai khoan mo rong du lieu demo.'),
     (11, 12, NULL, 'TAO_TAI_KHOAN_DEMO', 'THANH_CONG', '2026-10-06 09:30:00', 'Tao tai khoan mo rong du lieu demo.');
 
--- 4. Bảng yeuCauDangKy
--- 3. Bảng yeuCauDangKy (Lưu lịch sử & Snapshot thông tin từng lần nộp)
+-- 4. Bảng yeuCauDangKy (Bổ sung id = 11 cho toChucId = 11)
 INSERT INTO yeuCauDangKy
     (id, toChucId, tenToChuc, loaiToChuc, diaChi, soDienThoai, maSoThue, soGiayPhepDuoc, coQuanCap, ngayCapGiayPhep, ngayHetHanGiayPhep, versionHoSo, ngayGui, trangThai, nguoiDuyetId, ngayXuLy, lyDoTuChoi)
 VALUES
@@ -413,7 +410,8 @@ VALUES
     (7, 7, 'Duoc pham Cao Nguyen (DEMO)', 'NHA_SAN_XUAT', 'Dak Lak', '02623900102', 'DEMO-EXP-2026-02', 'GP-DEMO-NSX-102', 'So Y te Dak Lak', '2025-02-10', '2030-02-09', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
     (8, 8, 'Phan phoi Duoc Mien Tay (DEMO)', 'NHA_PHAN_PHOI', 'Can Tho', '02923900103', 'DEMO-EXP-2026-03', 'GP-DEMO-PP-103', 'So Y te Can Tho', '2025-03-10', '2030-03-09', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
     (9, 9, 'Nha thuoc Hoa Sen (DEMO)', 'NHA_THUOC', 'Can Tho', '02923900104', 'DEMO-EXP-2026-04', 'GP-DEMO-NT-104', 'So Y te Can Tho', '2025-04-10', '2030-04-09', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (10, 10, 'Co quan Quan ly Duoc Can Tho (DEMO)', 'CO_QUAN_QUAN_LY', 'Can Tho', '02923900105', 'DEMO-EXP-2026-05', NULL, 'Bo Y te', NULL, NULL, 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL);
+    (10, 10, 'Co quan Quan ly Duoc Can Tho (DEMO)', 'CO_QUAN_QUAN_LY', 'Can Tho', '02923900105', 'DEMO-EXP-2026-05', NULL, 'Bo Y te', NULL, NULL, 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (11, 11, 'So Y te Thanh pho Can Tho (DEMO)', 'CO_QUAN_QUAN_LY', 'So 10 Ly Tu Trong, Quan Ninh Kieu, Can Tho', '02923888999', '0402190011', NULL, 'Bo Y te', NULL, NULL, 1, '2026-10-05 00:00:00', 'DA_DUYET', 1, '2026-10-06 00:00:00', NULL);
 
 -- 5. Bảng taiLieuDangKy
 INSERT INTO taiLieuDangKy (id, yeuCauDangKyId, tenTaiLieu, loaiTaiLieu, duongDan, ngayTaiLen)
@@ -429,7 +427,7 @@ VALUES
     (9, 9, 'Ho so doanh nghiep demo 4', 'HO_SO_DOANH_NGHIEP', 'demo/mo-rong/to-chuc-4/ho-so.pdf', '2026-10-04 00:00:00'),
     (10, 10, 'Ho so doanh nghiep demo 5', 'HO_SO_DOANH_NGHIEP', 'demo/mo-rong/to-chuc-5/ho-so.pdf', '2026-10-05 00:00:00');
 
--- 6. Bảng sanPham (Đã chuyển đổi hoatChat sang thanhPhan, hamLuong, dangBaoChe)
+-- 6. Bảng sanPham
 INSERT INTO sanPham
     (id, maSanPham, tenSanPham, soDangKy, thanhPhan, hamLuong, dangBaoChe, quyCachDongGoi, nhaSanXuatId, trangThaiDuyet)
 VALUES
@@ -650,6 +648,7 @@ VALUES
     (104, 104, 'Cefixime 20 mg - Lo demo 051', 'Cefixime trihydrate', '20 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-06 00:00:00', 'TU_CHOI', 2, '2026-10-08 00:00:00', 'Ho so demo can bo sung thong tin.'),
     (105, 105, 'Ambroxol 25 mg - Lo demo 052', 'Ambroxol hydrochloride', '25 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-07 00:00:00', 'TU_CHOI', 2, '2026-10-09 00:00:00', 'Ho so demo can bo sung thong tin.'),
     (106, 106, 'Montelukast 50 mg - Lo demo 053', 'Montelukast sodium', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-08 00:00:00', 'TU_CHOI', 2, '2026-10-01 00:00:00', 'Ho so demo can bo sung thong tin.');
+
 -- 8. Bảng loThuoc
 INSERT INTO loThuoc
     (id, maLo, maLoNghiepVu, sanPhamId, toChucId, soLuong, ngaySanXuat, hanSuDung, trangThai)
@@ -802,7 +801,7 @@ VALUES
     (10, 4, 9, 1, '2026-10-08 10:00:00'),
     (11, 5, 7, 8, '2026-10-08 10:00:00');
 
--- 13. Bảng chuyenGiao (Chuyển đổi trangThai IN_TRANSIT, REJECTED về chuẩn v4 PENDING/RECEIVED)
+-- 13. Bảng chuyenGiao
 INSERT INTO chuyenGiao
     (id, maChuyenGiao, loThuocId, benGuiId, benNhanId, soLuong, thoiGianKhoiTao, thoiGianXacNhan, trangThai)
 VALUES
@@ -814,7 +813,7 @@ VALUES
     (6, 'b7c773bd-b2cd-4c46-9742-ea4c529a2d4a', 4, 6, 8, 4, '2026-09-06 12:00:00', NULL, 'PENDING'),
     (7, 'd980c7c3-bcbc-4313-b417-372c2e46fc56', 4, 8, 9, 1, '2026-09-07 13:00:00', '2026-09-07 15:00:00', 'RECEIVED');
 
--- 14. Bảng baoCaoNghiVan (Bổ sung maLoKhaiBao và map trạng thái)
+-- 14. Bảng baoCaoNghiVan
 INSERT INTO baoCaoNghiVan
     (id, maBaoCao, loThuocId, maLoKhaiBao, taiKhoanId, lyDo, moTa, ngayGui, trangThai)
 VALUES
@@ -831,21 +830,21 @@ VALUES
     (3, 3, 'minh-chung-demo-1.jpg', 'image/jpeg', 'demo/mo-rong/bao-cao/BC-DEMO-EXP-2026-0001/minh-chung.jpg', '2026-09-08 00:00:00'),
     (4, 4, 'minh-chung-demo-2.jpg', 'image/jpeg', 'demo/mo-rong/bao-cao/BC-DEMO-EXP-2026-0002/minh-chung.jpg', '2026-09-09 00:00:00');
 
--- 16. Bảng ketQuaXuLyBaoCao (Thay nguoiXuLyId bằng coQuanXuLyId)
+-- 16. Bảng ketQuaXuLyBaoCao
 INSERT INTO ketQuaXuLyBaoCao
     (id, baoCaoId, coQuanXuLyId, quyetDinh, lyDoXuLy, ghiChu, ngayXuLy)
 VALUES
     (1, 1, 2, 'THU_HOI', 'Ket qua kiem tra mau khong dat yeu cau.', 'Du lieu minh hoa; khong phai ket luan kiem dinh that.', '2026-10-05 00:00:00'),
     (2, 4, 11, 'THU_HOI', 'Can cach ly lo hang de kiem tra.', 'Du lieu demo.', '2026-09-12 00:00:00');
 
--- 17. Bảng thuHoiLoHang (Bổ sung coQuanQuyetDinhId)
+-- 17. Bảng thuHoiLoHang
 INSERT INTO thuHoiLoHang
     (id, loThuocId, coQuanQuyetDinhId, ketQuaXuLyBaoCaoId, lyDo, ngayThuHoi)
 VALUES
     (1, 2, 2, 1, 'Thu hoi demo theo ket qua xu ly BC-DEMO-2026-0001.', '2026-10-05 00:00:00'),
     (2, 5, 11, 2, 'Thu hoi minh hoa theo ket qua xu ly bao cao demo.', '2026-09-12 00:00:00');
 
--- 18. Bảng blockchainIdentity
+-- 18. Bảng blockchainIdentity (Bổ sung id = 10 liên kết toChucId = 11)
 INSERT INTO blockchainIdentity
     (id, toChucId, signerKeyId, diaChiVi, network, trangThai)
 VALUES
@@ -857,12 +856,15 @@ VALUES
     (6, 7, 'KEY-DEMO-EXP-002',  '0xcaf40b8269540029e17267490dbf7690dd6ac41f', 'Ethereum Sepolia Testnet', 'ACTIVE'),
     (7, 8, 'KEY-DEMO-EXP-003',  '0xe4805774a21fe5a653d7ddb2aa59483a949a81f9', 'Ethereum Sepolia Testnet', 'ACTIVE'),
     (8, 9, 'KEY-DEMO-EXP-004',  '0x1e60991f6b1f4b0594227d9a8bbe36b84d1856ba', 'Ethereum Sepolia Testnet', 'ACTIVE'),
-    (9, 10, 'KEY-DEMO-EXP-005', '0xb840087a6457de1ef6a838b26ffdabcfef5c069f', 'Ethereum Sepolia Testnet', 'INACTIVE')
+    (9, 10, 'KEY-DEMO-EXP-005', '0xb840087a6457de1ef6a838b26ffdabcfef5c069f', 'Ethereum Sepolia Testnet', 'INACTIVE'),
+    (10, 11, 'KEY-DEMO-CQQL-002', '0xe3Aa45E5eb083272F6Cf638914ADAFccad78D3A5', 'Ethereum Sepolia Testnet', 'ACTIVE')
 ON DUPLICATE KEY UPDATE 
     `signerKeyId` = VALUES(`signerKeyId`),
     `diaChiVi`   = VALUES(`diaChiVi`),
     `network`     = VALUES(`network`),
     `trangThai`   = VALUES(`trangThai`);
+
+-- 19. Bảng blockchainTransaction
 INSERT INTO blockchainTransaction
     (id, txHash, blockNumber, eventName, businessId, thoiGian, network, trangThai, toChucId, loThuocId, chuyenGiaoId, donViSanPhamId, banLeId)
 VALUES

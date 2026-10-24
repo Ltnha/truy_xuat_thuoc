@@ -151,6 +151,13 @@ app.post('/tx', authMiddleware, async (req, res) => {
             tx = await contract.grantRole(params.account, params.role);
         } else if (action === 'revokeRole') {
             tx = await contract.revokeRole(params.account, params.role);
+        } else if (action === 'recordBatchEvent') {
+            tx = await contract.recordBatchEvent(
+                params.batchId,
+                params.businessId,
+                params.eventType,
+                params.payloadHash
+            );
         } else {
             return res.status(400).json({ ok: false, reason: `Action [${action}] chưa được hỗ trợ` });
         }
@@ -159,7 +166,11 @@ app.post('/tx', authMiddleware, async (req, res) => {
         const receipt = await tx.wait();
         console.log(`[TX SUCCESS] TxHash: ${receipt.hash}`);
 
-        return res.json({ ok: true, txHash: receipt.hash });
+        return res.json({ 
+            ok: true, 
+            txHash: receipt.hash,
+            blockNumber: receipt.blockNumber ? Number(receipt.blockNumber) : null
+        });
     } catch (err) {
         console.error("[TX ERROR]", err.reason || err.message);
         return res.status(500).json({ ok: false, reason: err.reason || err.message });
@@ -176,6 +187,32 @@ app.get('/roles/check', authMiddleware, async (req, res) => {
         return res.json({ ok: true, hasRole: hasRole });
     } catch (err) {
         return res.status(500).json({ ok: false, hasRole: false, reason: err.message });
+    }
+});
+
+// 4b. Kiểm tra xem sự kiện Lô đã được ghi nhận On-chain chưa (Idempotency Check)
+app.get('/events/check-batch', authMiddleware, async (req, res) => {
+    try {
+        const { batchId, businessId, eventType } = req.query;
+        if (!batchId || !businessId || !eventType) {
+            return res.status(400).json({ ok: false, reason: 'Thiếu tham số batchId, businessId, hoặc eventType' });
+        }
+
+        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        const eventKey = ethers.solidityPackedKeccak256(
+            ["bytes32", "bytes32", "bytes32"],
+            [batchId, businessId, eventType]
+        );
+
+        const isRecorded = await contract.recordedEventKeys(eventKey);
+
+        return res.json({ 
+            ok: true, 
+            isRecorded: Boolean(isRecorded), 
+            eventKey: eventKey 
+        });
+    } catch (err) {
+        return res.status(500).json({ ok: false, isRecorded: false, reason: err.message });
     }
 });
 
