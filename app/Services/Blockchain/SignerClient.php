@@ -71,6 +71,24 @@ class SignerClient
     }
 
     /**
+     * Phương thức bổ trợ tương thích với DuyetSanPhamController & Queue Job
+     */
+    public function sendTransaction(array $payload): array
+    {
+        $keyId  = $payload['keyId'] ?? env('SIGNER_DEFAULT_KEY_ID', 'ADMIN_MASTER_KEY');
+        $action = $payload['action'] ?? '';
+        $params = $payload['params'] ?? [];
+
+        $result = $this->tx($keyId, $action, $params);
+
+        if (isset($result['ok']) && $result['ok'] === false) {
+            throw new Exception("Lỗi Signer [sendTransaction]: " . ($result['reason'] ?? 'Giao dịch thất bại'));
+        }
+
+        return $result;
+    }
+
+    /**
      * Kiểm tra trạng thái vai trò On-chain
      */
     public function hasRole(string $roleHash, string $accountAddress): bool

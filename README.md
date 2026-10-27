@@ -63,8 +63,11 @@ truy_xuat_thuoc
 │  │        ├─ DangKyToChucRequest.php
 │  │        └─ DangNhapRequest.php
 │  ├─ Jobs
+│  │  ├─ ProcessBatchRegistrationJob.php
 │  │  ├─ ProcessOrganizationApprovalJob.php
-│  │  └─ RevokeOrganizationRoleJob.php
+│  │  ├─ RestoreOrganizationRoleJob.php
+│  │  ├─ RevokeOrganizationRoleJob.php
+│  │  └─ RotateOrganizationWalletJob.php
 │  ├─ Models
 │  │  ├─ BanLe.php
 │  │  ├─ BaoCaoNghiVan.php
@@ -150,7 +153,8 @@ truy_xuat_thuoc
 │  └─ BatchTraceability.sol
 ├─ database
 │  ├─ migrations
-│  │  └─ 2026_10_23_235455_create_jobs_table.php
+│  │  ├─ 2026_10_23_235455_create_jobs_table.php
+│  │  └─ 2026_10_24_164651_create_failed_jobs_table.php
 │  └─ seeders
 │     ├─ DatabaseSeeder.php
 │     ├─ DemoDataExpansionSeeder.php
@@ -318,13 +322,18 @@ truy_xuat_thuoc
 │  │        ├─ nXMDEF2EX4KZEfguijtXDu0Z8c1kxdfT66MTgznr.jpg
 │  │        ├─ RmRcFyVuDwkam0faDtPp0KpPKIlGBWbMzA6TN2fT.pdf
 │  │        ├─ T6ag19jfEKZqL5ymvC2gQ6ogSVsO1vC5SNOycgIo.jpg
+│  │        ├─ uNpMRwdeF6vRl0pUpfBKXct9LxBK61ljRKacHnyQ.pdf
 │  │        ├─ uuihWj9GYTsvIrRBPfqGPa9Ya61sX7H36uqtP6rK.pdf
+│  │        ├─ VwWpnv75AyXAQhMU7s0Wc8pzbXDQoHDbfNjT1tyt.pdf
 │  │        └─ yfPtKCxKlTRXPFW9J8lY6XjGpJyI1JIMWKF3u5Mg.pdf
 │  ├─ framework
 │  │  ├─ cache
 │  │  │  └─ data
+│  │  │     └─ ee
+│  │  │        └─ 2f
+│  │  │           └─ ee2f842aa7bb1f53edf3a2ed2c09a1807ffa6c90
 │  │  ├─ sessions
-│  │  │  └─ mXdDPVS89tX0Ud1f0L27jsGYXVVELdCEH58qEzIr
+│  │  │  └─ 3VB2RM6uSKEhB361HxCZ2WqqHq6upjW4Fctktaxa
 │  │  ├─ testing
 │  │  └─ views
 │  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
@@ -391,6 +400,7 @@ truy_xuat_thuoc
 │  ├─ Feature
 │  │  ├─ BanLeTest.php
 │  │  ├─ BaoCaoXuLyTest.php
+│  │  ├─ BatchRegistrationFlowTest.php
 │  │  ├─ DangKyToChucTest.php
 │  │  ├─ DangNhapTest.php
 │  │  ├─ ExampleTest.php

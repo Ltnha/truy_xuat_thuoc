@@ -6,7 +6,7 @@
 	},
 	{
 		"inputs": [],
-		"name": "Unauthorized",
+		"name": "DuplicateEvent",
 		"type": "error"
 	},
 	{
@@ -21,11 +21,6 @@
 	},
 	{
 		"inputs": [],
-		"name": "DuplicateEvent",
-		"type": "error"
-	},
-	{
-		"inputs": [],
 		"name": "RoleAlreadyGranted",
 		"type": "error"
 	},
@@ -33,6 +28,54 @@
 		"inputs": [],
 		"name": "RoleNotGranted",
 		"type": "error"
+	},
+	{
+		"inputs": [],
+		"name": "Unauthorized",
+		"type": "error"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "bytes32",
+				"name": "batchId",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"internalType": "bytes32",
+				"name": "businessId",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "actor",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "eventType",
+				"type": "bytes32"
+			},
+			{
+				"indexed": false,
+				"internalType": "bytes32",
+				"name": "payloadHash",
+				"type": "bytes32"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "timestamp",
+				"type": "uint256"
+			}
+		],
+		"name": "BatchEventRecorded",
+		"type": "event"
 	},
 	{
 		"anonymous": false,
@@ -51,25 +94,6 @@
 			}
 		],
 		"name": "OwnershipTransferred",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "writer",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "bool",
-				"name": "enabled",
-				"type": "bool"
-			}
-		],
-		"name": "WriterPermissionChanged",
 		"type": "event"
 	},
 	{
@@ -127,93 +151,88 @@
 		"inputs": [
 			{
 				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "businessId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
 				"internalType": "address",
-				"name": "actor",
+				"name": "writer",
 				"type": "address"
 			},
 			{
 				"indexed": false,
-				"internalType": "bytes32",
-				"name": "eventType",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "payloadHash",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
+				"internalType": "bool",
+				"name": "enabled",
+				"type": "bool"
 			}
 		],
-		"name": "BatchEventRecorded",
+		"name": "WriterPermissionChanged",
 		"type": "event"
 	},
 	{
 		"inputs": [],
-		"name": "owner",
+		"name": "ROLE_CO_QUAN",
 		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"name": "writers",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
 			{
 				"internalType": "bytes32",
 				"name": "",
 				"type": "bytes32"
 			}
 		],
-		"name": "recordedEventKeys",
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "ROLE_NHA_THUOC",
 		"outputs": [
 			{
-				"internalType": "bool",
+				"internalType": "bytes32",
 				"name": "",
-				"type": "bool"
+				"type": "bytes32"
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "ROLE_NPP",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [],
+		"name": "ROLE_NSX",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "address",
+				"name": "account",
+				"type": "address"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "role",
+				"type": "bytes32"
+			}
+		],
+		"name": "grantRole",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -260,21 +279,63 @@
 		"type": "function"
 	},
 	{
-		"inputs": [
+		"inputs": [],
+		"name": "owner",
+		"outputs": [
 			{
 				"internalType": "address",
-				"name": "account",
+				"name": "",
 				"type": "address"
+			}
+		],
+		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "batchId",
+				"type": "bytes32"
 			},
 			{
 				"internalType": "bytes32",
-				"name": "role",
+				"name": "businessId",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "eventType",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "bytes32",
+				"name": "payloadHash",
 				"type": "bytes32"
 			}
 		],
-		"name": "grantRole",
+		"name": "recordBatchEvent",
 		"outputs": [],
 		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"name": "recordedEventKeys",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -329,29 +390,20 @@
 	{
 		"inputs": [
 			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "businessId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "eventType",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "payloadHash",
-				"type": "bytes32"
+				"internalType": "address",
+				"name": "",
+				"type": "address"
 			}
 		],
-		"name": "recordBatchEvent",
-		"outputs": [],
-		"stateMutability": "nonpayable",
+		"name": "writers",
+		"outputs": [
+			{
+				"internalType": "bool",
+				"name": "",
+				"type": "bool"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	}
 ]

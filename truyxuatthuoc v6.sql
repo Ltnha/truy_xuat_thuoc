@@ -849,9 +849,9 @@ INSERT INTO blockchainIdentity
     (id, toChucId, signerKeyId, diaChiVi, network, trangThai)
 VALUES
     (1, 1, 'KEY-DEMO-NSX-001', '0x1111111111111111111111111111111111111111', 'Ethereum Sepolia Testnet', 'ACTIVE'),
-    (2, 2, 'KEY-DEMO-CQQL-001', '0x0285C31E1Cb022a4637533e75E505E811CBdF869', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (2, 2, 'KEY-DEMO-CQQL-001', '0x4444444444444444444444444444444444444444', 'Ethereum Sepolia Testnet', 'ACTIVE'),
     (3, 3, 'KEY-DEMO-NT-001',   '0x3333333333333333333333333333333333333333', 'Ethereum Sepolia Testnet', 'ACTIVE'),
-    (4, 4, 'KEY-DEMO-CQ-001',   '0x4444444444444444444444444444444444444444', 'Ethereum Sepolia Testnet', 'ACTIVE'),
+    (4, 4, 'ADMIN_MASTER_KEY', '0x0285C31E1Cb022a4637533e75E505E811CBdF869', 'Ethereum Sepolia Testnet', 'ACTIVE'),
     (5, 6, 'KEY-DEMO-EXP-001',  '0xc78c8a47d7fabc536420bec3b7ed0bc95598c201', 'Ethereum Sepolia Testnet', 'ACTIVE'),
     (6, 7, 'KEY-DEMO-EXP-002',  '0xcaf40b8269540029e17267490dbf7690dd6ac41f', 'Ethereum Sepolia Testnet', 'ACTIVE'),
     (7, 8, 'KEY-DEMO-EXP-003',  '0xe4805774a21fe5a653d7ddb2aa59483a949a81f9', 'Ethereum Sepolia Testnet', 'ACTIVE'),

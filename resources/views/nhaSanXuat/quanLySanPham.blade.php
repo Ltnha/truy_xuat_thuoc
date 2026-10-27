@@ -3,7 +3,7 @@
 @section('title', $tieuDeTrang ?? 'Quản lý sản phẩm - PharmaChain')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLySanPham.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLySanPham.css') }}">
 @endpush
 
 @section('content')
@@ -100,50 +100,48 @@
             <span class="text-[10px] text-slate-500 italic block pt-1">Hệ thống đã tự động điền dữ liệu lần nộp trước. Vui lòng sửa lại mục không hợp lệ trước khi gửi lại.</span>
         </div>
 
-        <form id="formSubmitSP" class="space-y-4 text-xs">
-            <input type="hidden" id="spIdDangChon" value="">
+        <!-- Form Đăng ký sản phẩm mới -->
+        <form id="formSubmitSP" action="{{ route('nha-san-xuat.sanPham.store') }}" method="POST" class="space-y-4 text-xs">
+            @csrf
+            <input type="hidden" id="spIdDangChon" name="sp_id" value="">
 
             <div class="space-y-1">
                 <label for="nhapTenThuoc" class="font-bold text-slate-700">Tên Biệt Dược / Tên Thuốc <span class="text-red-500">*</span></label>
-                <input type="text" id="nhapTenThuoc" required placeholder="VD: Paracetamol 500mg" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                <input type="text" name="tenSanPham" id="nhapTenThuoc" required placeholder="VD: Paracetamol 500mg" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 outline-none">
             </div>
 
             <div class="space-y-1">
-                <label for="nhapSoDK" class="font-bold text-slate-700">Số Đăng Ký Lưu Hành (Bộ Y Tế Cấp) <span class="text-red-500">*</span></label>
-                <input type="text" id="nhapSoDK" required placeholder="VD: VD-28491-18" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono uppercase font-bold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                <label for="nhapSoDK" class="font-bold text-slate-700">Số Đăng Ký Lưu Hành <span class="text-red-500">*</span></label>
+                <input type="text" name="soDangKy" id="nhapSoDK" required placeholder="VD: VD-28491-18" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono uppercase font-bold text-slate-900 outline-none">
             </div>
 
             <div class="space-y-1">
                 <label for="nhapThanhPhan" class="font-bold text-slate-700">Thành Phần <span class="text-red-500">*</span></label>
-                <input type="text" id="nhapThanhPhan" required placeholder="VD: Paracetamol" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                <input type="text" name="thanhPhan" id="nhapThanhPhan" required placeholder="VD: Paracetamol" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 outline-none">
             </div>
 
             <div class="grid grid-cols-2 gap-3">
                 <div class="space-y-1">
                     <label for="nhapHamLuong" class="font-bold text-slate-700">Hàm Lượng <span class="text-red-500">*</span></label>
-                    <input type="text" id="nhapHamLuong" required placeholder="VD: 500mg" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    <input type="text" name="hamLuong" id="nhapHamLuong" required placeholder="VD: 500mg" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 outline-none">
                 </div>
 
                 <div class="space-y-1">
                     <label for="nhapDangBaoChe" class="font-bold text-slate-700">Dạng Bào Chế <span class="text-red-500">*</span></label>
-                    <input type="text" id="nhapDangBaoChe" required placeholder="VD: Viên nén bao phim" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    <input type="text" name="dangBaoChe" id="nhapDangBaoChe" required placeholder="VD: Viên nén bao phim" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 outline-none">
                 </div>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" class="dong-modal-sp px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
-                    Hủy
-                </button>
-                <button type="submit" id="nutSubmitFormSP" class="px-6 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-paper-plane"></i> Gửi Đăng Ký
-                </button>
+                <button type="button" class="dong-modal-sp px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl">Hủy</button>
+                <button type="submit" class="px-6 py-2.5 bg-emerald-700 text-white font-bold rounded-xl shadow-md"><i class="fa-solid fa-paper-plane mr-1"></i> Gửi Đăng Ký</button>
             </div>
         </form>
     </div>
 </div>
 
 <!-- ══════════════════════════════════════════════════════════ -->
-<!-- MODAL 2: CHI TIẾT SẢN PHẨM & LỊCH SỬ THẨM DUYỆT (FR05)   -->
+<!-- MODAL 2: CHI TIẾT SẢN PHẨM & LỊCH SỬ THẨM DUYỆT            -->
 <!-- ══════════════════════════════════════════════════════════ -->
 <div id="modalChiTietSP" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
     <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-5 bong-xanh max-h-[90vh] overflow-y-auto">
@@ -211,7 +209,7 @@
         <!-- PHẦN DƯỚI: LỊCH SỬ CÁC LẦN NỘP HỒ SƠ -->
         <div class="space-y-2 pt-2 border-t border-slate-100">
             <span class="text-xs font-bold text-slate-700 uppercase tracking-wide block">
-                <i class="fa-solid fa-timeline text-emerald-700 mr-1"></i> Lịch Sử Các Lần Nộp Hồ Sơ Đăng Ký (yeuCauDangKySanPham):
+                <i class="fa-solid fa-timeline text-emerald-700 mr-1"></i> Lịch Sử Các Lần Nộp Hồ Sơ Đăng Ký:
             </span>
             <div id="khungDanhSachLichSuNop" class="space-y-3 text-xs max-h-72 overflow-y-auto pr-1">
                 <!-- Render các thẻ lịch sử qua JavaScript -->
@@ -228,5 +226,9 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('assets/js/nhaSanXuat/quanLySanPham.js') }}"></script>
+<script>
+    // Truyền trực tiếp danh sách sản phẩm từ Controller sang JavaScript
+    window.danhSachSanPham = @json($sanPhams);
+</script>
+<script src="{{ asset('assets/js/nhaSanXuat/quanLySanPham.js') }}"></script>
 @endpush

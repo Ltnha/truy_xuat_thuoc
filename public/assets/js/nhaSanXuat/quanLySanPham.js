@@ -1,277 +1,21 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const EXPLORER_BASE_URL = "https://amoy.polygonscan.com/tx/";
-    const ITEMS_PER_PAGE = 4;
-    let trangHienTaiSP = 1;
+    // 1. Khai báo dữ liệu gốc & Biến quản lý trạng thái
+    const meSanPhamGoc = window.danhSachSanPham || [];
+    let danhSachDaLoc = [...meSanPhamGoc];
+    let trangHienTai = 1;
+    const soDongMoiTrang = 10;
 
-    // Dữ liệu mô phỏng CSDL: sanPhamDược liên kết yeuCauDangKySanPham
-    let danhSachSanPham = [
-        {
-            id: 'SP01',
-            tenSanPham: 'Paracetamol 500mg',
-            soDangKy: 'VD-28491-18',
-            thanhPhan: 'Paracetamol',
-            hamLuong: '500mg',
-            dangBaoChe: 'Viên nén bao phim',
-            trangThai: 'DA_DUYET',
-            txHash: '0x4f8a2b1c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f1a',
-            lichSuNop: [
-                {
-                    lan: 1,
-                    ngayNop: '10/01/2026 08:30',
-                    thongTinKhai: {
-                        ten: 'Paracetamol 500mg',
-                        soDK: 'VD-28491-18',
-                        thanhPhan: 'Paracetamol',
-                        hamLuong: '500mg',
-                        dangBaoChe: 'Viên nén bao phim'
-                    },
-                    ketQua: 'DA_DUYET',
-                    nguoiXuLy: 'DS. Trần Minh Tâm (Cục Quản lý Dược)',
-                    lyDoTuChoi: ''
-                }
-            ]
-        },
-        {
-            id: 'SP02',
-            tenSanPham: 'Deslotid OPV 5mg',
-            soDangKy: 'VD-19234-15',
-            thanhPhan: 'Desloratadine',
-            hamLuong: '5mg',
-            dangBaoChe: 'Siro uống',
-            trangThai: 'DA_DUYET',
-            txHash: '0x88f2a1b9c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0',
-            lichSuNop: [
-                {
-                    lan: 1,
-                    ngayNop: '15/01/2026 14:00',
-                    thongTinKhai: {
-                        ten: 'Deslotid OPV 5mg',
-                        soDK: 'VD-19234-15',
-                        thanhPhan: 'Desloratadine',
-                        hamLuong: '5mg',
-                        dangBaoChe: 'Siro uống'
-                    },
-                    ketQua: 'DA_DUYET',
-                    nguoiXuLy: 'DS. Lê Hoàng Nam (Cục Quản lý Dược)',
-                    lyDoTuChoi: ''
-                }
-            ]
-        },
-        {
-            id: 'SP03',
-            tenSanPham: 'Cefalexin 500mg',
-            soDangKy: 'VD-33012-20',
-            thanhPhan: 'Cefalexin Monohydrate',
-            hamLuong: '500mg',
-            dangBaoChe: 'Viên nang cứng',
-            trangThai: 'TU_CHOI',
-            txHash: '',
-            lichSuNop: [
-                {
-                    lan: 1,
-                    ngayNop: '25/01/2026 10:15',
-                    thongTinKhai: {
-                        ten: 'Cefalexin 500mg',
-                        soDK: 'VD-33012-20',
-                        thanhPhan: 'Cefalexin Monohydrate',
-                        hamLuong: '500mg',
-                        dangBaoChe: 'Viên nang cứng'
-                    },
-                    ketQua: 'TU_CHOI',
-                    nguoiXuLy: 'DS. Phạm Thanh Bình (Cục Quản lý Dược)',
-                    lyDoTuChoi: 'Tài liệu hồ sơ đính kèm chưa hoàn thiện bản kiểm nghiệm tiêu chuẩn chất lượng và thông tin thành phần chưa đầy đủ theo quy định.'
-                }
-            ]
-        },
-        {
-            id: 'SP04',
-            tenSanPham: 'Siro Ho Astex-S',
-            soDangKy: 'VD-22991-17',
-            thanhPhan: 'Tần dày lá, Núc nác',
-            hamLuong: '90ml',
-            dangBaoChe: 'Siro thảo dược',
-            trangThai: 'CHO_DUYET',
-            txHash: '',
-            lichSuNop: [
-                {
-                    lan: 1,
-                    ngayNop: '02/02/2026 09:00',
-                    thongTinKhai: {
-                        ten: 'Siro Ho Astex-S',
-                        soDK: 'VD-22991-17',
-                        thanhPhan: 'Tần dày lá, Núc nác',
-                        hamLuong: '90ml',
-                        dangBaoChe: 'Siro thảo dược'
-                    },
-                    ketQua: 'CHO_DUYET',
-                    nguoiXuLy: 'Đang phân công chuyên viên thẩm định',
-                    lyDoTuChoi: ''
-                }
-            ]
-        },
-        {
-            id: 'SP05',
-            tenSanPham: 'Amoxicillin 500mg',
-            soDangKy: 'VD-19234-15',
-            thanhPhan: 'Amoxicillin Trihydrate',
-            hamLuong: '500mg',
-            dangBaoChe: 'Viên nang cứng',
-            trangThai: 'DA_DUYET',
-            txHash: '0x71a49f2b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5',
-            lichSuNop: [
-                {
-                    lan: 1,
-                    ngayNop: '05/01/2026 09:00',
-                    thongTinKhai: {
-                        ten: 'Amoxicillin 500mg',
-                        soDK: 'VD-19234-15',
-                        thanhPhan: 'Amoxicillin Trihydrate',
-                        hamLuong: '500mg',
-                        dangBaoChe: 'Viên nang cứng'
-                    },
-                    ketQua: 'DA_DUYET',
-                    nguoiXuLy: 'DS. Trần Minh Tâm (Cục Quản lý Dược)',
-                    lyDoTuChoi: ''
-                }
-            ]
-        }
-    ];
-
-    const thanBangSP = document.getElementById('thanBangSanPham');
-    const oTimKiem = document.getElementById('oTimKiemSP');
-    const locTrangThai = document.getElementById('locTrangThaiSP');
-    const soLuongBadge = document.getElementById('soLuongSPBadge');
-    const thongTinPhanTrang = document.getElementById('thongTinPhanTrangSP');
+    // Các phần tử DOM bảng & phân trang
+    const thanBang = document.getElementById('thanBangSanPham');
+    const badgeSoLuong = document.getElementById('soLuongSPBadge');
+    const txtThongTinPhanTrang = document.getElementById('thongTinPhanTrangSP');
     const cumNutPhanTrang = document.getElementById('cumNutPhanTrangSP');
 
-    // ══ 1. RENDER BẢNG SẢN PHẨM & PHÂN TRANG ══
-    function renderBangSanPham() {
-        const tuKhoa = oTimKiem.value.trim().toLowerCase();
-        const trangThaiLoc = locTrangThai.value;
+    // Bộ lọc & Tìm kiếm
+    const oTimKiem = document.getElementById('oTimKiemSP');
+    const locTrangThai = document.getElementById('locTrangThaiSP');
 
-        const danhSachLoc = danhSachSanPham.filter(item => {
-            const matchTuKhoa = item.tenSanPham.toLowerCase().includes(tuKhoa) ||
-                                item.soDangKy.toLowerCase().includes(tuKhoa) ||
-                                item.thanhPhan.toLowerCase().includes(tuKhoa);
-            
-            const matchTrangThai = (trangThaiLoc === 'TAT_CA') || (item.trangThai === trangThaiLoc);
-
-            return matchTuKhoa && matchTrangThai;
-        });
-
-        soLuongBadge.textContent = `Hiển thị: ${danhSachLoc.length} sản phẩm`;
-
-        const tongSoTrang = Math.ceil(danhSachLoc.length / ITEMS_PER_PAGE) || 1;
-        if (trangHienTaiSP > tongSoTrang) trangHienTaiSP = tongSoTrang;
-
-        const batDau = (trangHienTaiSP - 1) * ITEMS_PER_PAGE;
-        const ketThuc = batDau + ITEMS_PER_PAGE;
-        const duLieuTrang = danhSachLoc.slice(batDau, ketThuc);
-
-        thanBangSP.innerHTML = '';
-
-        if (duLieuTrang.length === 0) {
-            thanBangSP.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 italic">Không tìm thấy sản phẩm dược nào phù hợp với bộ lọc.</td></tr>`;
-            thongTinPhanTrang.textContent = "Không có bản ghi nào";
-            cumNutPhanTrang.innerHTML = '';
-            return;
-        }
-
-        thongTinPhanTrang.textContent = `Đang hiển thị ${batDau + 1} đến ${Math.min(ketThuc, danhSachLoc.length)} trên tổng số ${danhSachLoc.length} sản phẩm`;
-
-        duLieuTrang.forEach(item => {
-            let badgeTrangThai = '';
-            let nutHanhDongThem = '';
-
-            if (item.trangThai === 'DA_DUYET') {
-                badgeTrangThai = `
-                    <span class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
-                        <i class="fa-solid fa-circle-check text-xs"></i> <span>ĐÃ DUYỆT</span>
-                    </span>
-                `;
-            } else if (item.trangThai === 'CHO_DUYET') {
-                badgeTrangThai = `
-                    <span class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300">
-                        <i class="fa-solid fa-clock text-xs"></i> <span>CHỜ DUYỆT</span>
-                    </span>
-                `;
-            } else {
-                const lanGanNhat = item.lichSuNop[item.lichSuNop.length - 1];
-                badgeTrangThai = `
-                    <div class="inline-flex items-center justify-center gap-1.5 whitespace-nowrap" title="${lanGanNhat.lyDoTuChoi}">
-                        <span class="inline-flex items-center justify-center gap-1 whitespace-nowrap px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300">
-                            <i class="fa-solid fa-circle-xmark text-xs"></i> <span>BỊ TỪ CHỐI</span>
-                        </span>
-                        <i class="fa-solid fa-triangle-exclamation text-red-600 text-xs cursor-help"></i>
-                    </div>
-                `;
-                nutHanhDongThem = `
-                    <button type="button" class="btn-nop-lai px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition-all flex items-center gap-1 whitespace-nowrap shadow-2xs" data-id="${item.id}">
-                        <i class="fa-solid fa-rotate-right"></i> Nộp Lại
-                    </button>
-                `;
-            }
-
-            const tr = document.createElement('tr');
-            tr.className = 'dong-san-pham transition-colors';
-            tr.innerHTML = `
-                <td class="py-3 px-3 font-bold text-slate-900 leading-tight">${item.tenSanPham}</td>
-                <td class="py-3 px-3 font-mono font-bold text-cyan-800 whitespace-nowrap">${item.soDangKy}</td>
-                <td class="py-3 px-3 text-slate-700 leading-tight">${item.thanhPhan}</td>
-                <td class="py-3 px-2.5 text-slate-600 whitespace-nowrap">${item.hamLuong}</td>
-                <td class="py-3 px-2.5 text-slate-600 whitespace-nowrap">${item.dangBaoChe}</td>
-
-                <td class="py-3 px-2.5 text-center whitespace-nowrap">
-                    ${badgeTrangThai}
-                </td>
-
-                <td class="py-3 px-3 text-center whitespace-nowrap">
-                    <div class="inline-flex items-center justify-center gap-1.5">
-                        ${nutHanhDongThem}
-                        <!-- Nút Chi tiết & Lịch sử theo chuẩn FR05 -->
-                        <button type="button" class="btn-xem-chi-tiet-sp px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-all flex items-center gap-1 whitespace-nowrap border border-slate-300 shadow-2xs" data-id="${item.id}">
-                            <i class="fa-solid fa-circle-info text-emerald-700"></i> Chi Tiết & Lịch Sử
-                        </button>
-                    </div>
-                </td>
-            `;
-
-            thanBangSP.appendChild(tr);
-        });
-
-        renderPhanTrangSP(tongSoTrang);
-        ganSuKienBangSP();
-    }
-
-    // ══ CỤM NÚT PHÂN TRANG ══
-    function renderPhanTrangSP(tongSoTrang) {
-        cumNutPhanTrang.innerHTML = '';
-        if (tongSoTrang <= 1) return;
-
-        const btnPrev = document.createElement('button');
-        btnPrev.className = `px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${trangHienTaiSP === 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
-        btnPrev.innerHTML = `<i class="fa-solid fa-angle-left"></i>`;
-        btnPrev.disabled = (trangHienTaiSP === 1);
-        btnPrev.addEventListener('click', () => { if (trangHienTaiSP > 1) { trangHienTaiSP--; renderBangSanPham(); } });
-        cumNutPhanTrang.appendChild(btnPrev);
-
-        for (let i = 1; i <= tongSoTrang; i++) {
-            const btnPage = document.createElement('button');
-            btnPage.className = `w-7 h-7 rounded-lg text-xs font-bold transition-all ${trangHienTaiSP === i ? 'bg-emerald-700 text-white shadow-2xs' : 'border border-slate-200 text-slate-700 hover:bg-slate-100'}`;
-            btnPage.textContent = i;
-            btnPage.addEventListener('click', () => { trangHienTaiSP = i; renderBangSanPham(); });
-            cumNutPhanTrang.appendChild(btnPage);
-        }
-
-        const btnNext = document.createElement('button');
-        btnNext.className = `px-2.5 py-1 rounded-lg border text-xs font-bold transition-all ${trangHienTaiSP === tongSoTrang ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
-        btnNext.innerHTML = `<i class="fa-solid fa-angle-right"></i>`;
-        btnNext.disabled = (trangHienTaiSP === tongSoTrang);
-        btnNext.addEventListener('click', () => { if (trangHienTaiSP < tongSoTrang) { trangHienTaiSP++; renderBangSanPham(); } });
-        cumNutPhanTrang.appendChild(btnNext);
-    }
-
-    // ══ 2. MODAL ĐĂNG KÝ MỚI / NỘP LẠI ══
+    // Modal Đăng ký / Nộp lại
     const modalSP = document.getElementById('modalDangKySP');
     const formSP = document.getElementById('formSubmitSP');
     const tieuDeModalSP = document.getElementById('tieuDeModalSP');
@@ -279,241 +23,306 @@ document.addEventListener('DOMContentLoaded', function () {
     const noiDungLyDoTuChoi = document.getElementById('noiDungLyDoTuChoiCu');
     const spIdInput = document.getElementById('spIdDangChon');
 
-    document.getElementById('nutMoModalDangKySP').addEventListener('click', () => {
-        formSP.reset();
-        spIdInput.value = '';
-        khungCanhBaoTuChoi.classList.add('hidden');
-        tieuDeModalSP.innerHTML = `<i class="fa-solid fa-pills text-emerald-700"></i> Nộp Đơn Đăng Ký Sản Phẩm Dược Mới`;
-        modalSP.classList.remove('hidden');
-    });
+    // Modal Chi tiết & Lịch sử
+    const modalChiTiet = document.getElementById('modalChiTietSP');
+
+    // ════════════════════════════════════════════════════════════════
+    // 2. HÀM RENDER BẢNG SẢN PHẨM & PHÂN TRANG
+    // ════════════════════════════════════════════════════════════════
+    function renderBangSanPham() {
+        if (!thanBang) return;
+        thanBang.innerHTML = '';
+
+        const tongSo = danhSachDaLoc.length;
+        if (badgeSoLuong) badgeSoLuong.textContent = `Hiển thị: ${tongSo} sản phẩm`;
+
+        if (tongSo === 0) {
+            thanBang.innerHTML = `
+                <tr>
+                    <td colspan="7" class="py-8 text-center text-slate-400 italic">
+                        Không tìm thấy sản phẩm dược phẩm nào phù hợp.
+                    </td>
+                </tr>
+            `;
+            if (txtThongTinPhanTrang) txtThongTinPhanTrang.textContent = 'Trang 0 / 0';
+            if (cumNutPhanTrang) cumNutPhanTrang.innerHTML = '';
+            return;
+        }
+
+        const tongSoTrang = Math.ceil(tongSo / soDongMoiTrang);
+        if (trangHienTai > tongSoTrang) trangHienTai = tongSoTrang;
+        if (trangHienTai < 1) trangHienTai = 1;
+
+        const batDau = (trangHienTai - 1) * soDongMoiTrang;
+        const ketThuc = Math.min(batDau + soDongMoiTrang, tongSo);
+        const danhSachTrang = danhSachDaLoc.slice(batDau, ketThuc);
+
+        danhSachTrang.forEach(sp => {
+            const tr = document.createElement('tr');
+            tr.className = 'hover:bg-slate-50/80 transition-colors border-b border-slate-100';
+
+            let badgeHtml = '';
+            if (sp.trangThaiDuyet === 'DA_DUYET') {
+                badgeHtml = `<span class="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full font-bold text-[11px] inline-flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> Đã duyệt (Lưu hành)</span>`;
+            } else if (sp.trangThaiDuyet === 'CHO_DUYET') {
+                badgeHtml = `<span class="px-2.5 py-1 bg-amber-100 text-amber-800 rounded-full font-bold text-[11px] inline-flex items-center gap-1"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>`;
+            } else {
+                badgeHtml = `<span class="px-2.5 py-1 bg-red-100 text-red-800 rounded-full font-bold text-[11px] inline-flex items-center gap-1"><i class="fa-solid fa-circle-xmark"></i> Bị từ chối</span>`;
+            }
+
+            let nutNopLaiHtml = '';
+            if (sp.trangThaiDuyet === 'TU_CHOI') {
+                nutNopLaiHtml = `
+                    <button type="button" class="btn-nop-lai px-2.5 py-1 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg text-[11px] transition-all shadow-2xs flex items-center gap-1" data-id="${sp.id}">
+                        <i class="fa-solid fa-rotate-right"></i> Nộp lại
+                    </button>
+                `;
+            }
+
+            tr.innerHTML = `
+                <td class="py-3 px-3 font-bold text-slate-900">${sp.tenSanPham}</td>
+                <td class="py-3 px-3 font-mono font-bold text-cyan-800 whitespace-nowrap">${sp.soDangKy}</td>
+                <td class="py-3 px-3 text-slate-700">${sp.thanhPhan || '---'}</td>
+                <td class="py-3 px-2.5 text-slate-700 whitespace-nowrap">${sp.hamLuong || '---'}</td>
+                <td class="py-3 px-2.5 text-slate-700 whitespace-nowrap">${sp.dangBaoChe || '---'}</td>
+                <td class="py-3 px-2.5 text-center whitespace-nowrap">${badgeHtml}</td>
+                <td class="py-3 px-3 text-center whitespace-nowrap">
+                    <div class="flex items-center justify-center gap-1.5">
+                        <button type="button" class="btn-xem-chi-tiet px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg text-[11px] transition-all flex items-center gap-1" data-id="${sp.id}">
+                            <i class="fa-solid fa-eye"></i> Xem
+                        </button>
+                        ${nutNopLaiHtml}
+                    </div>
+                </td>
+            `;
+
+            thanBang.appendChild(tr);
+        });
+
+        if (txtThongTinPhanTrang) {
+            txtThongTinPhanTrang.textContent = `Hiển thị từ ${batDau + 1} đến ${ketThuc} trên tổng số ${tongSo} sản phẩm (Trang ${trangHienTai}/${tongSoTrang})`;
+        }
+
+        renderNutPhanTrang(tongSoTrang);
+        ganSuKienDongBang();
+    }
+
+    function renderNutPhanTrang(tongSoTrang) {
+        if (!cumNutPhanTrang) return;
+        cumNutPhanTrang.innerHTML = '';
+        if (tongSoTrang <= 1) return;
+
+        const btnTruoc = document.createElement('button');
+        btnTruoc.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+        btnTruoc.innerHTML = `<i class="fa-solid fa-chevron-left"></i>`;
+        btnTruoc.disabled = trangHienTai === 1;
+        btnTruoc.addEventListener('click', () => {
+            if (trangHienTai > 1) {
+                trangHienTai--;
+                renderBangSanPham();
+            }
+        });
+        cumNutPhanTrang.appendChild(btnTruoc);
+
+        for (let i = 1; i <= tongSoTrang; i++) {
+            const btnSo = document.createElement('button');
+            btnSo.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${i === trangHienTai ? 'bg-emerald-700 text-white shadow-xs' : 'border border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+            btnSo.textContent = i;
+            btnSo.addEventListener('click', () => {
+                trangHienTai = i;
+                renderBangSanPham();
+            });
+            cumNutPhanTrang.appendChild(btnSo);
+        }
+
+        const btnSau = document.createElement('button');
+        btnSau.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === tongSoTrang ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+        btnSau.innerHTML = `<i class="fa-solid fa-chevron-right"></i>`;
+        btnSau.disabled = trangHienTai === tongSoTrang;
+        btnSau.addEventListener('click', () => {
+            if (trangHienTai < tongSoTrang) {
+                trangHienTai++;
+                renderBangSanPham();
+            }
+        });
+        cumNutPhanTrang.appendChild(btnSau);
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 3. XỬ LÝ LỌC VÀ TÌM KIẾM SẢN PHẨM
+    // ════════════════════════════════════════════════════════════════
+    function locDanhSach() {
+        const tuKhoa = oTimKiem ? oTimKiem.value.toLowerCase().trim() : '';
+        const trangThai = locTrangThai ? locTrangThai.value : 'TAT_CA';
+
+        danhSachDaLoc = meSanPhamGoc.filter(sp => {
+            const matchTuKhoa = !tuKhoa ||
+                (sp.tenSanPham && sp.tenSanPham.toLowerCase().includes(tuKhoa)) ||
+                (sp.soDangKy && sp.soDangKy.toLowerCase().includes(tuKhoa)) ||
+                (sp.thanhPhan && sp.thanhPhan.toLowerCase().includes(tuKhoa));
+
+            const matchTrangThai = trangThai === 'TAT_CA' || sp.trangThaiDuyet === trangThai;
+
+            return matchTuKhoa && matchTrangThai;
+        });
+
+        trangHienTai = 1;
+        renderBangSanPham();
+    }
+
+    if (oTimKiem) oTimKiem.addEventListener('input', locDanhSach);
+    if (locTrangThai) locTrangThai.addEventListener('change', locDanhSach);
+
+    // ════════════════════════════════════════════════════════════════
+    // 4. BẮT SỰ KIỆN NÚT XEM CHI TIẾT & NỘP LẠI
+    // ════════════════════════════════════════════════════════════════
+    function ganSuKienDongBang() {
+        document.querySelectorAll('.btn-xem-chi-tiet').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const spId = parseInt(this.getAttribute('data-id'));
+                const sp = meSanPhamGoc.find(x => x.id === spId);
+                if (!sp) return;
+
+                document.getElementById('tenSPChiTietTitle').textContent = sp.tenSanPham;
+                document.getElementById('modalChiTietTenThuoc').textContent = sp.tenSanPham;
+                document.getElementById('modalChiTietSoDK').textContent = sp.soDangKy;
+                document.getElementById('modalChiTietThanhPhan').textContent = sp.thanhPhan || '---';
+                document.getElementById('modalChiTietHamLuong').textContent = sp.hamLuong || '---';
+                document.getElementById('modalChiTietDangBaoChe').textContent = sp.dangBaoChe || '---';
+
+                const elTrangThai = document.getElementById('modalChiTietTrangThai');
+                if (sp.trangThaiDuyet === 'DA_DUYET') {
+                    elTrangThai.innerHTML = `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold text-[10px]">Đã duyệt</span>`;
+                } else if (sp.trangThaiDuyet === 'CHO_DUYET') {
+                    elTrangThai.innerHTML = `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded-full font-bold text-[10px]">Chờ duyệt</span>`;
+                } else {
+                    elTrangThai.innerHTML = `<span class="px-2 py-0.5 bg-red-100 text-red-800 rounded-full font-bold text-[10px]">Bị từ chối</span>`;
+                }
+
+                const khungBC = document.getElementById('khungChungCuBlockchainSP');
+                const bctx = sp.blockchain_transactions && sp.blockchain_transactions.length > 0 ? sp.blockchain_transactions[0] : null;
+
+                if (bctx && bctx.txHash) {
+                    khungBC.classList.remove('hidden');
+                    document.getElementById('modalChiTietTxHashSP').textContent = bctx.txHash;
+                    document.getElementById('modalChiTietTxLinkSP').href = `https://sepolia.etherscan.io/tx/${bctx.txHash}`;
+                } else {
+                    khungBC.classList.add('hidden');
+                }
+
+                const khungLichSu = document.getElementById('khungDanhSachLichSuNop');
+                khungLichSu.innerHTML = '';
+
+                const yeuCaus = sp.yeu_cau_dang_ky_san_phams || [];
+                if (yeuCaus.length === 0) {
+                    khungLichSu.innerHTML = `<div class="text-slate-400 italic">Chưa có dữ liệu lịch sử nộp.</div>`;
+                } else {
+                    yeuCaus.forEach(yc => {
+                        let ycBadge = '';
+                        if (yc.trangThai === 'DA_DUYET') ycBadge = `<span class="text-emerald-700 font-bold">Đã duyệt</span>`;
+                        else if (yc.trangThai === 'CHO_DUYET') ycBadge = `<span class="text-amber-700 font-bold">Chờ xử lý</span>`;
+                        else ycBadge = `<span class="text-red-600 font-bold">Bị từ chối</span>`;
+
+                        const lyDoHtml = yc.lyDoTuChoi ? `<div class="text-red-600 mt-1 bg-red-50 p-2 rounded-lg"><strong>Lý do từ chối:</strong> ${yc.lyDoTuChoi}</div>` : '';
+
+                        const div = document.createElement('div');
+                        div.className = 'p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1';
+                        div.innerHTML = `
+                            <div class="flex items-center justify-between font-bold">
+                                <span>Phiên bản hồ sơ: v${yc.versionHoSo}</span>
+                                <span>${ycBadge}</span>
+                            </div>
+                            <div class="text-[11px] text-slate-500">Ngày gửi: ${new Date(yc.ngayGui).toLocaleString('vi-VN')}</div>
+                            ${lyDoHtml}
+                        `;
+                        khungLichSu.appendChild(div);
+                    });
+                }
+
+                modalChiTiet.classList.remove('hidden');
+            });
+        });
+
+        document.querySelectorAll('.btn-nop-lai').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const spId = parseInt(this.getAttribute('data-id'));
+                const sp = meSanPhamGoc.find(x => x.id === spId);
+                if (!sp) return;
+
+                spIdInput.value = sp.id;
+                // Chuẩn hóa Form Action cho đường dẫn Nộp lại
+                formSP.action = `/nha-san-xuat/quan-ly-san-pham/${sp.id}/nop-lai`;
+
+                if (!formSP.querySelector('input[name="_method"]')) {
+                    const methodInput = document.createElement('input');
+                    methodInput.type = 'hidden';
+                    methodInput.name = '_method';
+                    methodInput.value = 'PUT';
+                    formSP.appendChild(methodInput);
+                }
+
+                tieuDeModalSP.innerHTML = `<i class="fa-solid fa-rotate-right text-amber-600"></i> Nộp Lại Đăng Ký: ${sp.tenSanPham}`;
+
+                document.getElementById('nhapTenThuoc').value = sp.tenSanPham;
+                document.getElementById('nhapSoDK').value = sp.soDangKy;
+                document.getElementById('nhapThanhPhan').value = sp.thanhPhan || '';
+                document.getElementById('nhapHamLuong').value = sp.hamLuong || '';
+                document.getElementById('nhapDangBaoChe').value = sp.dangBaoChe || '';
+
+                if (sp.yeu_cau_dang_ky_san_phams && sp.yeu_cau_dang_ky_san_phams.length > 0) {
+                    const lanCu = sp.yeu_cau_dang_ky_san_phams[sp.yeu_cau_dang_ky_san_phams.length - 1];
+                    if (lanCu.lyDoTuChoi) {
+                        noiDungLyDoTuChoi.textContent = lanCu.lyDoTuChoi;
+                        khungCanhBaoTuChoi.classList.remove('hidden');
+                    }
+                }
+
+                modalSP.classList.remove('hidden');
+            });
+        });
+    }
+
+    // ════════════════════════════════════════════════════════════════
+    // 5. XỬ LÝ ẨN HỆN MODAL
+    // ════════════════════════════════════════════════════════════════
+    const btnOpen = document.getElementById('nutMoModalDangKySP');
+    if (btnOpen) {
+        btnOpen.addEventListener('click', () => {
+            formSP.reset();
+            // Chuẩn hóa Form Action cho đường dẫn Tạo mới
+            formSP.action = "/nha-san-xuat/quan-ly-san-pham";
+
+            const oldMethod = formSP.querySelector('input[name="_method"]');
+            if (oldMethod) oldMethod.remove();
+
+            spIdInput.value = '';
+            khungCanhBaoTuChoi.classList.add('hidden');
+            tieuDeModalSP.innerHTML = `<i class="fa-solid fa-pills text-emerald-700"></i> Nộp Đơn Đăng Ký Sản Phẩm Dược Mới`;
+            modalSP.classList.remove('hidden');
+        });
+    }
 
     document.querySelectorAll('.dong-modal-sp').forEach(btn => {
         btn.addEventListener('click', () => modalSP.classList.add('hidden'));
     });
 
-    function ganSuKienBangSP() {
-        // Nộp lại khi bị từ chối
-        document.querySelectorAll('.btn-nop-lai').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const id = this.getAttribute('data-id');
-                const sp = danhSachSanPham.find(x => x.id === id);
-                if (!sp) return;
-
-                spIdInput.value = sp.id;
-                tieuDeModalSP.innerHTML = `<i class="fa-solid fa-rotate-right text-amber-600"></i> Nộp Lại Đăng Ký: ${sp.tenSanPham}`;
-
-                document.getElementById('nhapTenThuoc').value = sp.tenSanPham;
-                document.getElementById('nhapSoDK').value = sp.soDangKy;
-                document.getElementById('nhapThanhPhan').value = sp.thanhPhan;
-                document.getElementById('nhapHamLuong').value = sp.hamLuong;
-                document.getElementById('nhapDangBaoChe').value = sp.dangBaoChe;
-
-                const lanCu = sp.lichSuNop[sp.lichSuNop.length - 1];
-                noiDungLyDoTuChoi.textContent = lanCu.lyDoTuChoi;
-                khungCanhBaoTuChoi.classList.remove('hidden');
-
-                modalSP.classList.remove('hidden');
-            });
-        });
-
-        // Mở modal Chi tiết & Lịch sử
-        document.querySelectorAll('.btn-xem-chi-tiet-sp').forEach(btn => {
-            btn.addEventListener('click', function () {
-                const id = this.getAttribute('data-id');
-                hienThiChiTietVaLichSu(id);
-            });
-        });
-    }
-
-    formSP.addEventListener('submit', function (e) {
-        e.preventDefault();
-
-        const idSua = spIdInput.value;
-        const tenThuoc = document.getElementById('nhapTenThuoc').value.trim();
-        const soDK = document.getElementById('nhapSoDK').value.trim().toUpperCase();
-        const thanhPhan = document.getElementById('nhapThanhPhan').value.trim();
-        const hamLuong = document.getElementById('nhapHamLuong').value.trim();
-        const dangBaoChe = document.getElementById('nhapDangBaoChe').value.trim();
-        const thoiGian = new Date().toLocaleString('vi-VN');
-
-        if (idSua) {
-            const sp = danhSachSanPham.find(x => x.id === idSua);
-            if (sp) {
-                sp.tenSanPham = tenThuoc;
-                sp.soDangKy = soDK;
-                sp.thanhPhan = thanhPhan;
-                sp.hamLuong = hamLuong;
-                sp.dangBaoChe = dangBaoChe;
-                sp.trangThai = 'CHO_DUYET';
-                sp.txHash = '';
-                sp.lichSuNop.push({
-                    lan: sp.lichSuNop.length + 1,
-                    ngayNop: thoiGian,
-                    thongTinKhai: {
-                        ten: tenThuoc,
-                        soDK: soDK,
-                        thanhPhan: thanhPhan,
-                        hamLuong: hamLuong,
-                        dangBaoChe: dangBaoChe
-                    },
-                    ketQua: 'CHO_DUYET',
-                    nguoiXuLy: 'Đang phân công chuyên viên thẩm định',
-                    lyDoTuChoi: ''
-                });
-                alert(`Đã nộp lại đăng ký cho sản phẩm "${tenThuoc}"! Hồ sơ chuyển về trạng thái Chờ duyệt.`);
-            }
-        } else {
-            const maMoi = 'SP' + Math.floor(100 + Math.random() * 900);
-            danhSachSanPham.unshift({
-                id: maMoi,
-                tenSanPham: tenThuoc,
-                soDangKy: soDK,
-                thanhPhan: thanhPhan,
-                hamLuong: hamLuong,
-                dangBaoChe: dangBaoChe,
-                trangThai: 'CHO_DUYET',
-                txHash: '',
-                lichSuNop: [
-                    {
-                        lan: 1,
-                        ngayNop: thoiGian,
-                        thongTinKhai: {
-                            ten: tenThuoc,
-                            soDK: soDK,
-                            thanhPhan: thanhPhan,
-                            hamLuong: hamLuong,
-                            dangBaoChe: dangBaoChe
-                        },
-                        ketQua: 'CHO_DUYET',
-                        nguoiXuLy: 'Đang phân công chuyên viên thẩm định',
-                        lyDoTuChoi: ''
-                    }
-                ]
-            });
-            alert(`Đã gửi yêu cầu đăng ký sản phẩm mới "${tenThuoc}" đến Cơ quan quản lý!`);
-        }
-
-        modalSP.classList.add('hidden');
-        renderBangSanPham();
-    });
-
-    // ══ 3. MODAL CHI TIẾT SẢN PHẨM & LỊCH SỬ THẨM DUYỆT (FR05) ══
-    const modalChiTietSP = document.getElementById('modalChiTietSP');
-    let spDangXemChiTiet = null;
-
-    function hienThiChiTietVaLichSu(id) {
-        spDangXemChiTiet = danhSachSanPham.find(x => x.id === id);
-        if (!spDangXemChiTiet) return;
-
-        // 1. Hiển thị thông tin tổng quan hiện tại
-        document.getElementById('tenSPChiTietTitle').textContent = `${spDangXemChiTiet.tenSanPham} (${spDangXemChiTiet.soDangKy})`;
-        document.getElementById('modalChiTietTenThuoc').textContent = spDangXemChiTiet.tenSanPham;
-        document.getElementById('modalChiTietSoDK').textContent = spDangXemChiTiet.soDangKy;
-        document.getElementById('modalChiTietThanhPhan').textContent = spDangXemChiTiet.thanhPhan;
-        document.getElementById('modalChiTietHamLuong').textContent = spDangXemChiTiet.hamLuong;
-        document.getElementById('modalChiTietDangBaoChe').textContent = spDangXemChiTiet.dangBaoChe;
-
-        const badgeBox = document.getElementById('modalChiTietTrangThai');
-        const khungBlockchain = document.getElementById('khungChungCuBlockchainSP');
-
-        if (spDangXemChiTiet.trangThai === 'DA_DUYET') {
-            badgeBox.innerHTML = `
-                <span class="inline-flex items-center gap-1 font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded text-[10px] border border-emerald-300">
-                    <i class="fa-solid fa-circle-check"></i> ĐÃ DUYỆT
-                </span>
-            `;
-            // Hiển thị chứng cứ on-chain
-            khungBlockchain.classList.remove('hidden');
-            document.getElementById('modalChiTietTxHashSP').textContent = spDangXemChiTiet.txHash;
-            document.getElementById('modalChiTietTxLinkSP').href = `${EXPLORER_BASE_URL}${spDangXemChiTiet.txHash}`;
-        } else if (spDangXemChiTiet.trangThai === 'CHO_DUYET') {
-            badgeBox.innerHTML = `
-                <span class="inline-flex items-center gap-1 font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded text-[10px] border border-amber-300">
-                    <i class="fa-solid fa-clock"></i> CHỜ DUYỆT
-                </span>
-            `;
-            khungBlockchain.classList.add('hidden');
-        } else {
-            badgeBox.innerHTML = `
-                <span class="inline-flex items-center gap-1 font-bold text-red-700 bg-red-100 px-2 py-0.5 rounded text-[10px] border border-red-300">
-                    <i class="fa-solid fa-circle-xmark"></i> BỊ TỪ CHỐI
-                </span>
-            `;
-            khungBlockchain.classList.add('hidden');
-        }
-
-        // 2. Liệt kê các lần nộp từ cấu trúc yeuCauDangKySanPham
-        const containerLichSu = document.getElementById('khungDanhSachLichSuNop');
-        containerLichSu.innerHTML = '';
-
-        spDangXemChiTiet.lichSuNop.forEach((itemLichSu) => {
-            const card = document.createElement('div');
-            card.className = 'p-3.5 rounded-xl border border-slate-200 bg-nenChinh space-y-2';
-
-            let ketQuaHtml = '';
-            if (itemLichSu.ketQua === 'DA_DUYET') {
-                ketQuaHtml = `<span class="font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded text-[11px]"><i class="fa-solid fa-check"></i> Phê duyệt</span>`;
-            } else if (itemLichSu.ketQua === 'TU_CHOI') {
-                ketQuaHtml = `<span class="font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded text-[11px]"><i class="fa-solid fa-xmark"></i> Từ chối</span>`;
-            } else {
-                ketQuaHtml = `<span class="font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded text-[11px]"><i class="fa-solid fa-clock"></i> Đang chờ duyệt</span>`;
-            }
-
-            card.innerHTML = `
-                <div class="flex items-center justify-between border-b border-slate-200 pb-1.5">
-                    <span class="font-bold text-slate-800 text-xs">Lần nộp hồ sơ #${itemLichSu.lan}</span>
-                    <span class="font-mono text-[11px] text-slate-500"><i class="fa-regular fa-calendar-check mr-1"></i> ${itemLichSu.ngayNop}</span>
-                </div>
-
-                <!-- Thông tin khai báo trong lần nộp -->
-                <div class="p-2 bg-white rounded-lg border border-slate-200 text-[11px] space-y-1">
-                    <div class="text-slate-500 font-semibold uppercase tracking-wider text-[10px]">Dữ liệu hồ sơ khai nộp:</div>
-                    <div class="grid grid-cols-2 gap-2 text-slate-700">
-                        <div>• Tên: <strong>${itemLichSu.thongTinKhai.ten}</strong> (SĐK: ${itemLichSu.thongTinKhai.soDK})</div>
-                        <div>• Thành phần: <strong>${itemLichSu.thongTinKhai.thanhPhan}</strong></div>
-                        <div>• Hàm lượng: <strong>${itemLichSu.thongTinKhai.hamLuong}</strong></div>
-                        <div>• Dạng bào chế: <strong>${itemLichSu.thongTinKhai.dangBaoChe}</strong></div>
-                    </div>
-                </div>
-
-                <!-- Kết quả & Người xử lý -->
-                <div class="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
-                    <div>Kết quả: ${ketQuaHtml}</div>
-                    <div class="text-slate-600">Người xử lý: <strong>${itemLichSu.nguoiXuLy}</strong></div>
-                </div>
-
-                <!-- Lý do từ chối (nếu có) -->
-                ${itemLichSu.lyDoTuChoi ? `
-                    <div class="p-2.5 bg-red-50 text-red-700 rounded-lg border border-red-200 text-[11px] leading-relaxed">
-                        <i class="fa-solid fa-triangle-exclamation mr-1"></i> <strong>Lý do từ chối:</strong> ${itemLichSu.lyDoTuChoi}
-                    </div>
-                ` : ''}
-            `;
-
-            containerLichSu.appendChild(card);
-        });
-
-        modalChiTietSP.classList.remove('hidden');
-    }
-
-    // Nút sao chép txHash của sản phẩm đã duyệt
-    document.getElementById('nutSaoChepTxSP').addEventListener('click', function () {
-        if (!spDangXemChiTiet || !spDangXemChiTiet.txHash) return;
-        navigator.clipboard.writeText(spDangXemChiTiet.txHash).then(() => {
-            this.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Đã sao chép`;
-            setTimeout(() => {
-                this.innerHTML = `<i class="fa-regular fa-copy"></i> Sao chép`;
-            }, 1800);
-        });
-    });
-
     document.querySelectorAll('.dong-modal-chitiet-sp').forEach(btn => {
-        btn.addEventListener('click', () => modalChiTietSP.classList.add('hidden'));
+        btn.addEventListener('click', () => modalChiTiet.classList.add('hidden'));
     });
 
-    // Lắng nghe tìm kiếm & lọc
-    oTimKiem.addEventListener('input', () => { trangHienTaiSP = 1; renderBangSanPham(); });
-    locTrangThai.addEventListener('change', () => { trangHienTaiSP = 1; renderBangSanPham(); });
+    const nutSaoChep = document.getElementById('nutSaoChepTxSP');
+    if (nutSaoChep) {
+        nutSaoChep.addEventListener('click', function () {
+            const txHash = document.getElementById('modalChiTietTxHashSP').textContent;
+            navigator.clipboard.writeText(txHash).then(() => {
+                nutSaoChep.innerHTML = `<i class="fa-solid fa-check"></i> Đã chép`;
+                setTimeout(() => {
+                    nutSaoChep.innerHTML = `<i class="fa-regular fa-copy"></i> Sao chép`;
+                }, 2000);
+            });
+        });
+    }
 
+    // 6. Chạy render bảng ban đầu
     renderBangSanPham();
 });
