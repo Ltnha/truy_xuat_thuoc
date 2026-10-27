@@ -19,14 +19,17 @@ use Illuminate\View\View;
 class DuyetSanPhamController extends Controller
 {
     /**
-     * Hiển thị danh sách hồ sơ cần xét duyệt và danh mục sản phẩm đã duyệt
+     * Hiển thị danh sách hồ sơ chưa duyệt / bị từ chối và danh mục sản phẩm đã duyệt
      */
     public function index(): View
     {
+        // TAB 1: Chỉ lấy các hồ sơ CHỜ DUYỆT hoặc BỊ TỪ CHỐI (Ẩn hoàn toàn sản phẩm đã duyệt)
         $yeuCauDangKys = YeuCauDangKySanPham::with(['sanPham.nhaSanXuat', 'nguoiXuLy'])
+            ->whereIn('trangThai', ['CHO_DUYET', 'TU_CHOI'])
             ->latest('id')
             ->get();
 
+        // TAB 2: Danh mục sản phẩm ĐÃ DUYỆT (Lưu hành & On-Chain)
         $sanPhamDaDuyets = SanPham::with(['nhaSanXuat', 'blockchainTransactions' => fn($q) => $q->where('eventName', 'ProductRegistered')])
             ->where('trangThaiDuyet', 'DA_DUYET')
             ->latest('id')
@@ -63,21 +66,12 @@ class DuyetSanPhamController extends Controller
             return back()->with('loi', $thongBaoLoi);
         }
 
-        // BƯỚC 2: XÁC ĐỊNH KEY ID KÝ GIAO DỊCH BLOCKCHAIN (CƠ QUAN QUẢN LÝ DÙNG ADMIN MASTER KEY)
+        // BƯỚC 2: XÁC ĐỊNH KEY ID KÝ GIAO DỊCH BLOCKCHAIN
         $identity = BlockchainIdentity::where('toChucId', $toChucCoQuan->id)->first();
 
-        // Mặc định đối với Cơ quan Quản lý dùng Master Key của hệ thống
         $keyId = env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY');
         if ($identity && !empty($identity->signerKeyId) && !str_starts_with($identity->signerKeyId, 'KEY-DEMO-')) {
             $keyId = $identity->signerKeyId;
-        }
-
-        if (! $keyId) {
-            $thongBaoLoi = "Chưa khởi tạo Mã khóa Blockchain (signerKeyId) cho Cơ quan Quản lý [ID: {$toChucCoQuan->id}].";
-            if ($request->ajax()) {
-                return response()->json(['success' => false, 'message' => $thongBaoLoi], 400);
-            }
-            return back()->with('loi', $thongBaoLoi);
         }
 
         // BƯỚC 3: ĐỊNH DẠNG DỮ LIỆU VÀ GỬI GIAO DỊCH LÊN ETHEREUM SEPOLIA BLOCKCHAIN
@@ -94,7 +88,6 @@ class DuyetSanPhamController extends Controller
         ]));
 
         try {
-            // Gọi Signer Service gửi địa chỉ ví đại diện để ký giao dịch
             $response = $signerClient->sendTransaction([
                 'keyId'  => $keyId,
                 'action' => 'recordBatchEvent',
@@ -126,7 +119,6 @@ class DuyetSanPhamController extends Controller
                     'trangThaiDuyet' => 'DA_DUYET',
                 ]);
 
-                // Lưu chứng cứ giao dịch Blockchain vào DB
                 BlockchainTransaction::updateOrCreate(
                     [
                         'sanPhamId' => $sanPham->id,

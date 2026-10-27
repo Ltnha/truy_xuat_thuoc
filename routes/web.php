@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Blockchain\SepoliaTransactionController;
 use App\Http\Controllers\CoQuan\DuyetHoSoController;
 use App\Http\Controllers\CoQuan\DuyetSanPhamController;
+use App\Http\Controllers\LoThuoc\ChiTietLoThuocController;
 use App\Http\Controllers\LoThuoc\LoThuocController;
 use App\Http\Controllers\NhaSanXuat\SanPhamController;
 use App\Http\Controllers\QuanTri\NhatKyController;
@@ -11,9 +12,6 @@ use App\Http\Controllers\QuanTri\TaiKhoanController;
 use App\Http\Controllers\XacThuc\DangKyToChucController;
 use App\Http\Controllers\XacThuc\DangNhapController;
 use App\Http\Controllers\XacThuc\HoSoController;
-use App\Http\Controllers\QuanTri\NhatKyController;
-use App\Http\Controllers\QuanTri\TaiKhoanController;
-use App\Http\Controllers\LoThuoc\ChiTietLoThuocController;
 
 /*
 |--------------------------------------------------------------------------
@@ -58,7 +56,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::post('/phe-duyet-to-chuc/{toChuc}', [DuyetHoSoController::class, 'approveOrganization'])->name('co-quan.approve-organization');
         Route::post('/phe-duyet-san-pham/{sanPham}', [DuyetHoSoController::class, 'approveProduct'])->name('co-quan.approve-product');
 
-        // Quản lý quyền hạn & Ví On-chain
+        // Quản lý quyền hạn & Ví On-chain (Thu hồi, Khôi phục, Đổi ví)
         Route::get('/quan-ly-quyen-han', [DuyetHoSoController::class, 'quanLyQuyenHan'])->name('co-quan.quan-ly-quyen-han');
         Route::post('/thu-hoi-quyen/{toChuc}', [DuyetHoSoController::class, 'thuHoiQuyenToChuc'])->name('co-quan.thu-hoi-quyen');
         Route::post('/khoi-phuc-quyen/{toChuc}', [DuyetHoSoController::class, 'khoiPhucQuyenToChuc'])->name('co-quan.khoi-phuc-quyen');
@@ -76,13 +74,13 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     });
 
     // ════════════════════════════════════════════════════════════════
-    // NHÀ SẢN XUẤT (Kebab-case prefix & name)
+    // NHÀ SẢN XUẤT
     // ════════════════════════════════════════════════════════════════
     Route::middleware(['auth', 'kiem.tra.vai.tro:NHA_SAN_XUAT', 'to.chuc.da.duyet'])
         ->prefix('nha-san-xuat')
         ->name('nha-san-xuat.')
         ->group(function () {
-            // Trang Quản lý danh sách sản phẩm
+            // Quản lý danh sách sản phẩm
             Route::get('/quan-ly-san-pham', [SanPhamController::class, 'index'])->name('sanPham.index');
             Route::post('/quan-ly-san-pham', [SanPhamController::class, 'store'])->name('sanPham.store');
             Route::put('/quan-ly-san-pham/{sanPham}/nop-lai', [SanPhamController::class, 'resubmit'])->name('sanPham.resubmit');

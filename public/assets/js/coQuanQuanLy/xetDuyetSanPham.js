@@ -1,5 +1,5 @@
 ﻿document.addEventListener("DOMContentLoaded", function () {
-    // 1. DỮ LIỆU BẢNG & TRẠNG THÁI PHÂN TRANG
+    // 1. CHUẨN HÓA DỮ LIỆU BAN ĐẦU
     const yeuCauGoc = (window.danhSachYeuCau || []).map(yc => {
         const sp = yc.san_pham || {};
         const nsx = sp.nha_san_xuat || {};
@@ -38,6 +38,7 @@
             hamLuong: sp.hamLuong,
             dangBaoChe: sp.dangBaoChe,
             tenNSX: nsx.tenToChuc || '--',
+            nsxId: nsx.id || null,
             maSanPham: sp.maSanPham || '--',
             txHash: bctx ? bctx.txHash : null
         };
@@ -66,15 +67,22 @@
     const txtPhanTrangTab2 = document.getElementById("thongTinPhanTrangTab2");
     const cumNutPhanTrangTab2 = document.getElementById("cumNutPhanTrangTab2");
 
-    const oTimKiem = document.getElementById("oTimKiemSP");
-    const locNSX = document.getElementById("locNhaSanXuat");
-    const locTT = document.getElementById("locTrangThaiYeuCauSP");
+    // Lọc Tab 1
+    const oTimKiemTab1 = document.getElementById("oTimKiemSP");
+    const locNSXTab1 = document.getElementById("locNhaSanXuat");
+    const locTTTab1 = document.getElementById("locTrangThaiYeuCauSP");
 
+    // Lọc Tab 2
+    const oTimKiemTab2 = document.getElementById("oTimKiemTab2");
+    const locNSXTab2 = document.getElementById("locNSXTab2");
+
+    // Modals
     const modalXemHoSoSP = document.getElementById("modalXemHoSoSP");
     const panelCumNutHanhDong = document.getElementById("panelCumNutHanhDongSP");
-
     const modalDuyet = document.getElementById("modalXacNhanDuyetSP");
     const formDuyet = document.getElementById("formPheDuyetSPReal");
+
+    const modalChiTietDaDuyet = document.getElementById("modalChiTietDaDuyet");
 
     const modalTuChoi = document.getElementById("modalTuChoiSP");
     const formTuChoi = document.getElementById("formTuChoiSPReal");
@@ -108,7 +116,84 @@
         });
     }
 
-    // 3. RENDER BẢNG TAB 1 (HỒ SƠ ĐĂNG KÝ) + PHÂN TRANG
+    // 3. HÀM RENDER PHÂN TRANG THU GỌN (DẠNG 1 ... 4 5 6 ... 10)
+    function renderNutPhanTrang(container, tongSoTrang, trangHienTai, callback) {
+        if (!container) return;
+        container.innerHTML = '';
+        if (tongSoTrang <= 1) return;
+
+        // Nút Trước
+        const btnTruoc = document.createElement('button');
+        btnTruoc.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+        btnTruoc.innerHTML = `<i class="fa-solid fa-chevron-left"></i>`;
+        btnTruoc.disabled = trangHienTai === 1;
+        btnTruoc.addEventListener('click', () => callback(trangHienTai - 1));
+        container.appendChild(btnTruoc);
+
+        // Danh sách số trang thu gọn
+        let pages = [];
+        if (tongSoTrang <= 7) {
+            for (let i = 1; i <= tongSoTrang; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (trangHienTai > 3) pages.push('...');
+
+            let start = Math.max(2, trangHienTai - 1);
+            let end = Math.min(tongSoTrang - 1, trangHienTai + 1);
+
+            if (trangHienTai <= 3) {
+                start = 2;
+                end = 4;
+            } else if (trangHienTai >= tongSoTrang - 2) {
+                start = tongSoTrang - 3;
+                end = tongSoTrang - 1;
+            }
+
+            for (let i = start; i <= end; i++) pages.push(i);
+
+            if (trangHienTai < tongSoTrang - 2) pages.push('...');
+            pages.push(tongSoTrang);
+        }
+
+        pages.forEach(p => {
+            if (p === '...') {
+                const span = document.createElement('span');
+                span.className = 'px-2 py-1.5 text-xs text-slate-400 font-bold';
+                span.textContent = '...';
+                container.appendChild(span);
+            } else {
+                const btnSo = document.createElement('button');
+                btnSo.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${p === trangHienTai ? 'bg-indigo-700 text-white shadow-xs' : 'border border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+                btnSo.textContent = p;
+                btnSo.addEventListener('click', () => callback(p));
+                container.appendChild(btnSo);
+            }
+        });
+
+        // Nút Sau
+        const btnSau = document.createElement('button');
+        btnSau.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === tongSoTrang ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
+        btnSau.innerHTML = `<i class="fa-solid fa-chevron-right"></i>`;
+        btnSau.disabled = trangHienTai === tongSoTrang;
+        btnSau.addEventListener('click', () => callback(trangHienTai + 1));
+        container.appendChild(btnSau);
+    }
+
+    // 4. HÀM SAO CHÉP MÃ HASH
+    function ganSuKienSaoChep(buttonElement, txHash) {
+        if (!buttonElement || !txHash) return;
+        buttonElement.addEventListener("click", function () {
+            navigator.clipboard.writeText(txHash).then(() => {
+                const originalHtml = buttonElement.innerHTML;
+                buttonElement.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i> Đã chép`;
+                setTimeout(() => {
+                    buttonElement.innerHTML = originalHtml;
+                }, 2000);
+            });
+        });
+    }
+
+    // 5. RENDER BẢNG TAB 1 (HỒ SƠ ĐĂNG KÝ)
     function renderTab1() {
         if (!thanBangYeuCau) return;
         thanBangYeuCau.innerHTML = '';
@@ -135,14 +220,9 @@
             const tr = document.createElement('tr');
             tr.className = 'dong-yeu-cau-sp hover:bg-slate-50 transition-colors border-b border-slate-100';
 
-            let badgeHtml = '';
-            if (item.trangThai === 'DA_DUYET') {
-                badgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300"><i class="fa-solid fa-circle-check"></i> Đã duyệt</span>`;
-            } else if (item.trangThai === 'TU_CHOI') {
-                badgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300"><i class="fa-solid fa-circle-xmark"></i> Bị từ chối</span>`;
-            } else {
-                badgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>`;
-            }
+            let badgeHtml = item.trangThai === 'TU_CHOI'
+                ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300"><i class="fa-solid fa-circle-xmark"></i> Bị từ chối</span>`
+                : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>`;
 
             tr.innerHTML = `
                 <td class="py-3 px-3 font-semibold text-slate-900 leading-tight">
@@ -172,7 +252,6 @@
         if (txtPhanTrangTab1) txtPhanTrangTab1.textContent = `Hiển thị từ ${batDau + 1} đến ${ketThuc} trên tổng số ${tongSo} hồ sơ (Trang ${trangTab1}/${tongSoTrang})`;
         renderNutPhanTrang(cumNutPhanTrangTab1, tongSoTrang, trangTab1, p => { trangTab1 = p; renderTab1(); });
 
-        // Gán sự kiện click nút xem
         document.querySelectorAll(".btn-xem-ho-so-sp").forEach(btn => {
             btn.addEventListener("click", function() {
                 const id = parseInt(this.getAttribute("data-id"));
@@ -182,7 +261,7 @@
         });
     }
 
-    // 4. RENDER BẢNG TAB 2 (SẢN PHẨM ĐÃ DUYỆT) + PHÂN TRANG
+    // 6. RENDER BẢNG TAB 2 (SẢN PHẨM ĐÃ DUYỆT)
     function renderTab2() {
         if (!thanBangDaDuyet) return;
         thanBangDaDuyet.innerHTML = '';
@@ -191,7 +270,7 @@
         if (badgeTab2) badgeTab2.textContent = `Hiển thị: ${tongSo} sản phẩm`;
 
         if (tongSo === 0) {
-            thanBangDaDuyet.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-slate-400 italic">Chưa có sản phẩm nào được phê duyệt lưu hành.</td></tr>`;
+            thanBangDaDuyet.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 italic">Chưa có sản phẩm nào được phê duyệt lưu hành.</td></tr>`;
             if (txtPhanTrangTab2) txtPhanTrangTab2.textContent = 'Trang 0 / 0';
             if (cumNutPhanTrangTab2) cumNutPhanTrangTab2.innerHTML = '';
             return;
@@ -205,14 +284,19 @@
         const ketThuc = Math.min(batDau + soDongMoiTrang, tongSo);
         const danhSachTrang = danhSachDaDuyetLoc.slice(batDau, ketThuc);
 
-        danhSachTrang.forEach(sp => {
+        danhSachTrang.forEach((sp, idx) => {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50 transition-colors border-b border-slate-100';
 
             const txHtml = sp.txHash ? `
-                <a href="https://sepolia.etherscan.io/tx/${sp.txHash}" target="_blank" class="font-mono text-[11px] font-bold text-cyan-800 hover:underline flex items-center gap-1">
-                    ${sp.txHash.substring(0, 14)}... <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-slate-400"></i>
-                </a>
+                <div class="flex items-center gap-1.5">
+                    <a href="https://sepolia.etherscan.io/tx/${sp.txHash}" target="_blank" class="font-mono text-[11px] font-bold text-cyan-800 hover:underline">
+                        ${sp.txHash.substring(0, 10)}...${sp.txHash.substring(sp.txHash.length - 4)}
+                    </a>
+                    <button type="button" class="btn-sao-chep-table-tx p-1 text-slate-400 hover:text-indigo-700 text-xs transition-all" data-hash="${sp.txHash}" title="Sao chép TxHash">
+                        <i class="fa-regular fa-copy"></i>
+                    </button>
+                </div>
             ` : `<span class="text-amber-600 italic text-[11px]">Chưa ghi nhận</span>`;
 
             tr.innerHTML = `
@@ -226,6 +310,11 @@
                 <td class="py-3 px-2.5 text-slate-600 whitespace-nowrap">${sp.dangBaoChe}</td>
                 <td class="py-3 px-3 text-slate-800 font-semibold leading-tight">${sp.tenNSX}</td>
                 <td class="py-3 px-3 whitespace-nowrap">${txHtml}</td>
+                <td class="py-3 px-3 text-center whitespace-nowrap">
+                    <button type="button" class="btn-xem-daduyet px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-all border border-emerald-200 shadow-2xs flex items-center justify-center gap-1 mx-auto" data-index="${batDau + idx}">
+                        <i class="fa-solid fa-eye text-emerald-700"></i> Xem
+                    </button>
+                </td>
             `;
 
             thanBangDaDuyet.appendChild(tr);
@@ -233,42 +322,58 @@
 
         if (txtPhanTrangTab2) txtPhanTrangTab2.textContent = `Hiển thị từ ${batDau + 1} đến ${ketThuc} trên tổng số ${tongSo} sản phẩm (Trang ${trangTab2}/${tongSoTrang})`;
         renderNutPhanTrang(cumNutPhanTrangTab2, tongSoTrang, trangTab2, p => { trangTab2 = p; renderTab2(); });
+
+        // Gán sự kiện Sao chép mã Hash trong bảng
+        document.querySelectorAll(".btn-sao-chep-table-tx").forEach(btn => {
+            const hash = btn.getAttribute("data-hash");
+            ganSuKienSaoChep(btn, hash);
+        });
+
+        // Gán sự kiện Xem chi tiết Tab 2
+        document.querySelectorAll(".btn-xem-daduyet").forEach(btn => {
+            btn.addEventListener("click", function() {
+                const idx = parseInt(this.getAttribute("data-index"));
+                const sp = danhSachDaDuyetLoc[idx];
+                if (sp) moModalChiTietDaDuyet(sp);
+            });
+        });
     }
 
-    // NÚT PHÂN TRANG DÙNG CHUNG
-    function renderNutPhanTrang(container, tongSoTrang, trangHienTai, callback) {
-        if (!container) return;
-        container.innerHTML = '';
-        if (tongSoTrang <= 1) return;
+    // 7. HÀM MỞ MODAL XEM CHI TIẾT SẢN PHẨM ĐÃ DUYỆT (TAB 2)
+    function moModalChiTietDaDuyet(sp) {
+        if (!modalChiTietDaDuyet) return;
 
-        const btnTruoc = document.createElement('button');
-        btnTruoc.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
-        btnTruoc.innerHTML = `<i class="fa-solid fa-chevron-left"></i>`;
-        btnTruoc.disabled = trangHienTai === 1;
-        btnTruoc.addEventListener('click', () => callback(trangHienTai - 1));
-        container.appendChild(btnTruoc);
+        document.getElementById("dtTenThuoc").textContent = sp.tenThuoc;
+        document.getElementById("dtSoDK").textContent = sp.soDangKy;
+        document.getElementById("dtHoatChat").textContent = sp.hoatChat || '---';
+        document.getElementById("dtHamLuong").textContent = sp.hamLuong || '---';
+        document.getElementById("dtDangBaoChe").textContent = sp.dangBaoChe || '---';
+        document.getElementById("dtTenNSX").textContent = sp.tenNSX || '---';
 
-        for (let i = 1; i <= tongSoTrang; i++) {
-            const btnSo = document.createElement('button');
-            btnSo.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${i === trangHienTai ? 'bg-indigo-700 text-white shadow-xs' : 'border border-slate-300 text-slate-700 hover:bg-slate-100'}`;
-            btnSo.textContent = i;
-            btnSo.addEventListener('click', () => callback(i));
-            container.appendChild(btnSo);
+        const linkEl = document.getElementById("dtTxLink");
+        const btnCopy = document.getElementById("btnSaoChepModalTx");
+
+        if (sp.txHash) {
+            linkEl.textContent = sp.txHash;
+            linkEl.href = `https://sepolia.etherscan.io/tx/${sp.txHash}`;
+            btnCopy.style.display = 'inline-flex';
+            ganSuKienSaoChep(btnCopy, sp.txHash);
+        } else {
+            linkEl.textContent = 'Chưa có dữ liệu On-Chain';
+            linkEl.href = '#';
+            btnCopy.style.display = 'none';
         }
 
-        const btnSau = document.createElement('button');
-        btnSau.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === tongSoTrang ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
-        btnSau.innerHTML = `<i class="fa-solid fa-chevron-right"></i>`;
-        btnSau.disabled = trangHienTai === tongSoTrang;
-        btnSau.addEventListener('click', () => callback(trangHienTai + 1));
-        container.appendChild(btnSau);
+        modalChiTietDaDuyet.classList.remove("hidden");
     }
 
-    // 5. LỌC VÀ TÌM KIẾM
+    document.querySelectorAll(".dong-modal-daduyet").forEach(b => b.addEventListener("click", () => modalChiTietDaDuyet.classList.add("hidden")));
+
+    // 8. LỌC TAB 1 & TAB 2
     function locTab1() {
-        const tuKhoa = oTimKiem ? oTimKiem.value.trim().toLowerCase() : '';
-        const nsxChon = locNSX ? locNSX.value : 'TAT_CA';
-        const ttChon = locTT ? locTT.value : 'CHO_DUYET';
+        const tuKhoa = oTimKiemTab1 ? oTimKiemTab1.value.trim().toLowerCase() : '';
+        const nsxChon = locNSXTab1 ? locNSXTab1.value : 'TAT_CA';
+        const ttChon = locTTTab1 ? locTTTab1.value : 'CHO_DUYET';
 
         danhSachYeuCauLoc = yeuCauGoc.filter(item => {
             const matchTuKhoa = !tuKhoa ||
@@ -287,11 +392,34 @@
         renderTab1();
     }
 
-    if (oTimKiem) oTimKiem.addEventListener("input", locTab1);
-    if (locNSX) locNSX.addEventListener("change", locTab1);
-    if (locTT) locTT.addEventListener("change", locTab1);
+    function locTab2() {
+        const tuKhoa = oTimKiemTab2 ? oTimKiemTab2.value.trim().toLowerCase() : '';
+        const nsxChon = locNSXTab2 ? locNSXTab2.value : 'TAT_CA';
 
-    // 6. XỬ LÝ MODAL XEM HỒ SƠ
+        danhSachDaDuyetLoc = daDuyetGoc.filter(sp => {
+            const matchTuKhoa = !tuKhoa ||
+                sp.tenThuoc.toLowerCase().includes(tuKhoa) ||
+                sp.soDangKy.toLowerCase().includes(tuKhoa) ||
+                sp.hoatChat.toLowerCase().includes(tuKhoa) ||
+                sp.tenNSX.toLowerCase().includes(tuKhoa);
+
+            const matchNSX = nsxChon === 'TAT_CA' || String(sp.nsxId) === nsxChon;
+
+            return matchTuKhoa && matchNSX;
+        });
+
+        trangTab2 = 1;
+        renderTab2();
+    }
+
+    if (oTimKiemTab1) oTimKiemTab1.addEventListener("input", locTab1);
+    if (locNSXTab1) locNSXTab1.addEventListener("change", locTab1);
+    if (locTTTab1) locTTTab1.addEventListener("change", locTab1);
+
+    if (oTimKiemTab2) oTimKiemTab2.addEventListener("input", locTab2);
+    if (locNSXTab2) locNSXTab2.addEventListener("change", locTab2);
+
+    // 9. XỬ LÝ MODAL XEM HỒ SƠ (TAB 1)
     function moModalXemHoSo(item) {
         hoSoDangChon = item;
         const el = id => document.getElementById(id);
@@ -299,10 +427,9 @@
         el("panelTieuDeChinh").textContent = "Thẩm Định Hồ Sơ Thuốc:";
         el("panelTenThuocTitle").textContent = item.tenThuoc + " (" + item.soDangKy + ")";
 
-        let badgeHtml = '';
-        if (item.trangThai === 'DA_DUYET') badgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300"><i class="fa-solid fa-circle-check"></i> Đã duyệt</span>`;
-        else if (item.trangThai === 'TU_CHOI') badgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300"><i class="fa-solid fa-circle-xmark"></i> Bị từ chối</span>`;
-        else badgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>`;
+        let badgeHtml = item.trangThai === 'TU_CHOI'
+            ? `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300"><i class="fa-solid fa-circle-xmark"></i> Bị từ chối</span>`
+            : `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300"><i class="fa-solid fa-clock"></i> Chờ duyệt</span>`;
 
         el("panelTrangThaiSPBadge").innerHTML = badgeHtml;
         el("panelTenThuoc").textContent = item.tenThuoc;
@@ -347,7 +474,7 @@
 
     document.querySelectorAll(".dong-modal-hoso-sp").forEach(b => b.addEventListener("click", () => modalXemHoSoSP.classList.add("hidden")));
 
-    // 7. XỬ LÝ MODAL PHÊ DUYỆT (AJAX 2 BƯỚC THÔNG BÁO)
+    // 10. PHÊ DUYỆT (AJAX 2 BƯỚC)
     const nutMoDuyet = document.getElementById("panelNutMoModalDuyetSP");
     if (nutMoDuyet) {
         nutMoDuyet.addEventListener("click", function () {
@@ -364,12 +491,9 @@
     if (formDuyet) {
         formDuyet.addEventListener("submit", function (e) {
             e.preventDefault();
-
-            // Đóng Modal xác nhận
             modalDuyet.classList.add("hidden");
             if (modalXemHoSoSP) modalXemHoSoSP.classList.add("hidden");
 
-            // THÔNG BÁO BƯỚC 1: ĐANG KẾT NỐI VÀ CHỜ BLOCKCHAIN XÁC NHẬN
             iconTienTrinh.className = "text-4xl text-indigo-600 animate-spin mx-auto";
             iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-notch"></i>`;
             tieuDeTienTrinh.textContent = "Bước 1/2: Đang kết nối Ethereum Sepolia...";
@@ -390,7 +514,6 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    // THÔNG BÁO BƯỚC 2: PHÊ DUYỆT & GHI BLOCKCHAIN THÀNH CÔNG
                     iconTienTrinh.className = "text-5xl text-emerald-600 mx-auto animate-bounce";
                     iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
                     tieuDeTienTrinh.textContent = "Bước 2/2: Phê Duyệt & Ghi On-Chain Thành Công!";
@@ -400,7 +523,6 @@
                     `;
                     cumNutDongTienTrinh.classList.remove("hidden");
                 } else {
-                    // XỬ LÝ KHI GIAO DỊCH BLOCKCHAIN THẤT BẠI
                     iconTienTrinh.className = "text-5xl text-red-600 mx-auto";
                     iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
                     tieuDeTienTrinh.textContent = "Thất Bại: Không Thể Ghi Blockchain!";
@@ -418,7 +540,7 @@
         });
     }
 
-    // 8. XỬ LÝ MODAL TỪ CHỐI
+    // 11. TỪ CHỐI (OFF-CHAIN)
     const nutMoTuChoi = document.getElementById("panelNutMoModalTuChoiSP");
     if (nutMoTuChoi) {
         nutMoTuChoi.addEventListener("click", function () {
@@ -450,7 +572,7 @@
 
     if (nhapLyDo) nhapLyDo.addEventListener("input", capNhatNutTuChoi);
 
-    // INITAL RENDER
-    renderTab1();
-    renderTab2();
+    // CHẠY HÀM KHỞI TẠO BẢNG
+    locTab1();
+    locTab2();
 });
