@@ -88,7 +88,7 @@ document.addEventListener('DOMContentLoaded', function () {
         renderBangAndPhanTrang();
     }
 
-    // 4. HIỂN THỊ DỮ LIỆU VÀO BẢNG & THANH PHÂN TRANG
+    // 4. HIỂN THỊ DỮ LIỆU VÀO BẢNG & THANH PHÂN TRANG (ĐÃ CHUẨN ĐÚNG 9 CỘT)
     function renderBangAndPhanTrang() {
         const tongSoRecord = danhSachDaLoc.length;
         if (tongSoLoText) tongSoLoText.innerText = `Hiển thị: ${tongSoRecord} lô`;
@@ -128,30 +128,53 @@ document.addEventListener('DOMContentLoaded', function () {
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">Chờ On-chain</span>`;
             }
 
+            const canTransfer = item.soLuong > 0 && item.trangThai !== 'RECALLED';
+
             return `
                 <tr class="hover:bg-slate-50/80 transition-colors">
-                    <td class="py-3 px-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">${item.maLoNghiepVu}</td>
-                    <td class="py-3 px-2 text-center whitespace-nowrap">
-                        <button type="button" class="text-emerald-700 hover:text-emerald-800 font-bold text-sm" title="Xem mã QR">
-                            <i class="fa-solid fa-qrcode"></i>
-                        </button>
+                    <!-- 1. Mã Lô Nghiệp Vụ -->
+                    <td class="py-3 px-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
+                        ${item.maLoNghiepVu}
                     </td>
+
+                    <!-- 3. Mã On-chain -->
                     <td class="py-3 px-2 whitespace-nowrap font-mono text-[11px]">
                         ${txHtml}
                     </td>
+
+                    <!-- 4. Sản Phẩm -->
                     <td class="py-3 px-2.5">
                         <div class="font-bold text-slate-800">${item.san_pham?.tenSanPham || 'N/A'}</div>
                         <div class="text-[10px] text-slate-400 font-mono">SĐK: ${item.san_pham?.soDangKy || 'N/A'}</div>
                     </td>
+
+                    <!-- 5. Hạn Dùng -->
                     <td class="py-3 px-2 text-center font-mono text-slate-700 whitespace-nowrap">${formatDate(item.hanSuDung)}</td>
-                    <td class="py-3 px-2 text-right font-mono font-bold text-slate-800 whitespace-nowrap">${new Number(item.soLuong).toLocaleString()}</td>
-                    <td class="py-3 px-2 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">${new Number(item.soLuong).toLocaleString()}</td>
+
+                    <!-- 6. Tổng -->
+                    <td class="py-3 px-2 text-right font-mono font-bold text-slate-800 whitespace-nowrap">${Number(item.soLuong || 0).toLocaleString()}</td>
+
+                    <!-- 7. Khả Dụng -->
+                    <td class="py-3 px-2 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">${Number(item.soLuong || 0).toLocaleString()}</td>
+
+                    <!-- 8. Trạng Thái -->
                     <td class="py-3 px-2 text-center whitespace-nowrap">${badgeStatusHtml}</td>
+
+                    <!-- 9. Hành Động (Đã có cả nút Chi tiết và Chuyển giao) -->
                     <td class="py-3 px-2.5 text-center whitespace-nowrap">
                         <div class="flex items-center justify-center gap-1.5">
-                            <a href="/nha-san-xuat/lo-thuoc/${item.id}/dong-bo-sepolia" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold transition-all" title="Xem chi tiết đồng bộ">
-                                <i class="fa-solid fa-link me-1"></i> Chi tiết
+                            <a href="/nha-san-xuat/lo-thuoc/${item.id}/chi-tiet" 
+                                class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold transition-all" 
+                                title="Xem chi tiết lô thuốc">
+                                    <i class="fa-solid fa-eye me-1"></i> Chi tiết
                             </a>
+                            ${canTransfer ? `
+                                <button type="button" onclick="moModalPhanPhoiDirect('${item.id}')" 
+                                    class="px-2.5 py-1 bg-cyan-800 hover:bg-cyan-900 text-white rounded-lg text-[11px] font-bold shadow-sm transition-all"
+                                    title="Khởi tạo chuyển giao lô">
+                                        <i class="fa-solid fa-truck-fast me-1"></i> Chuyển giao
+                                </button>
+                            ` : ''}
                         </div>
                     </td>
                 </tr>
@@ -164,6 +187,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
         renderNutPhanTrang(tongSoTrang);
     }
+
+    // Mở Modal Phân Phối trực tiếp từ danh sách
+    window.moModalPhanPhoiDirect = function (id) {
+        const item = tatCaLoThuoc.find(l => l.id == id);
+        if (!item) return;
+
+        const modalPP = document.getElementById('modalPhanPhoiLo');
+        const textMaLo = document.getElementById('phanPhoiMaLoText');
+        const textSoLuong = document.getElementById('phanPhoiSoLuongConLaiText');
+
+        if (textMaLo) textMaLo.innerText = item.maLoNghiepVu;
+        if (textSoLuong) textSoLuong.innerText = Number(item.soLuong || 0).toLocaleString() + ' hộp';
+
+        if (modalPP) modalPP.classList.remove('hidden');
+    };
 
     function renderNutPhanTrang(tongSoTrang) {
         if (!cumNutPhanTrang) return;
@@ -221,7 +259,20 @@ document.addEventListener('DOMContentLoaded', function () {
     if (locTrangThai) locTrangThai.addEventListener('change', apDungBoLocVaphanTrang);
     if (locHanDung) locHanDung.addEventListener('change', apDungBoLocVaphanTrang);
 
-    // 6. QUẢN LÝ MODAL ĐĂNG KÝ LÔ MỚI
+    // 6. QUẢN LÝ CÁC NÚT ĐÓNG MODAL
+    document.querySelectorAll('#nutDongModalPhanPhoi, #nutHuyPhanPhoi').forEach(btn => {
+        btn?.addEventListener('click', () => {
+            document.getElementById('modalPhanPhoiLo')?.classList.add('hidden');
+        });
+    });
+
+    document.querySelectorAll('#nutDongModalChiTietLo, #nutDongModalChiTietLoBottom').forEach(btn => {
+        btn?.addEventListener('click', () => {
+            document.getElementById('modalChiTietLo')?.classList.add('hidden');
+        });
+    });
+
+    // 7. QUẢN LÝ MODAL ĐĂNG KÝ LÔ MỚI
     const nutMoModal = document.getElementById('nutMoModalDangKyLo');
     const modalDangKy = document.getElementById('modalDangKyLo');
     const cacNutDongModal = document.querySelectorAll('.dong-modal-lo');
@@ -247,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    // 7. XỬ LÝ SUBMIT FORM - CUSTODIAL SIGNER QUEUE (KHÔNG DÙNG METAMASK POP-UP)
+    // 8. XỬ LÝ SUBMIT FORM TẠO LÔ THUỐC MỚI
     const formDangKyLo = document.getElementById('formSubmitDangKyLo');
     if (formDangKyLo) {
         formDangKyLo.addEventListener('submit', async function (e) {
@@ -291,7 +342,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(result.message || 'Không thể tạo yêu cầu lô thuốc!');
                 }
 
-                // Chuyển sang màn hình thông báo đã tiếp nhận yêu cầu
                 const hienThiMaLo = document.getElementById('hienThiMaLoQR');
                 if (hienThiMaLo) {
                     hienThiMaLo.textContent = result.data?.maLoNghiepVu || payload.maLoNghiepVu;
@@ -300,10 +350,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (manHinhForm) manHinhForm.classList.add('hidden');
                 if (manHinhKetQua) manHinhKetQua.classList.remove('hidden');
 
-                // Reset form
                 formDangKyLo.reset();
-
-                // Nạp lại danh sách dữ liệu
                 loadDataFromDB();
 
             } catch (error) {
@@ -318,6 +365,17 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // 9. GẮN SỰ KIỆN XUẤT QR & SERIAL
+    document.getElementById('nutXuatQRThungModal')?.addEventListener('click', () => {
+        alert('Đang tải xuống tệp mã QR thùng...');
+    });
+    document.getElementById('nutXuatQRDonViZipModal')?.addEventListener('click', () => {
+        alert('Đang đóng gói và tải trọn bộ file mã QR đơn vị (.ZIP)...');
+    });
+    document.getElementById('nutXuatQRDonViCsvModal')?.addEventListener('click', () => {
+        alert('Đang xuất danh sách mã Serial (.CSV)...');
+    });
 
     // Tải dữ liệu mặc định khi trang được nạp
     loadDataFromDB();

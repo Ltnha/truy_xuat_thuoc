@@ -57,7 +57,6 @@
                 <thead>
                     <tr class="bg-slate-50 text-slate-600 uppercase tracking-wider border-b border-slate-100 text-[11px]">
                         <th class="py-3 px-2.5 font-bold whitespace-nowrap">Mã Lô</th>
-                        <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Mã QR</th>
                         <th class="py-3 px-2 font-bold whitespace-nowrap">Mã On-chain (txHash)</th>
                         <th class="py-3 px-2.5 font-bold">Sản Phẩm</th>
                         <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Hạn Dùng</th>

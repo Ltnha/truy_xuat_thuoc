@@ -9,6 +9,7 @@ use App\Http\Controllers\XacThuc\DangNhapController;
 use App\Http\Controllers\XacThuc\HoSoController;
 use App\Http\Controllers\QuanTri\NhatKyController;
 use App\Http\Controllers\QuanTri\TaiKhoanController;
+use App\Http\Controllers\LoThuoc\ChiTietLoThuocController;
 
 /*
 |--------------------------------------------------------------------------
@@ -76,9 +77,19 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         // 3. API Tiếp nhận & Lưu mã txHash do MetaMask Pop-up gửi về sau khi xác nhận
         Route::post('/api/lo-thuoc/{id}/luu-txhash', [LoThuocController::class, 'saveTxHash'])->name('lo-thuoc.luu-txhash');
 
-        // 4. Trang xem chi tiết & Xác minh đồng bộ Sepolia
-        Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('lo-thuoc.dong-bo');
-        Route::post('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'verifyAndSave'])->name('lo-thuoc.dong-bo.luu');
+        // 4. Trang chi tiết lô thuốc
+        // Trang chi tiết lô thuốc (giao diện mới)
+        Route::get('/lo-thuoc/{id}/chi-tiet', [\App\Http\Controllers\LoThuoc\ChiTietLoThuocController::class, 'show'])
+            ->name('lo-thuoc.chi-tiet');
+
+        // API lấy dữ liệu chi tiết
+        Route::get('/api/lo-thuoc/{id}/chi-tiet', [\App\Http\Controllers\LoThuoc\ChiTietLoThuocController::class, 'getChiTietAPI'])
+            ->name('lo-thuoc.api.chi-tiet');
+
+        // API gửi / gửi lại lên Blockchain
+        Route::post('/api/lo-thuoc/{id}/gui-blockchain', [\App\Http\Controllers\LoThuoc\ChiTietLoThuocController::class, 'guiBlockchain'])
+            ->name('lo-thuoc.api.gui-blockchain');
+
 
         Route::get('/quan-ly-san-pham', fn() => view('nhaSanXuat.quanLySanPham'))->name('san-pham');
     });
