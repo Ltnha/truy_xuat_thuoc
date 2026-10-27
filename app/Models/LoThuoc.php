@@ -34,4 +34,10 @@ class LoThuoc extends Model
     {
         return $this->hasMany(BlockchainTransaction::class, 'loThuocId');
     }
+
+    // Dùng để hiển thị timeline chuyển giao ở trang chi tiết.
+    public function chuyenGiao()
+    {
+        return $this->hasMany(ChuyenGiao::class, 'loThuocId');
+    }
 }

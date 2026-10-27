@@ -11,6 +11,9 @@ use App\Http\Controllers\QuanTri\TaiKhoanController;
 use App\Http\Controllers\XacThuc\DangKyToChucController;
 use App\Http\Controllers\XacThuc\DangNhapController;
 use App\Http\Controllers\XacThuc\HoSoController;
+use App\Http\Controllers\QuanTri\NhatKyController;
+use App\Http\Controllers\QuanTri\TaiKhoanController;
+use App\Http\Controllers\LoThuoc\ChiTietLoThuocController;
 
 /*
 |--------------------------------------------------------------------------
