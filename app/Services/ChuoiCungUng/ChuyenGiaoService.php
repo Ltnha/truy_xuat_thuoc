@@ -7,7 +7,6 @@ use App\Enums\OrganizationType;
 use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
 use App\Models\ChuyenGiao;
-use App\Models\LichSuLoThuoc;
 use App\Models\LoThuoc;
 use App\Models\NhatKyHeThong;
 use App\Models\TaiKhoan;
@@ -80,17 +79,13 @@ class ChuyenGiaoService
             );
             $chuyenGiao->update(['txHash' => $txHash]);
 
-            LichSuLoThuoc::query()->create([
-                'loThuocId' => $loThuoc->id,
-                'suKien' => 'CHUYEN_GIAO_CHO_NHAN',
-                'moTa' => "Chuyển {$chuyenGiao->soLuong} đơn vị đến {$benNhan->tenToChuc}.",
-                'txHash' => $txHash,
-            ]);
+            // Đã xóa câu lệnh LichSuLoThuoc::query()->create(...) gây lỗi CSDL
+
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
                 'hanhDong' => 'TAO_CHUYEN_GIAO',
                 'thoiGian' => now(),
-                'noiDung' => "Tạo giao dịch {$chuyenGiao->maChuyenGiao}.",
+                'noiDung' => "Tạo giao dịch {$chuyenGiao->maChuyenGiao}. Chuyển {$chuyenGiao->soLuong} đơn vị đến {$benNhan->tenToChuc}.",
                 'diaChiIP' => $ip,
             ]);
 
@@ -124,17 +119,13 @@ class ChuyenGiaoService
                 'txHash' => $txHash,
             ]);
 
-            LichSuLoThuoc::query()->create([
-                'loThuocId' => $loThuoc->id,
-                'suKien' => 'DA_TIEP_NHAN_CHUYEN_GIAO',
-                'moTa' => "{$benNhan->tenToChuc} đã tiếp nhận {$chuyenGiao->soLuong} đơn vị.",
-                'txHash' => $txHash,
-            ]);
+            // Đã xóa câu lệnh LichSuLoThuoc::query()->create(...) gây lỗi CSDL
+
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
                 'hanhDong' => 'TIEP_NHAN_CHUYEN_GIAO',
                 'thoiGian' => now(),
-                'noiDung' => "Tiếp nhận giao dịch {$chuyenGiao->maChuyenGiao}.",
+                'noiDung' => "Tiếp nhận giao dịch {$chuyenGiao->maChuyenGiao}. {$benNhan->tenToChuc} đã tiếp nhận {$chuyenGiao->soLuong} đơn vị.",
                 'diaChiIP' => $ip,
             ]);
         });

@@ -18,6 +18,7 @@ use App\Http\Controllers\CoQuan\DuyetHoSoController;
 use App\Http\Controllers\CoQuan\DuyetSanPhamController;
 use App\Http\Controllers\QuanTri\TaiKhoanController;
 use App\Http\Controllers\QuanTri\NhatKyController;
+use App\Http\Controllers\NhaPhanPhoi\ChuyenGiaoController as NppChuyenGiaoController;
 
 // --- CONTROLLERS BÁO CÁO & BLOCKCHAIN ---
 use App\Http\Controllers\BaoCao\BaoCaoNghiVanController;
@@ -140,10 +141,21 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     Route::middleware(['kiem.tra.vai.tro:NHA_PHAN_PHOI', 'to.chuc.da.duyet'])
         ->prefix('nha-phan-phoi')
         ->group(function () {
-            Route::get('/quan-ly-lo-hang', fn() => view('nhaPhanPhoi.quanLyLoHang'))->name('nha-phan-phoi.lo-hang');
-            Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('nha-phan-phoi.bao-cao');
-        });
+            Route::get('/quan-ly-lo-hang', fn () => view('nhaPhanPhoi.quanLyLoHang'))
+                ->name('nha-phan-phoi.lo-hang');
 
+            // API: danh sách chờ tiếp nhận (PENDING)
+            Route::get('/api/chuyen-giao/cho-nhan', [NppChuyenGiaoController::class, 'danhSachChoNhan'])
+                ->name('nha-phan-phoi.api.cho-nhan');
+
+            // API: xác nhận nhận hàng + cập nhật tồn kho
+            Route::post('/api/chuyen-giao/{chuyenGiao}/xac-nhan', [NppChuyenGiaoController::class, 'xacNhan'])
+                ->name('nha-phan-phoi.api.xac-nhan');
+
+            // API: tồn kho lô của NPP
+            Route::get('/api/ton-kho', [NppChuyenGiaoController::class, 'danhSachTonKho'])
+                ->name('nha-phan-phoi.api.ton-kho');
+        });
     // ════════════════════════════════════════════════════════════════
     // NHÀ THUỐC
     // ════════════════════════════════════════════════════════════════
