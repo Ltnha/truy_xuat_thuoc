@@ -80,18 +80,21 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         ->prefix('nha-san-xuat')
         ->name('nha-san-xuat.')
         ->group(function () {
-            // Quản lý danh sách sản phẩm
+            // Quản lý sản phẩm
             Route::get('/quan-ly-san-pham', [SanPhamController::class, 'index'])->name('sanPham.index');
             Route::post('/quan-ly-san-pham', [SanPhamController::class, 'store'])->name('sanPham.store');
             Route::put('/quan-ly-san-pham/{sanPham}/nop-lai', [SanPhamController::class, 'resubmit'])->name('sanPham.resubmit');
 
-            // Quản lý Lô thuốc
+            // Quản lý Lô thuốc & Modal Tạo lô
             Route::get('/quan-ly-lo-thuoc', [LoThuocController::class, 'index'])->name('lo-thuoc.index');
             Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
             Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
             Route::post('/api/lo-thuoc/{id}/luu-txhash', [LoThuocController::class, 'saveTxHash'])->name('lo-thuoc.luu-txhash');
-            Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('lo-thuoc.dong-bo');
-            Route::post('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'verifyAndSave'])->name('lo-thuoc.dong-bo.luu');
+
+            // Trang Chi Tiết Lô Thuốc & APIs liên quan (Kiến trúc Signer Service)
+            Route::get('/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'show'])->name('lo-thuoc.chi-tiet');
+            Route::get('/api/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'getChiTietAPI'])->name('lo-thuoc.api.chi-tiet');
+            Route::post('/api/lo-thuoc/{id}/gui-blockchain', [ChiTietLoThuocController::class, 'guiBlockchain'])->name('lo-thuoc.api.gui-blockchain');
         });
 
     // ════════════════════════════════════════════════════════════════
