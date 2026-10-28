@@ -33,8 +33,10 @@ truy_xuat_thuoc
 │  │  │  │  └─ ChuyenGiaoController.php
 │  │  │  ├─ Controller.php
 │  │  │  ├─ CoQuan
-│  │  │  │  └─ DuyetHoSoController.php
+│  │  │  │  ├─ DuyetHoSoController.php
+│  │  │  │  └─ DuyetSanPhamController.php
 │  │  │  ├─ LoThuoc
+│  │  │  │  ├─ ChiTietLoThuocController.php
 │  │  │  │  └─ LoThuocController.php
 │  │  │  ├─ NhaSanXuat
 │  │  │  │  └─ SanPhamController.php
@@ -65,6 +67,7 @@ truy_xuat_thuoc
 │  ├─ Jobs
 │  │  ├─ ProcessBatchRegistrationJob.php
 │  │  ├─ ProcessOrganizationApprovalJob.php
+│  │  ├─ ProcessProductRegistrationJob.php
 │  │  ├─ RestoreOrganizationRoleJob.php
 │  │  ├─ RevokeOrganizationRoleJob.php
 │  │  └─ RotateOrganizationWalletJob.php
@@ -226,6 +229,7 @@ truy_xuat_thuoc
 │  │     ├─ nhaPhanPhoi
 │  │     │  └─ quanLyLoHang.js
 │  │     ├─ nhaSanXuat
+│  │     │  ├─ chiTietLoThuoc.js
 │  │     │  ├─ quanLyLoThuoc.js
 │  │     │  └─ quanLySanPham.js
 │  │     ├─ nhaThuoc
@@ -274,7 +278,7 @@ truy_xuat_thuoc
 │     ├─ nhaPhanPhoi
 │     │  └─ quanLyLoHang.blade.php
 │     ├─ nhaSanXuat
-│     │  ├─ dongBoSepolia.blade.php
+│     │  ├─ chiTietLoThuoc.blade.php
 │     │  ├─ quanLyLoThuoc.blade.php
 │     │  └─ quanLySanPham.blade.php
 │     ├─ nhaThuoc
@@ -329,14 +333,9 @@ truy_xuat_thuoc
 │  ├─ framework
 │  │  ├─ cache
 │  │  │  └─ data
-│  │  │     └─ ee
-│  │  │        └─ 2f
-│  │  │           └─ ee2f842aa7bb1f53edf3a2ed2c09a1807ffa6c90
 │  │  ├─ sessions
-│  │  │  └─ 3VB2RM6uSKEhB361HxCZ2WqqHq6upjW4Fctktaxa
 │  │  ├─ testing
 │  │  └─ views
-│  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
 │  │     ├─ 035731246571d2843ed8806b895b1df3.php
 │  │     ├─ 0421cdad5b572f8bb719588f1d726fa9.php
 │  │     ├─ 0d04c670e3e803c183a03541de2acaa3.php
@@ -345,9 +344,7 @@ truy_xuat_thuoc
 │  │     ├─ 1878de6f35923c583b84d5595cb57dde.php
 │  │     ├─ 1b8e9dac5559a14c209fd36df5a15225.php
 │  │     ├─ 22eb8eae42c599ba8c9dd4876fc849a7.php
-│  │     ├─ 2305f106441e1f9a23c54e332fd4f3da.php
 │  │     ├─ 28219c8155a2f356df928011d80046b0.php
-│  │     ├─ 37fb0fc92ef29363203344bab840c906.php
 │  │     ├─ 396143b79356ad0b0f1053b49e224ec7.php
 │  │     ├─ 3a21b499124aa2e727ce7f19eba89c83.php
 │  │     ├─ 4a3814166a7e64ed0e5a84c7112895db.php
@@ -365,17 +362,15 @@ truy_xuat_thuoc
 │  │     ├─ 789fe0400d66a3ce25e508b35006a3db.php
 │  │     ├─ 7d3d11463513c682f5e829a82c2b2df4.php
 │  │     ├─ 7e8c5fb405b097e2cc35e76bcb580f1f.php
-│  │     ├─ 8273b6b455b6a1d9d2a065dde11b4ada.php
 │  │     ├─ 8621b4c20348f86febdc9411ac4bc8e0.php
 │  │     ├─ 887d9f1000bd04da7ecddac96d054b17.php
 │  │     ├─ 8c0cf3c13e4b27bf441bb098299e6494.php
 │  │     ├─ 8ca1b0eea16fb29146e1d683f8c7a85a.php
-│  │     ├─ 90e942402fed7819e694b59d917bc2e0.php
+│  │     ├─ 8dd846e8df5702fbcb14dadde5a446cb.php
 │  │     ├─ 95245472938aae797b87da43d15b8f9a.php
 │  │     ├─ 97ab56c3b983bbe1b81c63e51377ff9c.php
 │  │     ├─ 9a21565cdcf3e0661a81b02469a74939.php
 │  │     ├─ a60c944afcd7edc87fbb06a01759eafb.php
-│  │     ├─ ab26b96cc32f28f88682afd59e65469d.php
 │  │     ├─ ab8753b4461257f4fb85f889052e5f11.php
 │  │     ├─ bc0d81ad3032929d6ccdbef00c943fae.php
 │  │     ├─ bd505a601cfcb0aa18d9f5ea11becc5c.php
@@ -389,11 +384,10 @@ truy_xuat_thuoc
 │  │     ├─ e0702df386324677ea105eed8692b265.php
 │  │     ├─ e718ffa9359ce16c3ea7996405287ba2.php
 │  │     ├─ eb2030d8040d006fa181017a4cdc3deb.php
-│  │     ├─ ee1870d7ed41d671d963a57255e294bc.php
 │  │     ├─ ee6f5b342e2a2da600f0da9ac26c373c.php
 │  │     ├─ f3d283dc88ac91e1769c92151406293d.php
 │  │     ├─ f6416e93d5de273fb2236af3973588ab.php
-│  │     ├─ f95e45b15ea80ddfea0df4b22e7ac57b.php
+│  │     ├─ f803dfbbdc2f8598d084089eec010ee1.php
 │  │     └─ ff4e1f4a1ae284b553dbaee3d587464f.php
 │  └─ logs
 ├─ tests

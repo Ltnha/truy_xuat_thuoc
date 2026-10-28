@@ -4,6 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title><?php echo isset($tieuDeTrang) ? $tieuDeTrang : 'Hệ Thống Truy Xuất Dược Phẩm Blockchain'; ?></title>
 
     <!-- Tối ưu kết nối sớm tới các CDN -->
@@ -19,20 +20,20 @@
 
     <!-- Tải CSS Tailwind nội bộ từ bản build tĩnh (tốc độ cao) hoặc fallback CDN -->
     @if (file_exists(public_path('build/manifest.json')))
-        @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
     @else
-        <script src="https://cdn.tailwindcss.com"></script>
-        <script>
-            tailwind.config = {
-                theme: {
-                    extend: {
-                        colors: {
-                            nenChinh: '#f2faf5',
-                        }
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        nenChinh: '#f2faf5',
                     }
                 }
             }
-        </script>
+        }
+    </script>
     @endif
 
     <!-- CSS Bổ trợ Layout -->

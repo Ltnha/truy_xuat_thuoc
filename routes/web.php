@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\BaoCao\BaoCaoNghiVanController;
 use App\Http\Controllers\Blockchain\SepoliaTransactionController;
 use App\Http\Controllers\CoQuan\DuyetHoSoController;
 use App\Http\Controllers\CoQuan\DuyetSanPhamController;
@@ -19,13 +20,22 @@ use App\Http\Controllers\XacThuc\HoSoController;
 |--------------------------------------------------------------------------
 */
 
-// --- 1. NHÓM CÔNG KHAI (PUBLIC) ---
+// =========================================================================
+// 1. NHÓM CÔNG KHAI (PUBLIC - NGƯỜI TIÊU DÙNG)
+// =========================================================================
 Route::get('/', fn() => view('nguoiTieuDung.trangChu'))->name('home');
 Route::get('/tra-cuu-nguon-goc', fn() => view('nguoiTieuDung.traCuuNguonGoc'))->name('tra-cuu');
 Route::get('/lich-su-tra-cuu', fn() => view('nguoiTieuDung.lichSuTraCuu'));
-Route::get('/bao-cao-nghi-van', fn() => view('nguoiTieuDung.baoCaoNghiVan'));
 
-// --- 2. NHÓM XÁC THỰC (GUEST) ---
+// Luồng Báo cáo nghi vấn Công khai
+Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'showConsumerForm'])->name('bao-cao.public.form');
+Route::post('/api/bao-cao-nghi-van/gui-bao-cao', [BaoCaoNghiVanController::class, 'storePublic'])->name('api.bao-cao.public.store');
+Route::get('/api/bao-cao-nghi-van/tra-cuu/{maBaoCao}', [BaoCaoNghiVanController::class, 'traCuuPublic'])->name('api.bao-cao.public.tra-cuu');
+
+
+// =========================================================================
+// 2. NHÓM XÁC THỰC (GUEST - CHƯA ĐĂNG NHẬP)
+// =========================================================================
 Route::middleware('guest')->group(function () {
     Route::get('/dang-nhap', [DangNhapController::class, 'show'])->name('login');
     Route::post('/dang-nhap', [DangNhapController::class, 'store'])->name('login.store');
@@ -39,7 +49,10 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/dang-xuat', [DangNhapController::class, 'logout'])->name('logout')->middleware('auth');
 
-// --- 3. NHÓM BẢO VỆ BỞI AUTH & TRẠNG THÁI TÀI KHOẢN HOẠT ĐỘNG ---
+
+// =========================================================================
+// 3. NHÓM ĐÃ ĐĂNG NHẬP (AUTH & TÀI KHOẢN HOẠT ĐỘNG)
+// =========================================================================
 Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // --- TRANG CÁ NHÂN & ĐỔI MẬT KHẨU ---
@@ -47,27 +60,29 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     Route::put('/thong-tin-ca-nhan/mat-khau', [HoSoController::class, 'updatePassword'])->name('ho-so.updatePassword');
     Route::get('/ho-so/tai-lieu/{taiLieu}', [HoSoController::class, 'downloadDocument'])->name('ho-so.downloadDocument');
 
+    // --- QUẢN LÝ BÁO CÁO NGHI VẤN CHO DOANH NGHIỆP ---
+    Route::get('/quan-ly-bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('bao-cao.auth.index');
+    Route::post('/api/quan-ly-bao-cao-nghi-van/gui-bao-cao', [BaoCaoNghiVanController::class, 'storeAuth'])->name('api.bao-cao.auth.store');
+    // Đường dẫn Alias bổ trợ
+    Route::post('/trang-dung-chung/bao-cao-nghi-van/gui-bao-cao', [BaoCaoNghiVanController::class, 'storeAuth']);
+
     // ════════════════════════════════════════════════════════════════
     // CƠ QUAN QUẢN LÝ
     // ════════════════════════════════════════════════════════════════
     Route::middleware(['kiem.tra.vai.tro:CO_QUAN_QUAN_LY'])->prefix('co-quan')->group(function () {
-        // Phê duyệt tài khoản tổ chức
         Route::get('/phe-duyet-tai-khoan', [DuyetHoSoController::class, 'index'])->name('co-quan.phe-duyet-tai-khoan');
         Route::post('/phe-duyet-to-chuc/{toChuc}', [DuyetHoSoController::class, 'approveOrganization'])->name('co-quan.approve-organization');
         Route::post('/phe-duyet-san-pham/{sanPham}', [DuyetHoSoController::class, 'approveProduct'])->name('co-quan.approve-product');
 
-        // Quản lý quyền hạn & Ví On-chain (Thu hồi, Khôi phục, Đổi ví)
         Route::get('/quan-ly-quyen-han', [DuyetHoSoController::class, 'quanLyQuyenHan'])->name('co-quan.quan-ly-quyen-han');
         Route::post('/thu-hoi-quyen/{toChuc}', [DuyetHoSoController::class, 'thuHoiQuyenToChuc'])->name('co-quan.thu-hoi-quyen');
         Route::post('/khoi-phuc-quyen/{toChuc}', [DuyetHoSoController::class, 'khoiPhucQuyenToChuc'])->name('co-quan.khoi-phuc-quyen');
         Route::post('/doi-vi-moi/{toChuc}', [DuyetHoSoController::class, 'doiViMoi'])->name('co-quan.doi-vi-moi');
 
-        // Xét duyệt sản phẩm lưu hành
         Route::get('/xet-duyet-san-pham', [DuyetSanPhamController::class, 'index'])->name('co-quan.xet-duyet-san-pham');
         Route::post('/xet-duyet-san-pham/{yeuCau}/phe-duyet', [DuyetSanPhamController::class, 'pheDuyet'])->name('co-quan.xet-duyet-san-pham.phe-duyet');
         Route::post('/xet-duyet-san-pham/{yeuCau}/tu-choi', [DuyetSanPhamController::class, 'tuChoi'])->name('co-quan.xet-duyet-san-pham.tu-choi');
 
-        // Các trang tính năng quản lý khác
         Route::get('/quan-ly-thu-hoi', fn() => view('coQuanQuanLy.quanLyThuHoi'));
         Route::get('/thong-ke-bao-cao', fn() => view('coQuanQuanLy.thongKeBaoCao'));
         Route::get('/xu-ly-nghi-van', fn() => view('coQuanQuanLy.xuLyNghiVan'));
@@ -80,18 +95,18 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         ->prefix('nha-san-xuat')
         ->name('nha-san-xuat.')
         ->group(function () {
-            // Quản lý danh sách sản phẩm
             Route::get('/quan-ly-san-pham', [SanPhamController::class, 'index'])->name('sanPham.index');
             Route::post('/quan-ly-san-pham', [SanPhamController::class, 'store'])->name('sanPham.store');
             Route::put('/quan-ly-san-pham/{sanPham}/nop-lai', [SanPhamController::class, 'resubmit'])->name('sanPham.resubmit');
 
-            // Quản lý Lô thuốc
             Route::get('/quan-ly-lo-thuoc', [LoThuocController::class, 'index'])->name('lo-thuoc.index');
             Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
             Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
             Route::post('/api/lo-thuoc/{id}/luu-txhash', [LoThuocController::class, 'saveTxHash'])->name('lo-thuoc.luu-txhash');
             Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('lo-thuoc.dong-bo');
             Route::post('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'verifyAndSave'])->name('lo-thuoc.dong-bo.luu');
+
+            Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('bao-cao');
         });
 
     // ════════════════════════════════════════════════════════════════
@@ -101,6 +116,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         ->prefix('nha-phan-phoi')
         ->group(function () {
             Route::get('/quan-ly-lo-hang', fn() => view('nhaPhanPhoi.quanLyLoHang'))->name('nha-phan-phoi.lo-hang');
+            Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('nha-phan-phoi.bao-cao');
         });
 
     // ════════════════════════════════════════════════════════════════
@@ -111,6 +127,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         ->group(function () {
             Route::get('/tiep-nhan-lo-hang', fn() => view('nhaThuoc.tiepNhanLoHang'))->name('nha-thuoc.tiep-nhan');
             Route::get('/quan-ly-ban-hang', fn() => view('nhaThuoc.quanLyBanHang'))->name('nha-thuoc.ban-hang');
+            Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('nha-thuoc.bao-cao');
         });
 
     // ════════════════════════════════════════════════════════════════

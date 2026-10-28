@@ -2,199 +2,236 @@
 
 namespace App\Http\Controllers\BaoCao;
 
-use App\Enums\BatchStatus;
-use App\Enums\DecisionType;
-use App\Enums\ReportStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BaoCaoNghiVan;
-use App\Models\KetQuaXuLyBaoCao;
 use App\Models\LoThuoc;
 use App\Models\MinhChungBaoCao;
 use App\Models\NhatKyHeThong;
-use App\Models\ThuHoiLoHang;
-use App\Services\Blockchain\GhiNhanBlockchain;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BaoCaoNghiVanController extends Controller
 {
-    public function index(Request $request): View
+    /**
+     * Màn hình Báo cáo dành cho Người tiêu dùng (Công khai)
+     * Tự động điều hướng sang trang Quản lý nếu người dùng đã đăng nhập tài khoản Tổ chức.
+     */
+    public function showConsumerForm(): View|RedirectResponse
     {
-        $baoCaos = BaoCaoNghiVan::query()
-            ->with(['loThuoc.sanPham', 'minhChungs'])
-            ->when(
-                $request->user()->vaiTro !== \App\Enums\Role::coQuanQuanLy,
-                fn ($query) => $query->where('taiKhoanId', $request->user()->id)
-            )
-            ->latest('id')
-            ->paginate(20);
-
-        return view('baoCao.danhSach', compact('baoCaos'));
-    }
-
-    public function showStatus(Request $request): View|RedirectResponse
-    {
-        $data = $request->validate([
-            'maBaoCao' => ['required', 'string', 'max:50'],
-        ]);
-        $baoCao = BaoCaoNghiVan::query()
-            ->with('ketQuaXuLy')
-            ->where('maBaoCao', $data['maBaoCao'])
-            ->firstOrFail();
-
-        return view('baoCao.trangThai', compact('baoCao'));
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $duLieu = $request->validate([
-            'maLo' => ['required', 'string', 'max:100'],
-            'lyDo' => ['required', 'string', 'max:5000'],
-            'moTa' => ['nullable', 'string', 'max:10000'],
-            'minhChung' => ['nullable', 'array', 'max:5'],
-            'minhChung.*' => ['image', 'mimes:jpg,jpeg,png', 'max:10240'],
-        ]);
-
-        $loThuoc = LoThuoc::query()
-            ->where('maLoNghiepVu', $duLieu['maLo'])
-            ->orWhere('maLo', $duLieu['maLo'])
-            ->first();
-
-        if (! $loThuoc) {
-            return back()->withInput()->withErrors(['maLo' => 'Không tìm thấy mã lô thuốc trong hệ thống.']);
+        if (auth()->check()) {
+            return redirect()->route('bao-cao.auth.index');
         }
 
-        $maBaoCao = 'BC-'.now()->format('Ymd').'-'.Str::upper(Str::random(8));
-        $baoCao = DB::transaction(function () use ($request, $duLieu, $loThuoc, $maBaoCao): BaoCaoNghiVan {
-            $baoCao = BaoCaoNghiVan::query()->create([
+        $loThuocs = LoThuoc::with('sanPham:id,tenSanPham')
+            ->select('id', 'maLo', 'maLoNghiepVu', 'sanPhamId')
+            ->latest('id')
+            ->get();
+
+        return view('nguoiTieuDung.baoCaoNghiVan', compact('loThuocs'));
+    }
+
+    /**
+     * API 1: Người tiêu dùng gửi báo cáo (Công khai - Cho phép gửi nhiều file)
+     */
+    public function storePublic(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'maLo' => ['required', 'string', 'max:50'],
+            'lyDo' => ['required', 'string', 'max:500'],
+            'moTa' => ['nullable', 'string', 'max:2000'],
+            'minhChung' => ['nullable', 'array', 'max:5'],
+            'minhChung.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+        ]);
+
+        $maLoStr = strtoupper(trim($validated['maLo']));
+        $loThuoc = LoThuoc::where('maLoNghiepVu', $maLoStr)->orWhere('maLo', $maLoStr)->first();
+        $maBaoCao = 'BC-' . date('Y') . '-' . strtoupper(Str::random(6));
+
+        DB::transaction(function () use ($request, $validated, $loThuoc, $maLoStr, $maBaoCao) {
+            $baoCao = BaoCaoNghiVan::create([
                 'maBaoCao' => $maBaoCao,
-                'loThuocId' => $loThuoc->id,
-                'taiKhoanId' => $request->user()?->id,
-                'lyDo' => $duLieu['lyDo'],
-                'moTa' => $duLieu['moTa'] ?? null,
-                'ngayGui' => today(),
-                'trangThai' => 'PENDING',
+                'loThuocId' => $loThuoc?->id,
+                'maLoKhaiBao' => $maLoStr,
+                'taiKhoanId' => null,
+                'lyDo' => $validated['lyDo'],
+                'moTa' => $validated['moTa'] ?? null,
+                'ngayGui' => now(),
+                'trangThai' => 'DA_GUI',
             ]);
 
-            foreach ($request->file('minhChung', []) ?? [] as $tep) {
-                $duongDan = $tep->store('bao-cao-nghi-van', 'local');
-                DB::table('minhChungBaoCao')->insert([
-                    'baoCaoId' => $baoCao->id,
-                    'tenFile' => $tep->getClientOriginalName(),
-                    'loaiFile' => $tep->getMimeType(),
-                    'duongDan' => $duongDan,
-                    'ngayTaiLen' => today(),
-                ]);
-            }
+            if ($request->hasFile('minhChung')) {
+                foreach ($request->file('minhChung') as $file) {
+                    $path = $file->store('minh-chung-bao-cao', 'public');
 
-            return $baoCao;
-        });
-
-        return redirect()
-            ->route('cong.baoCao.gui')
-            ->with('thanhCong', 'Đã gửi báo cáo và lưu vào hệ thống để cơ quan quản lý xác minh.')
-            ->with('maBaoCao', $baoCao->maBaoCao);
-    }
-
-    public function process(Request $request, BaoCaoNghiVan $baoCao, GhiNhanBlockchain $ghiNhanBlockchain): RedirectResponse
-    {
-        $data = $request->validate([
-            'quyetDinh' => ['required', 'in:PROCESSING,THU_HOI,TU_CHOI'],
-            'lyDoXuLy' => ['nullable', 'required_if:quyetDinh,THU_HOI,TU_CHOI', 'string', 'max:500'],
-        ]);
-
-        DB::transaction(function () use ($request, $baoCao, $data, $ghiNhanBlockchain): void {
-            $baoCao = BaoCaoNghiVan::query()->lockForUpdate()->findOrFail($baoCao->id);
-            if (! in_array($baoCao->trangThai, [ReportStatus::pending, ReportStatus::processing], true)) {
-                abort(409, 'Báo cáo đã được xử lý.');
-            }
-
-            if ($data['quyetDinh'] === 'PROCESSING') {
-                $baoCao->trangThai = ReportStatus::processing;
-                $baoCao->save();
-                $this->ghiNhatKy($request, 'DANG_XU_LY_BAO_CAO', "Đang xác minh báo cáo {$baoCao->maBaoCao}.");
-                return;
-            }
-
-            $quyetDinh = DecisionType::from($data['quyetDinh']);
-            $loThuoc = LoThuoc::query()->lockForUpdate()->findOrFail($baoCao->loThuocId);
-            $ketQua = new KetQuaXuLyBaoCao;
-            $ketQua->baoCaoId = $baoCao->id;
-            $ketQua->nguoiXuLyId = $request->user()->id;
-            $ketQua->quyetDinh = $quyetDinh->value;
-            $ketQua->ngayXuLy = today();
-            $ketQua->lyDoXuLy = $data['lyDoXuLy'];
-            $ketQua->save();
-
-            if ($quyetDinh === DecisionType::thuHoi) {
-                if ($loThuoc->trangThai === BatchStatus::recalled) {
-                    throw ValidationException::withMessages(['quyetDinh' => 'Lô thuốc đã được thu hồi trước đó.']);
+                    MinhChungBaoCao::create([
+                        'baoCaoId' => $baoCao->id,
+                        'tenFile' => $file->getClientOriginalName(),
+                        'loaiFile' => $file->getClientMimeType(),
+                        'duongDan' => $path,
+                        'ngayTaiLen' => now(),
+                    ]);
                 }
-
-                $loThuoc->trangThai = BatchStatus::recalled;
-                $loThuoc->save();
-                $txHash = $ghiNhanBlockchain->ghi(
-                    'BatchRecalled',
-                    (string) Str::uuid(),
-                    $loThuoc->toChuc,
-                    $loThuoc,
-                );
-                $thuHoi = new ThuHoiLoHang;
-                $thuHoi->loThuocId = $loThuoc->id;
-                $thuHoi->ketQuaXuLyBaoCaoId = $ketQua->id;
-                $thuHoi->lyDo = $data['lyDoXuLy'];
-                $thuHoi->ngayThuHoi = today();
-                $thuHoi->trangThai = 'CONFIRMED';
-                $thuHoi->txHash = $txHash;
-                $thuHoi->save();
-                DB::table('lichSuLoThuoc')->insert([
-                    'loThuocId' => $loThuoc->id,
-                    'thoiGian' => now(),
-                    'suKien' => 'THU_HOI',
-                    'moTa' => "Thu hồi theo báo cáo {$baoCao->maBaoCao}: {$data['lyDoXuLy']}",
-                    'txHash' => $txHash,
-                ]);
-                $baoCao->trangThai = ReportStatus::approved;
-                $baoCao->save();
-                $this->ghiNhatKy($request, 'THU_HOI_LO_THUOC', "Thu hồi lô {$loThuoc->maLoNghiepVu} theo báo cáo {$baoCao->maBaoCao}.");
-            } else {
-                $baoCao->trangThai = ReportStatus::rejected;
-                $baoCao->save();
-                $this->ghiNhatKy($request, 'TU_CHOI_BAO_CAO', "Từ chối báo cáo {$baoCao->maBaoCao}: {$data['lyDoXuLy']}");
             }
         });
 
-        return back()->with('thanhCong', 'Đã cập nhật kết quả xử lý báo cáo.');
-    }
-
-    private function ghiNhatKy(Request $request, string $action, string $content): void
-    {
-        NhatKyHeThong::query()->create([
-            'taiKhoanId' => $request->user()->id,
-            'hanhDong' => $action,
-            'thoiGian' => now(),
-            'noiDung' => $content,
-            'diaChiIP' => $request->ip(),
+        return response()->json([
+            'success' => true,
+            'message' => 'Gửi báo cáo nghi vấn thành công!',
+            'data' => [
+                'maBaoCao' => $maBaoCao,
+                'maLo' => $maLoStr,
+                'ngayGui' => now()->format('d/m/Y H:i'),
+            ]
         ]);
     }
 
-    public function downloadEvidence(Request $request, MinhChungBaoCao $minhChung): StreamedResponse
+    /**
+     * API 2: Người tiêu dùng tra cứu công khai theo mã báo cáo
+     */
+    public function traCuuPublic(string $maBaoCao): JsonResponse
     {
-        $baoCao = $minhChung->baoCao;
-        abort_if($baoCao === null, 404);
-        abort_unless(
-            $request->user()->vaiTro === \App\Enums\Role::coQuanQuanLy
-                || ($baoCao->taiKhoanId !== null && (int) $baoCao->taiKhoanId === (int) $request->user()->id),
-            404
-        );
-        abort_unless(Storage::disk('local')->exists($minhChung->duongDan), 404);
+        $code = strtoupper(trim($maBaoCao));
+        $baoCao = BaoCaoNghiVan::with(['loThuoc.sanPham', 'minhChungs', 'ketQuaXuLy'])
+            ->where('maBaoCao', $code)
+            ->first();
 
-        return Storage::disk('local')->download($minhChung->duongDan, $minhChung->tenFile);
+        if (! $baoCao) {
+            return response()->json([
+                'success' => false,
+                'message' => "Không tìm thấy hồ sơ báo cáo nào với mã [{$code}].",
+            ], 404);
+        }
+
+        $minhChungArr = $baoCao->minhChungs->map(fn($mc) => [
+            'ten' => $mc->tenFile,
+            'url' => Storage::url($mc->duongDan),
+            'loai' => str_contains($mc->loaiFile, 'pdf') ? 'pdf' : 'image',
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'maBaoCao' => $baoCao->maBaoCao,
+                'maLo' => $baoCao->loThuoc ? $baoCao->loThuoc->maLoNghiepVu : $baoCao->maLoKhaiBao,
+                'tenThuoc' => $baoCao->loThuoc?->sanPham?->tenSanPham ?? 'Chưa xác định trên hệ thống',
+                'lyDo' => $baoCao->lyDo,
+                'moTa' => $baoCao->moTa,
+                'ngayGui' => $baoCao->ngayGui ? date('d/m/Y H:i', strtotime($baoCao->ngayGui)) : '--',
+                'trangThai' => $baoCao->trangThai,
+                'danhSachMinhChung' => $minhChungArr,
+                'ketQua' => $baoCao->ketQuaXuLy ? [
+                    'quyetDinh' => $baoCao->ketQuaXuLy->quyetDinh,
+                    'lyDoXuLy' => $baoCao->ketQuaXuLy->lyDoXuLy,
+                    'ngayXuLy' => date('d/m/Y', strtotime($baoCao->ketQuaXuLy->ngayXuLy)),
+                ] : null,
+            ]
+        ]);
+    }
+
+    /**
+     * Màn hình Quản lý Báo cáo dành riêng cho Doanh nghiệp (Có tài khoản)
+     */
+    public function indexAuth(Request $request): View
+    {
+        $user = $request->user();
+
+        $baoCaos = BaoCaoNghiVan::with(['loThuoc.sanPham', 'minhChungs', 'ketQuaXuLy'])
+            ->where('taiKhoanId', $user->id)
+            ->latest('id')
+            ->get();
+
+        $baoCaosFormatted = $baoCaos->map(function ($item) {
+            return [
+                'maBaoCao' => $item->maBaoCao,
+                'maLo' => $item->loThuoc ? $item->loThuoc->maLoNghiepVu : $item->maLoKhaiBao,
+                'lyDo' => $item->lyDo,
+                'moTa' => $item->moTa ?? '',
+                'ngayGui' => $item->ngayGui ? date('d/m/Y H:i', strtotime($item->ngayGui)) : '--',
+                'trangThai' => $item->trangThai,
+                'ketQuaLoai' => $item->ketQuaXuLy?->quyetDinh,
+                'danhSachMinhChung' => $item->minhChungs->map(fn($mc) => [
+                    'ten' => $mc->tenFile,
+                    'url' => Storage::url($mc->duongDan),
+                    'loai' => str_contains($mc->loaiFile, 'pdf') ? 'pdf' : 'image',
+                ]),
+                'ketQuaThucTe' => $item->ketQuaXuLy ? [
+                    'quyetDinh' => $item->ketQuaXuLy->quyetDinh,
+                    'lyDoXuLy' => $item->ketQuaXuLy->lyDoXuLy,
+                    'ngayXuLy' => date('d/m/Y', strtotime($item->ketQuaXuLy->ngayXuLy)),
+                ] : null,
+            ];
+        });
+
+        $loThuocs = LoThuoc::with('sanPham:id,tenSanPham')
+            ->select('id', 'maLo', 'maLoNghiepVu', 'sanPhamId')
+            ->latest('id')
+            ->get();
+
+        return view('trangDungChung.quanLyBaoCaoNghiVan', compact('baoCaos', 'loThuocs', 'baoCaosFormatted'));
+    }
+
+    /**
+     * API 3: Doanh nghiệp gửi báo cáo (Có tài khoản)
+     */
+    public function storeAuth(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'maLo' => ['required', 'string', 'max:50'],
+            'lyDo' => ['required', 'string', 'max:500'],
+            'moTa' => ['required', 'string', 'max:2000'],
+            'minhChung' => ['nullable', 'array', 'max:5'],
+            'minhChung.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+        ]);
+
+        $maLoStr = strtoupper(trim($validated['maLo']));
+        $loThuoc = LoThuoc::where('maLoNghiepVu', $maLoStr)->orWhere('maLo', $maLoStr)->first();
+        $maBaoCao = 'BC-' . date('Y') . '-' . strtoupper(Str::random(6));
+
+        DB::transaction(function () use ($request, $validated, $user, $loThuoc, $maLoStr, $maBaoCao) {
+            $baoCao = BaoCaoNghiVan::create([
+                'maBaoCao' => $maBaoCao,
+                'loThuocId' => $loThuoc?->id,
+                'maLoKhaiBao' => $maLoStr,
+                'taiKhoanId' => $user->id,
+                'lyDo' => $validated['lyDo'],
+                'moTa' => $validated['moTa'],
+                'ngayGui' => now(),
+                'trangThai' => 'DA_GUI',
+            ]);
+
+            if ($request->hasFile('minhChung')) {
+                foreach ($request->file('minhChung') as $file) {
+                    $path = $file->store('minh-chung-bao-cao', 'public');
+                    MinhChungBaoCao::create([
+                        'baoCaoId' => $baoCao->id,
+                        'tenFile' => $file->getClientOriginalName(),
+                        'loaiFile' => $file->getClientMimeType(),
+                        'duongDan' => $path,
+                        'ngayTaiLen' => now(),
+                    ]);
+                }
+            }
+
+            NhatKyHeThong::create([
+                'taiKhoanId' => $user->id,
+                'doiTuongId' => $user->id,
+                'hanhDong' => 'GUI_BAO_CAO_NGHI_VAN',
+                'ketQua' => 'THANH_CONG',
+                'chiTiet' => "Gửi báo cáo nghi vấn [{$maBaoCao}] cho lô [{$maLoStr}].",
+            ]);
+        });
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã gửi báo cáo nghi vấn thành công!',
+            'maBaoCao' => $maBaoCao
+        ]);
     }
 }

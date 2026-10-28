@@ -18,3 +18,7 @@ Trong tương lai, chỉ chạy lại php artisan migrate khi bạn tự tạo t
    node index.js
    mục đích: lắng nghe lệnh từ Laravel để sinh ví, giải mã Private Key và ký giao dịch On-chain.
    tần suất chạy: chạy song song với mở serve
+
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
