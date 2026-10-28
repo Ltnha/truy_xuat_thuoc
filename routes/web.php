@@ -12,6 +12,7 @@ use App\Http\Controllers\QuanTri\TaiKhoanController;
 use App\Http\Controllers\XacThuc\DangKyToChucController;
 use App\Http\Controllers\XacThuc\DangNhapController;
 use App\Http\Controllers\XacThuc\HoSoController;
+use App\Http\Controllers\LoThuoc\ChuyenGiaoController;
 
 /*
 |--------------------------------------------------------------------------
@@ -90,6 +91,10 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
             Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
             Route::post('/api/lo-thuoc/{id}/luu-txhash', [LoThuocController::class, 'saveTxHash'])->name('lo-thuoc.luu-txhash');
+
+            // === CÁC ROUTE CHUYỂN GIAO LÔ THUỐC ===
+            Route::get('/api/nha-phan-phoi', [ChuyenGiaoController::class, 'danhSachNhaPhanPhoi'])->name('lo-thuoc.api.npp');
+            Route::post('/api/chuyen-giao', [ChuyenGiaoController::class, 'store'])->name('lo-thuoc.chuyen-giao.store');
 
             // Trang Chi Tiết Lô Thuốc & APIs liên quan (Kiến trúc Signer Service)
             Route::get('/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'show'])->name('lo-thuoc.chi-tiet');

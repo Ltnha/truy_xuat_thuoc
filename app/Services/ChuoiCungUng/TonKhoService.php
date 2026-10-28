@@ -23,7 +23,7 @@ class TonKhoService
         $dangCho = ChuyenGiao::query()
             ->where('loThuocId', $loThuocId)
             ->where('benGuiId', $toChucId)
-            ->whereIn('trangThai', [TransferStatus::pending->value, TransferStatus::inTransit->value])
+            ->whereIn('trangThai', [TransferStatus::pending->value, TransferStatus::pending->value])
             ->sum('soLuong');
 
         return max(0, $this->soLuongHienCo($loThuocId, $toChucId) - (int) $dangCho);
