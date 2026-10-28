@@ -206,20 +206,28 @@
                 </div>
             </div>
 
+            <!-- ID lô thuốc ẩn để gửi API -->
+            <input type="hidden" id="phanPhoiLoThuocId" value="">
+
             <div class="space-y-1">
-                <label for="chonNhaPhanPhoi" class="font-bold text-slate-700">Đơn Vị Tiếp Nhận (Nhà Phân Phối Đã Duyệt) <span class="text-red-500">*</span></label>
-                <select id="chonNhaPhanPhoi" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                    <option value="">-- Chọn Nhà phân phối hợp lệ --</option>
-                    @if(isset($danhSachNhaPhanPhoi) && count($danhSachNhaPhanPhoi) > 0)
-                        @foreach($danhSachNhaPhanPhoi as $npp)
-                            <option value="{{ $npp->id }}">{{ $npp->tenToChuc }} (MST: {{ $npp->maSoThue }})</option>
-                        @endforeach
-                    @else
-                        <option value="NPP01">Công ty Cổ phần Dược phẩm CPC1 Hà Nội (Ví: 0x3a...11C)</option>
-                        <option value="NPP02">Tổng Công ty Dược Việt Nam - Vinapharm (Ví: 0x7c...88D)</option>
-                        <option value="NPP03">Công ty Dược phẩm Vimedimex TP.HCM (Ví: 0x1e...44E)</option>
-                    @endif
+                <label for="chonNhaPhanPhoi" class="font-bold text-slate-700">
+                    Đơn Vị Tiếp Nhận (Nhà Phân Phối Đã Duyệt) <span class="text-red-500">*</span>
+                </label>
+                <select id="chonNhaPhanPhoi" required
+                    class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                    <option value="">-- Chọn nhà phân phối đã duyệt --</option>
+                    @forelse($danhSachNhaPhanPhoi ?? [] as $npp)
+                        <option value="{{ $npp->id }}">
+                            {{ $npp->tenToChuc }}
+                            @if(!empty($npp->maSoThue))
+                                (MST: {{ $npp->maSoThue }})
+                            @endif
+                        </option>
+                    @empty
+                        <option value="" disabled>Chưa có nhà phân phối nào được phê duyệt trong hệ thống</option>
+                    @endforelse
                 </select>
+                <p class="text-[11px] text-slate-500">Danh sách lấy từ CSDL (tổ chức loại Nhà phân phối, trạng thái Đã duyệt).</p>
             </div>
 
             <div class="space-y-1">
@@ -229,7 +237,7 @@
             </div>
 
             <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức[cite: 4].
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức.
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">

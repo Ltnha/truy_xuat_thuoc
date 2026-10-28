@@ -6,8 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Jobs\ProcessBatchRegistrationJob;
 use App\Models\BlockchainIdentity;
 use App\Models\BlockchainTransaction;
+use App\Models\ChuyenGiao;
 use App\Models\LoThuoc;
 use App\Models\SanPham;
+use App\Models\ToChuc;
+use App\Enums\OrganizationApprovalStatus;
+use App\Enums\OrganizationType;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,7 +26,13 @@ class LoThuocController extends Controller
             ->where('trangThaiDuyet', 'DA_DUYET')
             ->get();
 
-        return view('nhaSanXuat.quanLyLoThuoc', compact('danhSachSanPham'));
+        $danhSachNhaPhanPhoi = ToChuc::query()
+            ->where('loaiToChuc', OrganizationType::nhaPhanPhoi->value ?? 'NHA_PHAN_PHOI')
+            ->where('trangThaiDuyet', OrganizationApprovalStatus::daDuyet->value ?? 'DA_DUYET')
+            ->orderBy('tenToChuc')
+            ->get(['id', 'tenToChuc', 'maSoThue']);
+
+        return view('nhaSanXuat.quanLyLoThuoc', compact('danhSachSanPham', 'danhSachNhaPhanPhoi'));
     }
 
     public function getDanhSachAPI()
@@ -32,7 +42,18 @@ class LoThuocController extends Controller
         $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc'])
             ->where('toChucId', $user->toChucId ?? null)
             ->orderBy('id', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($lo) {
+                // Tính tổng số lượng đang nằm trong các đơn chuyển giao chờ xác nhận (PENDING)
+                $tongDangChuyen = ChuyenGiao::where('loThuocId', $lo->id)
+                    ->where('trangThai', 'PENDING')
+                    ->sum('soLuong');
+
+                // Số lượng khả dụng = Tổng số lượng ban đầu - Số lượng đang PENDING
+                $lo->soLuongKhaDung = max(0, (int)$lo->soLuong - (int)$tongDangChuyen);
+
+                return $lo;
+            });
 
         return response()->json([
             'success' => true,
@@ -59,16 +80,16 @@ class LoThuocController extends Controller
             'ngaySanXuat'  => 'required|date|before_or_equal:today',
             'hanSuDung'    => 'required|date|after:ngaySanXuat',
         ], [
-            'sanPhamId.required'        => 'Vui lòng chọn sản phẩm dược.',
-            'sanPhamId.exists'          => 'Sản phẩm đã chọn không tồn tại.',
-            'maLoNghiepVu.required'     => 'Mã lô thuốc không được để trống.',
-            'maLoNghiepVu.unique'       => 'Mã lô thuốc nghiệp vụ này đã tồn tại trên hệ thống.',
-            'soLuong.required'          => 'Vui lòng nhập số lượng sản xuất.',
-            'soLuong.min'               => 'Số lượng sản xuất tối thiểu là 1 đơn vị.',
-            'ngaySanXuat.required'      => 'Ngày sản xuất không được để trống.',
+            'sanPhamId.required'          => 'Vui lòng chọn sản phẩm dược.',
+            'sanPhamId.exists'            => 'Sản phẩm đã chọn không tồn tại.',
+            'maLoNghiepVu.required'       => 'Mã lô thuốc không được để trống.',
+            'maLoNghiepVu.unique'         => 'Mã lô thuốc nghiệp vụ này đã tồn tại trên hệ thống.',
+            'soLuong.required'            => 'Vui lòng nhập số lượng sản xuất.',
+            'soLuong.min'                 => 'Số lượng sản xuất tối thiểu là 1 đơn vị.',
+            'ngaySanXuat.required'        => 'Ngày sản xuất không được để trống.',
             'ngaySanXuat.before_or_equal' => 'Ngày sản xuất không thể lớn hơn ngày hiện tại.',
-            'hanSuDung.required'        => 'Hạn sử dụng không được để trống.',
-            'hanSuDung.after'           => 'Hạn sử dụng phải sau ngày sản xuất.',
+            'hanSuDung.required'          => 'Hạn sử dụng không được để trống.',
+            'hanSuDung.after'             => 'Hạn sử dụng phải sau ngày sản xuất.',
         ]);
 
         $user = Auth::user();
