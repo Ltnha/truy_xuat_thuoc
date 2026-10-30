@@ -82,6 +82,11 @@ document.addEventListener('DOMContentLoaded', function () {
     function isTxPending(tx) {
         if (!tx) return false;
         const st = String(tx.trangThai || '').toUpperCase();
+        // Đã kết thúc (thành công / thất bại / hủy) thì KHÔNG còn pending,
+        // kể cả khi txHash vẫn mang prefix PENDING_...
+        if (['FAILED', 'REJECTED', 'CANCELLED', 'CONFIRMED', 'SUCCESS'].includes(st)) {
+            return false;
+        }
         const hash = String(tx.txHash || '');
         return st === 'PENDING' || hash.startsWith('PENDING_');
     }
@@ -218,8 +223,14 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const batchConfirmed = isTxConfirmed(batchTx);
             const batchPending = isTxPending(batchTx);
-            const transferPending = isTxPending(transferTx);
-            const transferFailed = isTxFailedOrRejected(transferTx);
+
+            // Ưu tiên trạng thái nghiệp vụ từ API (chuyenGiao), không chỉ dựa blockchain tx
+            const cgInfo = item.chuyenGiaoGanNhat || item.chuyen_giao_gan_nhat || null;
+            const cgStatus = cgInfo ? String(cgInfo.trangThai || '').toUpperCase() : '';
+            const coChuyenGiaoCho = !!(item.coChuyenGiaoCho || item.co_chuyen_giao_cho);
+            const transferPending = coChuyenGiaoCho || (isTxPending(transferTx) && cgStatus === 'PENDING');
+            const transferFailed = ['CANCELLED', 'REJECTED', 'FAILED'].includes(cgStatus)
+                || isTxFailedOrRejected(transferTx);
 
             // Cột mã On-chain: ưu tiên hiển thị tx đăng ký lô; nếu đang chuyển thì ghi chú thêm
             let txHtml = `<span class="text-slate-400 italic text-[11px]">Chưa gửi</span>`;
@@ -264,9 +275,10 @@ document.addEventListener('DOMContentLoaded', function () {
             const soLuong = Number(item.soLuong || 0);
             const khaDung = getKhaDung(item);
 
-            // Nút Chuyển giao: chỉ cần lô đã ghi on-chain + còn khả dụng + không bị thu hồi
-            // KHÔNG phụ thuộc tx chuyển giao gần nhất (tránh mất nút khi NPP từ chối)
-            const canTransfer = batchConfirmed && khaDung > 0 && item.trangThai !== 'RECALLED' && !transferPending;
+            // Nút Chuyển giao: lô on-chain + còn khả dụng + không thu hồi + không còn đơn PENDING
+            const canTransfer = batchConfirmed && khaDung > 0
+                && item.trangThai !== 'RECALLED'
+                && !coChuyenGiaoCho;
 
             return `
                 <tr class="hover:bg-slate-50/80 transition-colors">
@@ -321,7 +333,7 @@ document.addEventListener('DOMContentLoaded', function () {
             alert('Lô thuốc chưa được ghi nhận On-chain thành công. Vui lòng đợi đồng bộ xong trước khi chuyển giao.');
             return;
         }
-        if (isTxPending(getLatestTransferTx(item))) {
+        if (item.coChuyenGiaoCho || item.co_chuyen_giao_cho) {
             alert('Lô này đang có yêu cầu chuyển giao chờ Nhà phân phối xác nhận. Vui lòng đợi hoặc chờ bên nhận từ chối/nhận xong.');
             return;
         }

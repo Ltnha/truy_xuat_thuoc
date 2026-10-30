@@ -331,4 +331,39 @@ class QuanLyLoHangController extends Controller
             return response()->json(['success' => false, 'message' => 'Có lỗi hệ thống, vui lòng thử lại.'], 500);
         }
     }
+    
+    /**
+     * API: NPP từ chối tiếp nhận lô từ NSX
+     * POST /nha-phan-phoi/api/tu-choi/{id}
+     */
+    public function tuChoi(Request $request, int $id): JsonResponse
+    {
+        $user   = Auth::user();
+        $toChuc = $user?->toChuc;
+
+        if (! $toChuc) {
+            return response()->json(['success' => false, 'message' => 'Tài khoản chưa gắn tổ chức.'], 403);
+        }
+
+        $chuyenGiao = ChuyenGiao::find($id);
+        if (! $chuyenGiao) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch.'], 404);
+        }
+
+        $lyDo = $request->input('lyDo', 'Nhà phân phối từ chối nhận hàng');
+
+        try {
+            $this->chuyenGiaoService->tuChoi($chuyenGiao, $toChuc, $user, $request->ip(), $lyDo);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã từ chối nhận hàng và hoàn trả số lượng về nhà sản xuất.',
+            ]);
+        } catch (NghiepVuException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => 'Có lỗi hệ thống, vui lòng thử lại.'], 500);
+        }
+    }
 }
