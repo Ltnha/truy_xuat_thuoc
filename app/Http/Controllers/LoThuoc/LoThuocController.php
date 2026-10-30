@@ -13,6 +13,7 @@ use App\Models\ToChuc;
 use App\Enums\OrganizationApprovalStatus;
 use App\Enums\OrganizationType;
 use Illuminate\Http\Request;
+use App\Services\ChuoiCungUng\TonKhoService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -43,14 +44,45 @@ class LoThuocController extends Controller
             ->where('toChucId', $user->toChucId ?? null)
             ->orderBy('id', 'desc')
             ->get()
-            ->map(function ($lo) {
-                // Tính tổng số lượng đang nằm trong các đơn chuyển giao chờ xác nhận (PENDING)
-                $tongDangChuyen = ChuyenGiao::where('loThuocId', $lo->id)
+            ->map(function ($lo) use ($user) {
+                $toChucId = (int) ($user->toChucId ?? 0);
+
+                // Số lượng đang giữ chỗ (PENDING) do NSX gửi đi
+                $tongDangChuyen = (int) ChuyenGiao::where('loThuocId', $lo->id)
+                    ->where('benGuiId', $toChucId)
                     ->where('trangThai', 'PENDING')
                     ->sum('soLuong');
 
-                // Số lượng khả dụng = Tổng số lượng ban đầu - Số lượng đang PENDING
-                $lo->soLuongKhaDung = max(0, (int)$lo->soLuong - (int)$tongDangChuyen);
+                // Ưu tiên tồn kho thật (tonKhoLo) — đã trừ khi NPP tiếp nhận
+                $tonKhoService = app(TonKhoService::class);
+                $hienCo = $tonKhoService->soLuongHienCo($lo->id, $toChucId);
+
+                // Nếu chưa có dòng tonKhoLo (lô mới chưa đồng bộ), fallback theo soLuong lô
+                if ($hienCo <= 0 && ! \App\Models\TonKhoLo::where('loThuocId', $lo->id)->where('toChucId', $toChucId)->exists()) {
+                    $hienCo = (int) $lo->soLuong;
+                }
+
+                $lo->soLuongHienCo = $hienCo;
+                $lo->soLuongKhaDung = max(0, $hienCo - $tongDangChuyen);
+                $lo->coChuyenGiaoCho = $tongDangChuyen > 0;
+
+                $cgGanNhat = ChuyenGiao::where('loThuocId', $lo->id)
+                    ->where('benGuiId', $toChucId)
+                    ->orderByDesc('id')
+                    ->first();
+
+                if ($cgGanNhat) {
+                    $st = $cgGanNhat->trangThai instanceof \App\Enums\TransferStatus
+                        ? $cgGanNhat->trangThai->value
+                        : (string) $cgGanNhat->trangThai;
+                    $lo->chuyenGiaoGanNhat = [
+                        'id'        => $cgGanNhat->id,
+                        'trangThai' => strtoupper($st),
+                        'soLuong'   => (int) $cgGanNhat->soLuong,
+                    ];
+                } else {
+                    $lo->chuyenGiaoGanNhat = null;
+                }
 
                 return $lo;
             });
