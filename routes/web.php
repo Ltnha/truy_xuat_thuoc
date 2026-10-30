@@ -35,7 +35,7 @@ use App\Http\Controllers\Blockchain\SepoliaTransactionController;
 */
 
 // =========================================================================
-// 1. NHÓM CÔNG KHAI (PUBLIC - NGƯỜI TIÊU DÙNG)
+// 1. NHÓM CÔNG KHAI (PUBLIC - NGƯỜI TIÊU DÙNG - KHÔNG TÀI KHOẢN)
 // =========================================================================
 Route::get('/', fn() => view('nguoiTieuDung.trangChu'))->name('home');
 Route::get('/tra-cuu-nguon-goc', fn() => view('nguoiTieuDung.traCuuNguonGoc'))->name('tra-cuu');
@@ -43,7 +43,7 @@ Route::get('/lich-su-tra-cuu', fn() => view('nguoiTieuDung.lichSuTraCuu'));
 
 // Báo cáo nghi vấn công khai & API Tra cứu cho Người tiêu dùng
 Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'showConsumerForm'])->name('bao-cao.public.form');
-Route::post('/api/bao-cao-nghi-van/gui-public', [BaoCaoNghiVanController::class, 'storePublic'])->name('api.bao-cao.public.store');
+Route::post('/api/bao-cao-nghi-van/gui-bao-cao', [BaoCaoNghiVanController::class, 'storePublic'])->name('api.bao-cao.public.store');
 Route::get('/api/bao-cao-nghi-van/tra-cuu/{maBaoCao}', [BaoCaoNghiVanController::class, 'traCuuPublic'])->name('api.bao-cao.public.tra-cuu');
 
 
@@ -65,7 +65,7 @@ Route::post('/dang-xuat', [DangNhapController::class, 'logout'])->name('logout')
 
 
 // =========================================================================
-// 3. NHÓM ĐÃ ĐĂNG NHẬP (AUTH & TÀI KHOẢN HOẠT ĐỘNG)
+// 3. NHÓM ĐÃ ĐĂNG NHẬP (AUTH & TÀI KHOẢN HOẠT ĐỘNG - CÓ TÀI KHOẢN)
 // =========================================================================
 Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
@@ -76,7 +76,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
     // --- QUẢN LÝ BÁO CÁO NGHI VẤN CHUNG CHO CÁC TỔ CHỨC ---
     Route::get('/quan-ly-bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('bao-cao.auth.index');
-    Route::post('/api/quan-ly-bao-cao-nghi-van/gui', [BaoCaoNghiVanController::class, 'storeAuth'])->name('api.bao-cao.auth.store');
+    Route::post('/api/quan-ly-bao-cao-nghi-van/gui-bao-cao', [BaoCaoNghiVanController::class, 'storeAuth'])->name('api.bao-cao.auth.store');
 
     // ════════════════════════════════════════════════════════════════
     // CƠ QUAN QUẢN LÝ
