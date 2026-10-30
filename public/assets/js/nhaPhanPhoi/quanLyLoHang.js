@@ -1,643 +1,316 @@
 /**
- * Quản lý lô hàng – Nhà phân phối
- * Kết nối API thật:
- *  - GET  /nha-phan-phoi/api/chuyen-giao/cho-nhan
- *  - POST /nha-phan-phoi/api/chuyen-giao/{id}/xac-nhan
- *  - GET  /nha-phan-phoi/api/ton-kho
+ * quanLyLoHang.js - Nhà phân phối
+ * Kết nối CSDL thật qua API (thay thế hoàn toàn dữ liệu giả)
  */
 document.addEventListener('DOMContentLoaded', function () {
-    const EXPLORER_BASE_URL = 'https://sepolia.etherscan.io/tx/';
-    const ITEMS_PER_PAGE = 5;
-    const API_CHO_NHAN = '/nha-phan-phoi/api/chuyen-giao/cho-nhan';
-    const API_TON_KHO = '/nha-phan-phoi/api/ton-kho';
-    const API_XAC_NHAN = (id) => `/nha-phan-phoi/api/chuyen-giao/${id}/xac-nhan`;
-    const API_TU_CHOI = (id) => `/nha-phan-phoi/api/chuyen-giao/${id}/tu-choi`;
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const EXPLORER_BASE = 'https://sepolia.etherscan.io/tx/';
 
-    let trangHienTaiPending = 1;
-    let trangHienTaiKho = 1;
-    let danhSachPending = [];
-    let danhSachKho = [];
-    let dangTai = false;
-    let itemPendingDangChon = null;
+    // Tabs
+    const tabCho = document.getElementById('tabChoTiepNhan');
+    const tabKho = document.getElementById('tabKhoLuuGiu');
+    const khungCho = document.getElementById('khungTabChoTiepNhan');
+    const khungKho = document.getElementById('khungTabKhoLuuGiu');
 
-    function csrfToken() {
-        const meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.getAttribute('content') : '';
-    }
+    let currentPagePending = 1;
+    let currentPageKho = 1;
 
+    // ========== HELPERS ==========
     function dinhDangNgay(ngayYMD) {
         if (!ngayYMD) return '--';
-        const s = String(ngayYMD).substring(0, 10);
-        const parts = s.split('-');
-        if (parts.length === 3) return `${parts[2]}/${parts[1]}/${parts[0]}`;
-        return ngayYMD;
+        const p = ngayYMD.split('-');
+        return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : ngayYMD;
     }
 
-    function layNgayHienTai() {
-        return new Date().toISOString().split('T')[0];
+    function toast(msg, type = 'success') {
+        // Dùng alert tạm, có thể thay bằng toast UI của project
+        if (type === 'error') {
+            alert('❌ ' + msg);
+        } else {
+            alert('✅ ' + msg);
+        }
     }
 
-    async function apiGet(url) {
+    async function fetchJSON(url, options = {}) {
         const res = await fetch(url, {
-            method: 'GET',
             headers: {
                 'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF,
                 'X-Requested-With': 'XMLHttpRequest',
+                ...(options.headers || {}),
             },
-            credentials: 'same-origin',
+            ...options,
         });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json.success === false) {
-            throw new Error(json.message || `Lỗi HTTP ${res.status}`);
+        const data = await res.json();
+        if (!res.ok || data.success === false) {
+            throw new Error(data.message || 'Có lỗi xảy ra');
         }
-        return json;
+        return data;
     }
 
-    async function apiPost(url, body = {}) {
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRF-TOKEN': csrfToken(),
-            },
-            credentials: 'same-origin',
-            body: JSON.stringify(body),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok || json.success === false) {
-            throw new Error(json.message || `Lỗi HTTP ${res.status}`);
-        }
-        return json;
-    }
+    // ========== TAB CHỜ TIẾP NHẬN ==========
+    async function loadPending(page = 1) {
+        currentPagePending = page;
+        const q = document.getElementById('oTimKiemPending')?.value || '';
+        const tbody = document.getElementById('thanBangPending');
+        if (!tbody) return;
 
-    // ── Tabs ──
-    const tabChoTiepNhan = document.getElementById('tabChoTiepNhan');
-    const tabKhoLuuGiu = document.getElementById('tabKhoLuuGiu');
-    const khungTabChoTiepNhan = document.getElementById('khungTabChoTiepNhan');
-    const khungTabKhoLuuGiu = document.getElementById('khungTabKhoLuuGiu');
-    const badgePending = document.getElementById('badgeSoLuongPending');
-    const badgeKho = document.getElementById('badgeSoLuongKho');
+        tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-slate-400">Đang tải dữ liệu...</td></tr>`;
 
-    function activeTab(tabBtn, otherBtn, showEl, hideEl) {
-        tabBtn.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-blue-700 text-white shadow-sm';
-        otherBtn.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-blue-700 hover:bg-blue-50';
-        showEl.classList.remove('hidden');
-        hideEl.classList.add('hidden');
-    }
-
-    if (tabChoTiepNhan && tabKhoLuuGiu) {
-        tabChoTiepNhan.addEventListener('click', () => {
-            activeTab(tabChoTiepNhan, tabKhoLuuGiu, khungTabChoTiepNhan, khungTabKhoLuuGiu);
-        });
-        tabKhoLuuGiu.addEventListener('click', () => {
-            activeTab(tabKhoLuuGiu, tabChoTiepNhan, khungTabKhoLuuGiu, khungTabChoTiepNhan);
-        });
-    }
-
-    // ── Load API ──
-    async function taiDanhSachChoNhan() {
         try {
-            const json = await apiGet(API_CHO_NHAN);
-            danhSachPending = Array.isArray(json.data) ? json.data : [];
-        } catch (e) {
-            console.error(e);
-            danhSachPending = [];
-            alert('Không tải được danh sách chờ nhận: ' + e.message);
-        }
-        renderBangPending();
-        doBoLocBenGui();
-    }
+            const res = await fetchJSON(`/nha-phan-phoi/api/cho-tiep-nhan?page=${page}&per_page=10&q=${encodeURIComponent(q)}`);
+            const list = res.data || [];
+            const meta = res.meta || {};
 
-    async function taiDanhSachTonKho() {
-        try {
-            const json = await apiGet(API_TON_KHO);
-            danhSachKho = Array.isArray(json.data) ? json.data : [];
-        } catch (e) {
-            console.error(e);
-            danhSachKho = [];
-            alert('Không tải được tồn kho: ' + e.message);
-        }
-        renderBangKho();
-    }
+            document.getElementById('badgeSoLuongPending').textContent = meta.total || 0;
+            document.getElementById('soLuongPendingHienThi').textContent = `Hiển thị: ${list.length} / ${meta.total || 0} lô`;
 
-    async function taiTatCa() {
-        if (dangTai) return;
-        dangTai = true;
-        try {
-            await Promise.all([taiDanhSachChoNhan(), taiDanhSachTonKho()]);
-        } finally {
-            dangTai = false;
-        }
-    }
-
-    function tinhKhaDungKho(item) {
-        if (typeof item.soLuongKhaDung === 'number') return item.soLuongKhaDung;
-        if (String(item.trangThaiLo).toUpperCase() === 'RECALLED') return 0;
-        const homNay = layNgayHienTai();
-        if (item.hanDung && item.hanDung < homNay) return 0;
-        return item.soLuongTongNhap || 0;
-    }
-
-    function layTrangThaiKho(item) {
-        if (String(item.trangThaiLo).toUpperCase() === 'RECALLED') {
-            return { text: 'Đã thu hồi', cls: 'bg-red-100 text-red-700' };
-        }
-        const homNay = layNgayHienTai();
-        if (item.hanDung && item.hanDung < homNay) {
-            return { text: 'Hết hạn', cls: 'bg-amber-100 text-amber-800' };
-        }
-        const khaDung = tinhKhaDungKho(item);
-        if (khaDung <= 0) {
-            return { text: 'Hết hàng', cls: 'bg-slate-100 text-slate-600' };
-        }
-        return { text: 'Còn hàng', cls: 'bg-emerald-100 text-emerald-700' };
-    }
-
-    // ── Render Pending ──
-    const thanBangPending = document.getElementById('thanBangPending');
-    const oTimKiemPending = document.getElementById('oTimKiemPending');
-    const locBenGuiPending = document.getElementById('locBenGuiPending');
-    const locHanDungPending = document.getElementById('locHanDungPending');
-    const thongTinPhanTrangPending = document.getElementById('thongTinPhanTrangPending');
-    const cumNutPhanTrangPending = document.getElementById('cumNutPhanTrangPending');
-    const soLuongPendingHienThi = document.getElementById('soLuongPendingHienThi');
-
-    function doBoLocBenGui() {
-        if (!locBenGuiPending) return;
-        const current = locBenGuiPending.value || 'TAT_CA';
-        const set = new Map();
-        danhSachPending.forEach((item) => {
-            const key = item.maNhaSanXuat || item.benGuiId || item.benGui;
-            if (key && item.benGui) set.set(String(key), item.benGui);
-        });
-        locBenGuiPending.innerHTML = '<option value="TAT_CA">-- Tất cả bên gửi --</option>';
-        set.forEach((ten, ma) => {
-            const opt = document.createElement('option');
-            opt.value = ma;
-            opt.textContent = ten;
-            locBenGuiPending.appendChild(opt);
-        });
-        locBenGuiPending.value = current;
-    }
-
-    function renderBangPending() {
-        if (!thanBangPending) return;
-
-        const tuKhoa = (oTimKiemPending?.value || '').trim().toLowerCase();
-        const benGuiLoc = locBenGuiPending?.value || 'TAT_CA';
-        const hanDungLoc = locHanDungPending?.value || 'TAT_CA';
-        const homNay = layNgayHienTai();
-
-        const danhSachLoc = danhSachPending.filter((item) => {
-            const haystack = [
-                item.maGiaoDich,
-                item.maChuyenGiao,
-                item.maLo,
-                item.tenSanPham,
-                item.benGui,
-            ].join(' ').toLowerCase();
-            const matchTuKhoa = !tuKhoa || haystack.includes(tuKhoa);
-
-            let matchBenGui = true;
-            if (benGuiLoc !== 'TAT_CA') {
-                matchBenGui =
-                    String(item.maNhaSanXuat) === benGuiLoc ||
-                    String(item.benGuiId) === benGuiLoc ||
-                    item.benGui === benGuiLoc;
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="9" class="py-10 text-center text-slate-400">Không có lô hàng nào đang chờ tiếp nhận</td></tr>`;
+                return;
             }
 
-            let matchHanDung = true;
-            if (hanDungLoc === 'HET_HAN') matchHanDung = item.hanDung && item.hanDung < homNay;
-            else if (hanDungLoc === 'CON_HAN') matchHanDung = !item.hanDung || item.hanDung >= homNay;
+            tbody.innerHTML = list.map(item => {
+                const isRecalled = item.trangThaiLo === 'RECALLED';
+                const hanDung = dinhDangNgay(item.hanDung);
+                return `
+                <tr class="hover:bg-slate-50/80">
+                    <td class="py-3 px-3 font-mono text-[11px]">${item.maGiaoDich?.substring(0, 13) || '--'}…</td>
+                    <td class="py-3 px-3 font-semibold">${item.maLo || '--'}</td>
+                    <td class="py-3 px-3">${item.tenSanPham || '--'}</td>
+                    <td class="py-3 px-3">${item.benGui || '--'}</td>
+                    <td class="py-3 px-2.5 text-center">${hanDung}</td>
+                    <td class="py-3 px-3 text-right font-bold">${Number(item.soLuong).toLocaleString('vi-VN')}</td>
+                    <td class="py-3 px-2.5 text-center text-[11px]">${item.ngayGui || '--'}</td>
+                    <td class="py-3 px-2.5 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isRecalled ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">
+                            ${isRecalled ? 'THU HỒI' : 'CHỜ NHẬN'}
+                        </span>
+                    </td>
+                    <td class="py-3 px-3 text-center">
+                        ${isRecalled
+                            ? '<span class="text-[11px] text-red-500 font-medium">Không thể nhận</span>'
+                            : `<button type="button" data-id="${item.id}" class="btn-tiep-nhan px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition">
+                                Tiếp nhận
+                               </button>`
+                        }
+                    </td>
+                </tr>`;
+            }).join('');
 
-            return matchTuKhoa && matchBenGui && matchHanDung;
-        });
-
-        if (badgePending) badgePending.textContent = String(danhSachPending.length);
-        if (soLuongPendingHienThi) soLuongPendingHienThi.textContent = `Hiển thị: ${danhSachLoc.length} lô`;
-
-        const tongSoTrang = Math.ceil(danhSachLoc.length / ITEMS_PER_PAGE) || 1;
-        if (trangHienTaiPending > tongSoTrang) trangHienTaiPending = tongSoTrang;
-
-        const batDau = (trangHienTaiPending - 1) * ITEMS_PER_PAGE;
-        const ketThuc = batDau + ITEMS_PER_PAGE;
-        const duLieuTrang = danhSachLoc.slice(batDau, ketThuc);
-
-        thanBangPending.innerHTML = '';
-
-        if (duLieuTrang.length === 0) {
-            thanBangPending.innerHTML =
-                '<tr><td colspan="9" class="text-center py-8 text-slate-400 italic">Không có lô hàng chờ tiếp nhận.</td></tr>';
-            if (thongTinPhanTrangPending) thongTinPhanTrangPending.textContent = 'Không có bản ghi nào';
-            if (cumNutPhanTrangPending) cumNutPhanTrangPending.innerHTML = '';
-            return;
-        }
-
-        if (thongTinPhanTrangPending) {
-            thongTinPhanTrangPending.textContent =
-                `Đang hiển thị ${batDau + 1} đến ${Math.min(ketThuc, danhSachLoc.length)} trên tổng số ${danhSachLoc.length} lô`;
-        }
-
-        duLieuTrang.forEach((item) => {
-            const daHetHan = item.hanDung && item.hanDung < homNay;
-            const biThuHoi = String(item.trangThaiLo).toUpperCase() === 'RECALLED';
-            const coTheNhan = !biThuHoi && !daHetHan && item.doiChieuKhop !== false;
-            let lyDoKhoaNhan = '';
-            if (biThuHoi) lyDoKhoaNhan = 'Lô đã bị thu hồi';
-            else if (daHetHan) lyDoKhoaNhan = 'Lô đã hết hạn sử dụng';
-            else if (item.doiChieuKhop === false) lyDoKhoaNhan = 'Đối chiếu blockchain không khớp';
-
-            let hanDungHtml = dinhDangNgay(item.hanDung);
-            if (daHetHan) {
-                hanDungHtml = `<span class="text-red-600 font-bold">${dinhDangNgay(item.hanDung)}</span>`;
-            }
-
-            let nhanTrangThaiHtml =
-                '<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-700">Chờ nhận</span>';
-            if (biThuHoi) {
-                nhanTrangThaiHtml =
-                    '<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-100 text-red-700">Thu hồi</span>';
-            } else if (daHetHan) {
-                nhanTrangThaiHtml =
-                    '<span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">Hết hạn</span>';
-            }
-
-            const magd = item.maGiaoDich || item.maChuyenGiao;
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50/80 transition-colors';
-            tr.innerHTML = `
-                <td class="py-3 px-3 font-mono font-bold text-cyan-900 whitespace-nowrap text-[11px]" title="${magd}">${String(magd).slice(0, 13)}…</td>
-                <td class="py-3 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">${item.maLo || '--'}</td>
-                <td class="py-3 px-3 font-semibold text-slate-900">${item.tenSanPham || '--'}</td>
-                <td class="py-3 px-3 text-slate-700">${item.benGui || '--'}</td>
-                <td class="py-3 px-2.5 text-center whitespace-nowrap">${hanDungHtml}</td>
-                <td class="py-3 px-3 text-right font-mono font-bold text-blue-700 whitespace-nowrap">${Number(item.soLuong || 0).toLocaleString()}</td>
-                <td class="py-3 px-2.5 text-center text-slate-500 font-mono text-[11px] whitespace-nowrap">${item.ngayGui || '--'}</td>
-                <td class="py-3 px-2.5 text-center whitespace-nowrap">${nhanTrangThaiHtml}</td>
-                <td class="py-3 px-3 text-center whitespace-nowrap">
-                    <div class="inline-flex items-center gap-1.5">
-                        <button type="button" class="btn-mo-nhan-hang px-2.5 py-1.5 rounded-lg text-white font-bold text-xs transition-all shadow-2xs flex items-center gap-1 ${coTheNhan ? 'bg-blue-700 hover:bg-blue-800' : 'bg-slate-300 text-slate-500 cursor-not-allowed'}"
-                            data-id="${item.id}" data-magd="${magd}" ${!coTheNhan ? 'disabled' : ''} title="${lyDoKhoaNhan}">
-                            <i class="fa-solid fa-check"></i> Nhận Hàng
-                        </button>
-                    </div>
-                </td>
-            `;
-            thanBangPending.appendChild(tr);
-        });
-
-        renderPhanTrang(cumNutPhanTrangPending, trangHienTaiPending, tongSoTrang, (trang) => {
-            trangHienTaiPending = trang;
-            renderBangPending();
-        });
-
-        ganSuKienNutPending();
-    }
-
-    // ── Render Kho ──
-    const thanBangKho = document.getElementById('thanBangKho');
-    const oTimKiemKho = document.getElementById('oTimKiemKho');
-    const locTrangThaiKho = document.getElementById('locTrangThaiKho');
-    const locHanDungKho = document.getElementById('locHanDungKho');
-    const thongTinPhanTrangKho = document.getElementById('thongTinPhanTrangKho');
-    const cumNutPhanTrangKho = document.getElementById('cumNutPhanTrangKho');
-
-    function renderBangKho() {
-        if (!thanBangKho) return;
-
-        const tuKhoa = (oTimKiemKho?.value || '').trim().toLowerCase();
-        const ttLoc = locTrangThaiKho?.value || 'TAT_CA';
-        const hanLoc = locHanDungKho?.value || 'TAT_CA';
-        const homNay = layNgayHienTai();
-
-        const danhSachLoc = danhSachKho.filter((item) => {
-            const haystack = [item.maLo, item.tenSanPham].join(' ').toLowerCase();
-            const matchTuKhoa = !tuKhoa || haystack.includes(tuKhoa);
-            const st = layTrangThaiKho(item);
-
-            let matchTt = true;
-            if (ttLoc === 'CON_HANG') matchTt = st.text === 'Còn hàng';
-            else if (ttLoc === 'HET_HANG') matchTt = st.text === 'Hết hàng';
-            else if (ttLoc === 'THU_HOI') matchTt = st.text === 'Đã thu hồi';
-            else if (ttLoc === 'HET_HAN') matchTt = st.text === 'Hết hạn';
-
-            let matchHan = true;
-            if (hanLoc === 'HET_HAN') matchHan = item.hanDung && item.hanDung < homNay;
-            else if (hanLoc === 'CON_HAN') matchHan = !item.hanDung || item.hanDung >= homNay;
-
-            return matchTuKhoa && matchTt && matchHan;
-        });
-
-        if (badgeKho) badgeKho.textContent = String(danhSachKho.length);
-
-        const tongSoTrang = Math.ceil(danhSachLoc.length / ITEMS_PER_PAGE) || 1;
-        if (trangHienTaiKho > tongSoTrang) trangHienTaiKho = tongSoTrang;
-
-        const batDau = (trangHienTaiKho - 1) * ITEMS_PER_PAGE;
-        const ketThuc = batDau + ITEMS_PER_PAGE;
-        const duLieuTrang = danhSachLoc.slice(batDau, ketThuc);
-
-        thanBangKho.innerHTML = '';
-
-        if (duLieuTrang.length === 0) {
-            thanBangKho.innerHTML =
-                '<tr><td colspan="7" class="text-center py-8 text-slate-400 italic">Kho chưa có lô hàng.</td></tr>';
-            if (thongTinPhanTrangKho) thongTinPhanTrangKho.textContent = 'Không có bản ghi nào';
-            if (cumNutPhanTrangKho) cumNutPhanTrangKho.innerHTML = '';
-            return;
-        }
-
-        if (thongTinPhanTrangKho) {
-            thongTinPhanTrangKho.textContent =
-                `Đang hiển thị ${batDau + 1} đến ${Math.min(ketThuc, danhSachLoc.length)} trên tổng số ${danhSachLoc.length} lô`;
-        }
-
-        duLieuTrang.forEach((item) => {
-            const st = layTrangThaiKho(item);
-            const khaDung = tinhKhaDungKho(item);
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50/80 transition-colors';
-            tr.innerHTML = `
-                <td class="py-3 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">${item.maLo || '--'}</td>
-                <td class="py-3 px-3 font-semibold text-slate-900">${item.tenSanPham || '--'}</td>
-                <td class="py-3 px-2.5 text-center whitespace-nowrap">${dinhDangNgay(item.hanDung)}</td>
-                <td class="py-3 px-3 text-right font-mono font-bold text-slate-800">${Number(item.soLuongTongNhap || 0).toLocaleString()}</td>
-                <td class="py-3 px-3 text-right font-mono font-bold text-blue-700">${Number(khaDung).toLocaleString()}</td>
-                <td class="py-3 px-2.5 text-center whitespace-nowrap">
-                    <span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold ${st.cls}">${st.text}</span>
-                </td>
-                <td class="py-3 px-3 text-center whitespace-nowrap">
-                    <button type="button" class="btn-chi-tiet-kho px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300" data-malo="${item.maLo}">
-                        <i class="fa-solid fa-eye"></i> Chi tiết
-                    </button>
-                </td>
-            `;
-            thanBangKho.appendChild(tr);
-        });
-
-        renderPhanTrang(cumNutPhanTrangKho, trangHienTaiKho, tongSoTrang, (trang) => {
-            trangHienTaiKho = trang;
-            renderBangKho();
-        });
-
-        document.querySelectorAll('.btn-chi-tiet-kho').forEach((btn) => {
-            btn.addEventListener('click', function () {
-                const malo = this.getAttribute('data-malo');
-                const item = danhSachKho.find((x) => x.maLo === malo);
-                if (item) moChiTietKho(item);
-            });
-        });
-    }
-
-    function renderPhanTrang(container, trangHienTai, tongSoTrang, onPageChange) {
-        if (!container) return;
-        container.innerHTML = '';
-        if (tongSoTrang <= 1) return;
-
-        const mk = (label, page, disabled, active) => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = label;
-            b.disabled = !!disabled;
-            b.className = active
-                ? 'px-2.5 py-1 rounded-lg bg-blue-700 text-white text-xs font-bold'
-                : 'px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold disabled:opacity-40';
-            b.addEventListener('click', () => onPageChange(page));
-            container.appendChild(b);
-        };
-
-        mk('‹', Math.max(1, trangHienTai - 1), trangHienTai <= 1, false);
-        for (let i = 1; i <= tongSoTrang; i++) {
-            mk(String(i), i, false, i === trangHienTai);
-        }
-        mk('›', Math.min(tongSoTrang, trangHienTai + 1), trangHienTai >= tongSoTrang, false);
-    }
-
-    // ── Modal nhận hàng ──
-    const modalXacNhanNhan = document.getElementById('modalXacNhanNhan');
-    const nutXacNhanNhapKho = document.getElementById('nutXacNhanNhapKho');
-    const nutTuChoiNhan = document.getElementById('nutTuChoiNhan');
-    const nhanKetQuaDoiChieu = document.getElementById('nhanKetQuaDoiChieu');
-    const linkBaoCaoTuNhanHang = document.getElementById('linkBaoCaoTuNhanHang');
-
-    function moModalNhanHang(item) {
-        itemPendingDangChon = item;
-        const setText = (id, val) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = val ?? '--';
-        };
-        setText('nhanMaGiaoDich', item.maGiaoDich || item.maChuyenGiao);
-        setText('nhanMaLo', item.maLo);
-        setText('nhanTenSanPham', item.tenSanPham);
-        setText('nhanBenGui', item.benGui);
-        setText('nhanSoLuong', `${Number(item.soLuong || 0).toLocaleString()} hộp`);
-        setText('nhanHanDung', dinhDangNgay(item.hanDung));
-
-        if (nhanKetQuaDoiChieu) {
-            if (item.doiChieuKhop !== false) {
-                nhanKetQuaDoiChieu.className = 'inline-flex items-center gap-1.5 font-bold text-emerald-700 text-xs';
-                nhanKetQuaDoiChieu.innerHTML = '<i class="fa-solid fa-circle-check"></i> Hợp lệ (có thể tiếp nhận)';
-                if (nutXacNhanNhapKho) {
-                    nutXacNhanNhapKho.disabled = false;
-                    nutXacNhanNhapKho.className =
-                        'px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2';
-                }
-            } else {
-                nhanKetQuaDoiChieu.className = 'inline-flex items-center gap-1.5 font-bold text-red-600 text-xs';
-                nhanKetQuaDoiChieu.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> Không hợp lệ / Lô thu hồi hoặc hết hạn';
-                if (nutXacNhanNhapKho) {
-                    nutXacNhanNhapKho.disabled = true;
-                    nutXacNhanNhapKho.className =
-                        'px-6 py-2.5 bg-slate-300 text-slate-500 font-bold rounded-xl transition-all flex items-center gap-2 cursor-not-allowed';
-                }
-            }
-        }
-
-        if (nutTuChoiNhan) {
-            nutTuChoiNhan.disabled = false;
-        }
-
-        if (linkBaoCaoTuNhanHang) {
-            linkBaoCaoTuNhanHang.href = `/bao-cao-nghi-van?maLo=${encodeURIComponent(item.maLo || '')}`;
-        }
-
-        modalXacNhanNhan?.classList.remove('hidden');
-    }
-
-    function ganSuKienNutPending() {
-        document.querySelectorAll('.btn-mo-nhan-hang').forEach((btn) => {
-            btn.addEventListener('click', function () {
-                if (this.disabled) return;
-                const id = Number(this.getAttribute('data-id'));
-                const item = danhSachPending.find((x) => Number(x.id) === id);
-                if (item) moModalNhanHang(item);
-            });
-        });
-    }
-
-    // [1. XỬ LÝ NÚT XÁC NHẬN NHẬP KHO]
-    if (nutXacNhanNhapKho) {
-        nutXacNhanNhapKho.addEventListener('click', async function () {
-            if (!itemPendingDangChon || this.disabled) return;
-
-            const id = itemPendingDangChon.id;
-            const originalHtml = this.innerHTML;
-            this.disabled = true;
-            if (nutTuChoiNhan) nutTuChoiNhan.disabled = true;
-            this.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang xử lý...';
-
-            try {
-                const json = await apiPost(API_XAC_NHAN(id));
-                alert(json.message || 'Xác nhận nhận hàng thành công!');
-                modalXacNhanNhan?.classList.add('hidden');
-                itemPendingDangChon = null;
-                await taiTatCa();
-            } catch (e) {
-                alert('Xác nhận thất bại: ' + e.message);
-            } finally {
-                this.disabled = false;
-                if (nutTuChoiNhan) nutTuChoiNhan.disabled = false;
-                this.innerHTML = originalHtml;
-            }
-        });
-    }
-
-    // [1B. XỬ LÝ NÚT TỪ CHỐI NHẬN HÀNG]
-    if (nutTuChoiNhan) {
-        nutTuChoiNhan.addEventListener('click', async function () {
-            if (!itemPendingDangChon || this.disabled) return;
-
-            const chapNhanTuChoi = confirm('Bạn có chắc chắn muốn từ chối nhận lô hàng này? Lô hàng sẽ được hoàn trả về số lượng khả dụng của nhà sản xuất.');
-            if (!chapNhanTuChoi) return;
-
-            const id = itemPendingDangChon.id;
-            const originalHtml = this.innerHTML;
-            this.disabled = true;
-            if (nutXacNhanNhapKho) nutXacNhanNhapKho.disabled = true;
-            this.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang từ chối...';
-
-            try {
-                const json = await apiPost(API_TU_CHOI(id), {
-                    lyDo: 'Nhà phân phối từ chối nhận hàng',
+            // Bind nút tiếp nhận
+            tbody.querySelectorAll('.btn-tiep-nhan').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    if (!confirm('Xác nhận tiếp nhận lô hàng này?')) return;
+                    btn.disabled = true;
+                    btn.textContent = 'Đang xử lý...';
+                    try {
+                        await fetchJSON(`/nha-phan-phoi/api/tiep-nhan/${btn.dataset.id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                        });
+                        toast('Tiếp nhận thành công!');
+                        loadPending(currentPagePending);
+                        loadKho(); // cập nhật luôn tab kho
+                    } catch (err) {
+                        toast(err.message, 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Tiếp nhận';
+                    }
                 });
-                alert(json.message || 'Đã từ chối nhận hàng thành công!');
-                modalXacNhanNhan?.classList.add('hidden');
-                itemPendingDangChon = null;
-                await taiTatCa();
-            } catch (e) {
-                alert('Từ chối nhận hàng thất bại: ' + e.message);
-            } finally {
-                this.disabled = false;
-                if (nutXacNhanNhapKho) nutXacNhanNhapKho.disabled = false;
-                this.innerHTML = originalHtml;
-            }
-        });
-    }
-
-    // [2. SỰ KIỆN ĐÓNG MODAL QUA DẤU X VÀ CÁC NÚT HỦY]
-    document.querySelectorAll('#modalXacNhanNhan [data-close-modal], #modalXacNhanNhan .fa-xmark, #modalXacNhanNhan button.dong-modal').forEach((btn) => {
-        btn.addEventListener('click', () => {
-            modalXacNhanNhan?.classList.add('hidden');
-        });
-    });
-
-    // [3. SỰ KIỆN NÚT "ĐỐI CHIẾU LẠI"]
-    document.querySelectorAll('#modalXacNhanNhan button').forEach((btn) => {
-        if (btn.textContent.trim().toLowerCase().includes('đối chiếu')) {
-            btn.addEventListener('click', function () {
-                if (itemPendingDangChon) {
-                    moModalNhanHang(itemPendingDangChon);
-                    alert('Đã tải lại thông tin đối chiếu!');
-                }
             });
+
+            // Phân trang đơn giản
+            renderPagination('cumNutPhanTrangPending', meta, loadPending);
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="9" class="py-8 text-center text-red-500">${err.message}</td></tr>`;
         }
-    });
-
-    function moChiTietKho(item) {
-        const modal = document.getElementById('modalChiTietKho');
-        const body = document.getElementById('noiDungChiTietKho');
-        if (!modal || !body) {
-            const ls = (item.lichSuChuyenGiao || [])
-                .map(
-                    (cg) =>
-                        `• ${cg.loai} | ${cg.maGD} | ${cg.doiTac || ''} | SL ${cg.soLuong} | ${cg.trangThai}`
-                )
-                .join('\n');
-            alert(
-                `Lô: ${item.maLo}\nSP: ${item.tenSanPham}\nTồn: ${item.soLuongTongNhap}\nKhả dụng: ${tinhKhaDungKho(item)}\n\nLịch sử:\n${ls || '(trống)'}`
-            );
-            return;
-        }
-
-        const lsHtml = (item.lichSuChuyenGiao || [])
-            .map(
-                (cg) => `
-            <div class="border border-slate-100 rounded-xl p-3 text-xs space-y-1">
-                <div class="font-bold text-slate-800">${cg.loai === 'NHAN_VAO' ? 'Nhận vào' : 'Chuyển đi'} — ${cg.maGD}</div>
-                <div class="text-slate-600">Đối tác: ${cg.doiTac || '--'}</div>
-                <div class="text-slate-600">Số lượng: ${Number(cg.soLuong || 0).toLocaleString()}</div>
-                <div class="text-slate-500">Tạo: ${cg.thoiGianKhoiTao || '--'} · Xác nhận: ${cg.thoiGianXacNhan || 'Chưa xác nhận'}</div>
-                <div class="text-slate-500">TT: ${cg.trangThai || '--'}</div>
-                ${cg.txHash ? `<a class="text-blue-700 underline break-all" target="_blank" href="${EXPLORER_BASE_URL}${cg.txHash}">${cg.txHash}</a>` : ''}
-            </div>`
-            )
-            .join('');
-
-        body.innerHTML = `
-            <div class="space-y-2 text-sm">
-                <div><span class="text-slate-500">Mã lô:</span> <strong class="font-mono">${item.maLo}</strong></div>
-                <div><span class="text-slate-500">Sản phẩm:</span> <strong>${item.tenSanPham || '--'}</strong></div>
-                <div><span class="text-slate-500">Hạn dùng:</span> ${dinhDangNgay(item.hanDung)}</div>
-                <div><span class="text-slate-500">Tồn:</span> ${Number(item.soLuongTongNhap || 0).toLocaleString()} · Khả dụng: ${Number(tinhKhaDungKho(item)).toLocaleString()}</div>
-            </div>
-            <div class="mt-4 space-y-2">
-                <div class="text-xs font-bold text-slate-700 uppercase tracking-wide">Lịch sử chuyển giao</div>
-                ${lsHtml || '<div class="text-slate-400 italic text-xs">Chưa có lịch sử.</div>'}
-            </div>
-        `;
-        modal.classList.remove('hidden');
     }
 
-    oTimKiemPending?.addEventListener('input', () => {
-        trangHienTaiPending = 1;
-        renderBangPending();
-    });
-    locBenGuiPending?.addEventListener('change', () => {
-        trangHienTaiPending = 1;
-        renderBangPending();
-    });
-    locHanDungPending?.addEventListener('change', () => {
-        trangHienTaiPending = 1;
-        renderBangPending();
-    });
-    oTimKiemKho?.addEventListener('input', () => {
-        trangHienTaiKho = 1;
-        renderBangKho();
-    });
-    locTrangThaiKho?.addEventListener('change', () => {
-        trangHienTaiKho = 1;
-        renderBangKho();
-    });
-    locHanDungKho?.addEventListener('change', () => {
-        trangHienTaiKho = 1;
-        renderBangKho();
-    });
+    // ========== TAB KHO + CHUYỂN TIẾP ==========
+    async function loadKho() {
+        const tbody = document.getElementById('thanBangKho');
+        if (!tbody) return;
 
-    document.getElementById('nutQuetQRNhanHang')?.addEventListener('click', function () {
-        const maNhap = prompt('Nhập / quét mã lô để tìm trong danh sách chờ nhận:', '');
-        if (!maNhap) return;
-        const item = danhSachPending.find(
-            (x) => String(x.maLo || '').toUpperCase() === maNhap.trim().toUpperCase()
-        );
-        if (!item) {
-            alert('Không tìm thấy lô chờ nhận với mã: ' + maNhap);
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Đang tải tồn kho...</td></tr>`;
+
+        try {
+            const res = await fetchJSON('/nha-phan-phoi/api/kho');
+            const list = res.data || [];
+
+            document.getElementById('badgeSoLuongKho').textContent = list.length;
+
+            if (list.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-slate-400">Kho trống hoặc không có lô khả dụng</td></tr>`;
+                return;
+            }
+
+            tbody.innerHTML = list.map(item => `
+                <tr class="hover:bg-slate-50/80">
+                    <td class="py-3 px-3 font-semibold">${item.maLo}</td>
+                    <td class="py-3 px-3">${item.tenSanPham || '--'}</td>
+                    <td class="py-3 px-3 text-center">${dinhDangNgay(item.hanDung)}</td>
+                    <td class="py-3 px-3 text-right">${Number(item.soLuongHienCo).toLocaleString('vi-VN')}</td>
+                    <td class="py-3 px-3 text-right font-bold text-emerald-700">${Number(item.soLuongKhaDung).toLocaleString('vi-VN')}</td>
+                    <td class="py-3 px-3 text-center">
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">KHẢ DỤNG</span>
+                    </td>
+                    <td class="py-3 px-3 text-center">
+                        <button type="button"
+                            class="btn-chuyen-tiep px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition"
+                            data-lo-id="${item.loThuocId}"
+                            data-ma-lo="${item.maLo}"
+                            data-ten="${item.tenSanPham}"
+                            data-kha-dung="${item.soLuongKhaDung}">
+                            Chuyển sang Nhà thuốc
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Bind nút chuyển
+            tbody.querySelectorAll('.btn-chuyen-tiep').forEach(btn => {
+                btn.addEventListener('click', () => openModalChuyen(btn.dataset));
+            });
+        } catch (err) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-red-500">${err.message}</td></tr>`;
+        }
+    }
+
+    // ========== MODAL CHUYỂN GIAO ==========
+    async function openModalChuyen(data) {
+        // Tạo modal đơn giản nếu chưa có
+        let modal = document.getElementById('modalChuyenGiao');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'modalChuyenGiao';
+            modal.className = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40';
+            modal.innerHTML = `
+                <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-4 p-6 space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800">Chuyển lô sang Nhà thuốc</h3>
+                    <div class="text-sm text-slate-600 space-y-1">
+                        <p><strong>Mã lô:</strong> <span id="modalMaLo"></span></p>
+                        <p><strong>Sản phẩm:</strong> <span id="modalTenSP"></span></p>
+                        <p><strong>Khả dụng:</strong> <span id="modalKhaDung" class="font-bold text-emerald-700"></span></p>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Chọn Nhà thuốc</label>
+                        <select id="modalBenNhan" class="w-full border rounded-xl px-3 py-2.5 text-sm"></select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Số lượng chuyển</label>
+                        <input type="number" id="modalSoLuong" min="1" class="w-full border rounded-xl px-3 py-2.5 text-sm" />
+                    </div>
+                    <div class="flex gap-3 pt-2">
+                        <button type="button" id="modalHuy" class="flex-1 py-2.5 rounded-xl border text-sm font-bold">Hủy</button>
+                        <button type="button" id="modalXacNhan" class="flex-1 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold">Xác nhận chuyển</button>
+                    </div>
+                </div>`;
+            document.body.appendChild(modal);
+
+            document.getElementById('modalHuy').onclick = () => modal.remove();
+        }
+
+        document.getElementById('modalMaLo').textContent = data.maLo;
+        document.getElementById('modalTenSP').textContent = data.ten;
+        document.getElementById('modalKhaDung').textContent = Number(data.khaDung).toLocaleString('vi-VN');
+        document.getElementById('modalSoLuong').value = data.khaDung;
+        document.getElementById('modalSoLuong').max = data.khaDung;
+
+        // Load danh sách nhà thuốc
+        const select = document.getElementById('modalBenNhan');
+        select.innerHTML = '<option value="">Đang tải...</option>';
+        try {
+            const res = await fetchJSON('/nha-phan-phoi/api/nha-thuoc');
+            select.innerHTML = '<option value="">-- Chọn nhà thuốc --</option>' +
+                (res.data || []).map(nt => `<option value="${nt.id}">${nt.tenToChuc}</option>`).join('');
+        } catch (e) {
+            select.innerHTML = '<option value="">Lỗi tải danh sách</option>';
+        }
+
+        document.getElementById('modalXacNhan').onclick = async function () {
+            const benNhanId = select.value;
+            const soLuong = parseInt(document.getElementById('modalSoLuong').value, 10);
+
+            if (!benNhanId) return toast('Vui lòng chọn nhà thuốc', 'error');
+            if (!soLuong || soLuong < 1) return toast('Số lượng không hợp lệ', 'error');
+            if (soLuong > parseInt(data.khaDung, 10)) return toast('Vượt quá số lượng khả dụng', 'error');
+
+            this.disabled = true;
+            this.textContent = 'Đang gửi...';
+
+            try {
+                await fetchJSON('/nha-phan-phoi/api/chuyen-giao', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        loThuocId: parseInt(data.loId, 10),
+                        benNhanId: parseInt(benNhanId, 10),
+                        soLuong: soLuong,
+                    }),
+                });
+                toast('Đã gửi yêu cầu chuyển giao thành công!');
+                modal.remove();
+                loadKho();
+            } catch (err) {
+                toast(err.message, 'error');
+                this.disabled = false;
+                this.textContent = 'Xác nhận chuyển';
+            }
+        };
+    }
+
+    function renderPagination(containerId, meta, callback) {
+        const el = document.getElementById(containerId);
+        if (!el || !meta || meta.last_page <= 1) {
+            if (el) el.innerHTML = '';
             return;
         }
-        moModalNhanHang(item);
-    });
+        let html = '';
+        for (let i = 1; i <= meta.last_page; i++) {
+            html += `<button type="button" class="px-2.5 py-1 rounded ${i === meta.current_page ? 'bg-blue-600 text-white' : 'bg-slate-100'} text-xs font-bold" data-page="${i}">${i}</button>`;
+        }
+        el.innerHTML = html;
+        el.querySelectorAll('button').forEach(b => {
+            b.onclick = () => callback(parseInt(b.dataset.page, 10));
+        });
+    }
 
-    // Khởi chạy
-    taiTatCa();
+    // ========== TAB SWITCH ==========
+    function showTab(tab) {
+        if (tab === 'cho') {
+            tabCho?.classList.add('bg-blue-700', 'text-white', 'shadow-sm');
+            tabCho?.classList.remove('text-slate-600');
+            tabKho?.classList.remove('bg-blue-700', 'text-white', 'shadow-sm');
+            tabKho?.classList.add('text-slate-600');
+            khungCho?.classList.remove('hidden');
+            khungKho?.classList.add('hidden');
+            loadPending();
+        } else {
+            tabKho?.classList.add('bg-blue-700', 'text-white', 'shadow-sm');
+            tabKho?.classList.remove('text-slate-600');
+            tabCho?.classList.remove('bg-blue-700', 'text-white', 'shadow-sm');
+            tabCho?.classList.add('text-slate-600');
+            khungKho?.classList.remove('hidden');
+            khungCho?.classList.add('hidden');
+            loadKho();
+        }
+    }
+
+    tabCho?.addEventListener('click', () => showTab('cho'));
+    tabKho?.addEventListener('click', () => showTab('kho'));
+
+    // Tìm kiếm
+    document.getElementById('oTimKiemPending')?.addEventListener('input', debounce(() => loadPending(1), 400));
+
+    // Init
+    showTab('cho');
+
+    function debounce(fn, delay) {
+        let t;
+        return (...args) => {
+            clearTimeout(t);
+            t = setTimeout(() => fn(...args), delay);
+        };
+    }
 });

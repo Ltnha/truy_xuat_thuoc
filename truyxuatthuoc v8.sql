@@ -399,8 +399,8 @@ VALUES
     (9, 'mientay.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'mientay.demo@example.test', 'NHA_PHAN_PHOI', 'ACTIVE', 8, '2026-10-03 09:00:00'),
     (10, 'hoasen.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'hoasen.demo@example.test', 'NHA_THUOC', 'ACTIVE', 9, '2026-10-04 09:00:00'),
     (11, 'cantho.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'cantho.demo@example.test', 'CO_QUAN_QUAN_LY', 'PENDING', 10, '2026-10-05 09:00:00'),
-    (12, 'admin.mo-rong.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'admin.mo-rong.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-1₀-₀6 ₀9:₀₀:₀₀'),
-    (13, 'cqql.demo', '$$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'cqql.cantho@example.test', 'CO_QUAN_QUAN_LY', 'ACTIVE', 11, '2₀₂₆-₁₀-₀₆ ₁₀:₀₀:₀₀');
+    (12, 'admin.mo-rong.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'admin.mo-rong.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-10-06 09:00:00'),
+    (13, 'cqql.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'cqql.cantho@example.test', 'CO_QUAN_QUAN_LY', 'ACTIVE', 11, '2026-10-06 10:00:00');
 
 -- 3. Bảng nhatKyHeThong
 INSERT INTO nhatKyHeThong (id, taiKhoanId, doiTuongId, hanhDong, ketQua, thoiGian, chiTiet)
