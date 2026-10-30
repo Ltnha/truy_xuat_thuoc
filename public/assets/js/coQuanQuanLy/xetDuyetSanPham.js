@@ -96,9 +96,51 @@
     const noiDungTienTrinh = document.getElementById("noiDungTienTrinh");
     const cumNutDongTienTrinh = document.getElementById("cumNutDongTienTrinh");
 
+    // Modal Popup Thông Báo Kết Quả
+    const modalResult = document.getElementById("modalThongBaoKetQua");
+    const iconResult = document.getElementById("iconThongBaoKetQua");
+    const titleResult = document.getElementById("tieuDeThongBaoKetQua");
+    const descResult = document.getElementById("noiDungThongBaoKetQua");
+    const btnResultReload = document.getElementById("btnDongThongBaoKetQua");
+
     let hoSoDangChon = null;
 
-    // 2. CHUYỂN TAB
+    // 2. HÀM HiỂN THỊ MODAL THÔNG BÁO POPUP KẾT QUẢ
+    function hienThiModalThongBao(loai, tieuDe, noiDung) {
+        if (!modalResult) return;
+
+        if (loai === 'thanhCong') {
+            if (iconResult) {
+                iconResult.className = "w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm text-3xl";
+                iconResult.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            }
+            if (titleResult) titleResult.textContent = tieuDe || "Thao Tác Thành Công!";
+            if (btnResultReload) btnResultReload.className = "w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5";
+        } else {
+            if (iconResult) {
+                iconResult.className = "w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto shadow-sm text-3xl";
+                iconResult.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            }
+            if (titleResult) titleResult.textContent = tieuDe || "Đã Xảy Ra Lỗi!";
+            if (btnResultReload) btnResultReload.className = "w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5";
+        }
+
+        if (descResult) descResult.textContent = noiDung;
+        modalResult.classList.remove("hidden");
+    }
+
+    btnResultReload?.addEventListener("click", function () {
+        location.reload();
+    });
+
+    // Tự động kiểm tra Flash Session để mở Popup nếu có
+    if (window.flashThanhCong) {
+        hienThiModalThongBao('thanhCong', 'Thao Tác Thành Công', window.flashThanhCong);
+    } else if (window.flashLoi) {
+        hienThiModalThongBao('loi', 'Thông Báo Lỗi', window.flashLoi);
+    }
+
+    // 3. CHUYỂN TAB
     if (tabHoSoDangKy) {
         tabHoSoDangKy.addEventListener("click", function () {
             tabHoSoDangKy.className = "flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-indigo-700 text-white shadow-sm";
@@ -116,13 +158,12 @@
         });
     }
 
-    // 3. HÀM RENDER PHÂN TRANG THU GỌN (DẠNG 1 ... 4 5 6 ... 10)
+    // 4. HÀM RENDER PHÂN TRANG THU GỌN
     function renderNutPhanTrang(container, tongSoTrang, trangHienTai, callback) {
         if (!container) return;
         container.innerHTML = '';
         if (tongSoTrang <= 1) return;
 
-        // Nút Trước
         const btnTruoc = document.createElement('button');
         btnTruoc.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === 1 ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
         btnTruoc.innerHTML = `<i class="fa-solid fa-chevron-left"></i>`;
@@ -130,7 +171,6 @@
         btnTruoc.addEventListener('click', () => callback(trangHienTai - 1));
         container.appendChild(btnTruoc);
 
-        // Danh sách số trang thu gọn
         let pages = [];
         if (tongSoTrang <= 7) {
             for (let i = 1; i <= tongSoTrang; i++) pages.push(i);
@@ -170,7 +210,6 @@
             }
         });
 
-        // Nút Sau
         const btnSau = document.createElement('button');
         btnSau.className = `px-3 py-1.5 rounded-lg border text-xs font-bold transition-all ${trangHienTai === tongSoTrang ? 'border-slate-200 text-slate-300 cursor-not-allowed' : 'border-slate-300 text-slate-700 hover:bg-slate-100'}`;
         btnSau.innerHTML = `<i class="fa-solid fa-chevron-right"></i>`;
@@ -179,7 +218,7 @@
         container.appendChild(btnSau);
     }
 
-    // 4. HÀM SAO CHÉP MÃ HASH
+    // 5. SAO CHÉP MÃ HASH
     function ganSuKienSaoChep(buttonElement, txHash) {
         if (!buttonElement || !txHash) return;
         buttonElement.addEventListener("click", function () {
@@ -193,7 +232,7 @@
         });
     }
 
-    // 5. RENDER BẢNG TAB 1 (HỒ SƠ ĐĂNG KÝ)
+    // 6. RENDER BẢNG TAB 1
     function renderTab1() {
         if (!thanBangYeuCau) return;
         thanBangYeuCau.innerHTML = '';
@@ -240,7 +279,7 @@
                 </td>
                 <td class="py-3 px-2.5 text-center whitespace-nowrap">${badgeHtml}</td>
                 <td class="py-3 px-3 text-center whitespace-nowrap">
-                    <button type="button" class="btn-xem-ho-so-sp px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold text-xs transition-all border border-indigo-200 shadow-2xs flex items-center justify-center gap-1.5 mx-auto" data-id="${item.yeuCauId}">
+                    <button type="button" class="btn-xem-ho-so-sp px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold text-xs transition-all border border-indigo-200 shadow-2xs flex items-center justify-center gap-1.5 mx-auto cursor-pointer" data-id="${item.yeuCauId}">
                         <i class="fa-solid fa-eye text-indigo-700 text-[11px]"></i> Xem
                     </button>
                 </td>
@@ -261,7 +300,7 @@
         });
     }
 
-    // 6. RENDER BẢNG TAB 2 (SẢN PHẨM ĐÃ DUYỆT)
+    // 7. RENDER BẢNG TAB 2
     function renderTab2() {
         if (!thanBangDaDuyet) return;
         thanBangDaDuyet.innerHTML = '';
@@ -293,7 +332,7 @@
                     <a href="https://sepolia.etherscan.io/tx/${sp.txHash}" target="_blank" class="font-mono text-[11px] font-bold text-cyan-800 hover:underline">
                         ${sp.txHash.substring(0, 10)}...${sp.txHash.substring(sp.txHash.length - 4)}
                     </a>
-                    <button type="button" class="btn-sao-chep-table-tx p-1 text-slate-400 hover:text-indigo-700 text-xs transition-all" data-hash="${sp.txHash}" title="Sao chép TxHash">
+                    <button type="button" class="btn-sao-chep-table-tx p-1 text-slate-400 hover:text-indigo-700 text-xs transition-all cursor-pointer" data-hash="${sp.txHash}" title="Sao chép TxHash">
                         <i class="fa-regular fa-copy"></i>
                     </button>
                 </div>
@@ -311,7 +350,7 @@
                 <td class="py-3 px-3 text-slate-800 font-semibold leading-tight">${sp.tenNSX}</td>
                 <td class="py-3 px-3 whitespace-nowrap">${txHtml}</td>
                 <td class="py-3 px-3 text-center whitespace-nowrap">
-                    <button type="button" class="btn-xem-daduyet px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-all border border-emerald-200 shadow-2xs flex items-center justify-center gap-1 mx-auto" data-index="${batDau + idx}">
+                    <button type="button" class="btn-xem-daduyet px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-all border border-emerald-200 shadow-2xs flex items-center justify-center gap-1 mx-auto cursor-pointer" data-index="${batDau + idx}">
                         <i class="fa-solid fa-eye text-emerald-700"></i> Xem
                     </button>
                 </td>
@@ -323,13 +362,11 @@
         if (txtPhanTrangTab2) txtPhanTrangTab2.textContent = `Hiển thị từ ${batDau + 1} đến ${ketThuc} trên tổng số ${tongSo} sản phẩm (Trang ${trangTab2}/${tongSoTrang})`;
         renderNutPhanTrang(cumNutPhanTrangTab2, tongSoTrang, trangTab2, p => { trangTab2 = p; renderTab2(); });
 
-        // Gán sự kiện Sao chép mã Hash trong bảng
         document.querySelectorAll(".btn-sao-chep-table-tx").forEach(btn => {
             const hash = btn.getAttribute("data-hash");
             ganSuKienSaoChep(btn, hash);
         });
 
-        // Gán sự kiện Xem chi tiết Tab 2
         document.querySelectorAll(".btn-xem-daduyet").forEach(btn => {
             btn.addEventListener("click", function() {
                 const idx = parseInt(this.getAttribute("data-index"));
@@ -339,7 +376,7 @@
         });
     }
 
-    // 7. HÀM MỞ MODAL XEM CHI TIẾT SẢN PHẨM ĐÃ DUYỆT (TAB 2)
+    // 8. HÀM MỞ MODAL XEM CHI TIẾT TAB 2
     function moModalChiTietDaDuyet(sp) {
         if (!modalChiTietDaDuyet) return;
 
@@ -369,7 +406,7 @@
 
     document.querySelectorAll(".dong-modal-daduyet").forEach(b => b.addEventListener("click", () => modalChiTietDaDuyet.classList.add("hidden")));
 
-    // 8. LỌC TAB 1 & TAB 2
+    // 9. LỌC TAB 1 & TAB 2
     function locTab1() {
         const tuKhoa = oTimKiemTab1 ? oTimKiemTab1.value.trim().toLowerCase() : '';
         const nsxChon = locNSXTab1 ? locNSXTab1.value : 'TAT_CA';
@@ -419,7 +456,7 @@
     if (oTimKiemTab2) oTimKiemTab2.addEventListener("input", locTab2);
     if (locNSXTab2) locNSXTab2.addEventListener("change", locTab2);
 
-    // 9. XỬ LÝ MODAL XEM HỒ SƠ (TAB 1)
+    // 10. XỬ LÝ MODAL XEM HỒ SƠ TAB 1
     function moModalXemHoSo(item) {
         hoSoDangChon = item;
         const el = id => document.getElementById(id);
@@ -474,7 +511,7 @@
 
     document.querySelectorAll(".dong-modal-hoso-sp").forEach(b => b.addEventListener("click", () => modalXemHoSoSP.classList.add("hidden")));
 
-    // 10. PHÊ DUYỆT (AJAX 2 BƯỚC)
+    // 11. PHÊ DUYỆT (AJAX 2 BƯỚC)
     const nutMoDuyet = document.getElementById("panelNutMoModalDuyetSP");
     if (nutMoDuyet) {
         nutMoDuyet.addEventListener("click", function () {
@@ -540,7 +577,7 @@
         });
     }
 
-    // 11. TỪ CHỐI (OFF-CHAIN)
+    // 12. TỪ CHỐI (XỬ LÝ QUA AJAX & POPUP)
     const nutMoTuChoi = document.getElementById("panelNutMoModalTuChoiSP");
     if (nutMoTuChoi) {
         nutMoTuChoi.addEventListener("click", function () {
@@ -571,6 +608,40 @@
     }
 
     if (nhapLyDo) nhapLyDo.addEventListener("input", capNhatNutTuChoi);
+
+    if (formTuChoi) {
+        formTuChoi.addEventListener("submit", function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(formTuChoi);
+            const actionUrl = formTuChoi.action;
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            fetch(actionUrl, {
+                method: "POST",
+                body: formData,
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-TOKEN": csrfToken
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                modalTuChoi?.classList.add("hidden");
+                if (modalXemHoSoSP) modalXemHoSoSP.classList.add("hidden");
+
+                if (data.success) {
+                    hienThiModalThongBao("thanhCong", "Thao Tác Thành Công", data.message);
+                } else {
+                    hienThiModalThongBao("loi", "Có Lỗi Xảy Ra", data.message || "Không thể thực hiện từ chối hồ sơ.");
+                }
+            })
+            .catch(err => {
+                modalTuChoi?.classList.add("hidden");
+                hienThiModalThongBao("loi", "Lỗi Kết Nối", err.message || "Không thể kết nối đến máy chủ.");
+            });
+        });
+    }
 
     // CHẠY HÀM KHỞI TẠO BẢNG
     locTab1();

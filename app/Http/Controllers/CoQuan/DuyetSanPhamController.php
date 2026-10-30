@@ -23,7 +23,7 @@ class DuyetSanPhamController extends Controller
      */
     public function index(): View
     {
-        // TAB 1: Chỉ lấy các hồ sơ CHỜ DUYỆT hoặc BỊ TỪ CHỐI (Ẩn hoàn toàn sản phẩm đã duyệt)
+        // TAB 1: Chỉ lấy các hồ sơ CHỜ DUYỆT hoặc BỊ TỪ CHỐI
         $yeuCauDangKys = YeuCauDangKySanPham::with(['sanPham.nhaSanXuat', 'nguoiXuLy'])
             ->whereIn('trangThai', ['CHO_DUYET', 'TU_CHOI'])
             ->latest('id')
@@ -168,11 +168,14 @@ class DuyetSanPhamController extends Controller
     /**
      * Từ chối hồ sơ đăng ký lưu hành sản phẩm
      */
-    public function tuChoi(Request $request, YeuCauDangKySanPham $yeuCau): RedirectResponse
+    public function tuChoi(Request $request, YeuCauDangKySanPham $yeuCau)
     {
         $user = $request->user();
 
         if ($yeuCau->trangThai !== 'CHO_DUYET') {
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => 'Hồ sơ này không ở trạng thái chờ duyệt.'], 400);
+            }
             return back()->with('loi', 'Hồ sơ này không ở trạng thái chờ duyệt.');
         }
 
@@ -204,6 +207,14 @@ class DuyetSanPhamController extends Controller
                 'chiTiet' => "Từ chối hồ sơ đăng ký thuốc [{$sanPham->tenSanPham}]. Lý do: {$duLieu['lyDoTuChoi']}",
             ]);
         });
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success' => true,
+                'message' => "Đã từ chối hồ sơ đăng ký của thuốc [{$sanPham->tenSanPham}].",
+                'tenSanPham' => $sanPham->tenSanPham,
+            ]);
+        }
 
         return back()->with('thanhCong', "Đã từ chối hồ sơ đăng ký của thuốc [{$sanPham->tenSanPham}].");
     }

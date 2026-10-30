@@ -9,21 +9,6 @@
 @section('content')
 <div class="space-y-6 max-w-7xl w-full mx-auto">
 
-    <!-- THÔNG BÁO FLASH -->
-    @if(session('thanhCong'))
-    <div class="p-4 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl text-xs font-semibold flex items-center gap-2">
-        <i class="fa-solid fa-circle-check text-emerald-600 text-base"></i>
-        <span>{{ session('thanhCong') }}</span>
-    </div>
-    @endif
-
-    @if(session('loi'))
-    <div class="p-4 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-xs font-semibold flex items-center gap-2">
-        <i class="fa-solid fa-triangle-exclamation text-red-600 text-base"></i>
-        <span>{{ session('loi') }}</span>
-    </div>
-    @endif
-
     <!-- CỤM 2 TAB CHÍNH -->
     <div class="bg-white rounded-2xl border border-emerald-900/10 bong-xanh p-2 flex gap-2">
         <button type="button" id="tabHoSoDangKy" class="flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-indigo-700 text-white shadow-sm">
@@ -112,7 +97,7 @@
     </div>
 
     <!-- ══════════════════════════════════════════════════════════ -->
-    <!-- TAB 2: SẢN PHẨM ĐÃ DUYỆT (CÓ TÌM KIẾM, BỘ LỌC, NÚT SAO CHÉP) -->
+    <!-- TAB 2: SẢN PHẨM ĐÃ DUYỆT                                 -->
     <!-- ══════════════════════════════════════════════════════════ -->
     <div id="khungTabDaDuyet" class="space-y-4 hidden">
         <!-- Bộ lọc Tab 2 -->
@@ -176,7 +161,7 @@
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL 1: CHI TIẾT SẢN PHẨM & THẨM ĐỊNH HỒ SƠ (TAB 1)      -->
 <!-- ══════════════════════════════════════════════════════════ -->
-<div id="modalXemHoSoSP" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-5 hidden bg-black/60">
+<div id="modalXemHoSoSP" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-5 hidden">
     <div class="bg-white rounded-2xl max-w-5xl w-full p-5 sm:p-7 space-y-4 bong-xanh max-h-[92vh] flex flex-col">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between shrink-0">
             <div class="flex items-center gap-2.5 flex-wrap">
@@ -184,7 +169,7 @@
                 <span id="panelTenThuocTitle" class="font-bold text-indigo-900 bg-indigo-50 px-2.5 py-0.5 rounded text-xs border border-indigo-200"></span>
                 <span id="panelTrangThaiSPBadge"></span>
             </div>
-            <button type="button" class="dong-modal-hoso-sp text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-hoso-sp text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -262,12 +247,12 @@
         </div>
 
         <div class="border-t border-slate-100 pt-3 flex items-center justify-between shrink-0">
-            <button type="button" class="dong-modal-hoso-sp px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all">Đóng</button>
+            <button type="button" class="dong-modal-hoso-sp px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer">Đóng</button>
             <div id="panelCumNutHanhDongSP" class="flex items-center gap-2.5">
-                <button type="button" id="panelNutMoModalTuChoiSP" class="px-5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-2xs">
+                <button type="button" id="panelNutMoModalTuChoiSP" class="px-5 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs">
                     <i class="fa-solid fa-circle-xmark"></i> Từ Chối Đăng Ký
                 </button>
-                <button type="button" id="panelNutMoModalDuyetSP" class="px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 shadow-md">
+                <button type="button" id="panelNutMoModalDuyetSP" class="px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all flex items-center gap-1.5 cursor-pointer shadow-md">
                     <i class="fa-solid fa-circle-check"></i> Phê Duyệt Lưu Hành
                 </button>
             </div>
@@ -278,13 +263,13 @@
 <!-- ══════════════════════════════════════════════════════════ -->
 <!-- MODAL 2: XEM CHI TIẾT SẢN PHẨM ĐÃ DUYỆT (TAB 2)           -->
 <!-- ══════════════════════════════════════════════════════════ -->
-<div id="modalChiTietDaDuyet" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-3 sm:p-5 hidden bg-black/60">
+<div id="modalChiTietDaDuyet" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-5 hidden">
     <div class="bg-white rounded-2xl max-w-3xl w-full p-5 sm:p-7 space-y-4 bong-xanh max-h-[92vh] flex flex-col">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between shrink-0">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-certificate text-emerald-700"></i> Thông Tin Thuốc Đã Cấp Phép Lưu Hành
             </h3>
-            <button type="button" class="dong-modal-daduyet text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-daduyet text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -312,7 +297,7 @@
                 </span>
                 <div class="flex items-center gap-2 bg-white p-2.5 rounded-lg border border-slate-200">
                     <a id="dtTxLink" href="#" target="_blank" class="flex-1 font-mono text-[11px] font-bold text-cyan-800 hover:underline break-all"></a>
-                    <button type="button" id="btnSaoChepModalTx" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold shrink-0 transition-all flex items-center gap-1">
+                    <button type="button" id="btnSaoChepModalTx" class="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold shrink-0 transition-all cursor-pointer flex items-center gap-1">
                         <i class="fa-regular fa-copy"></i> Sao chép
                     </button>
                 </div>
@@ -320,19 +305,19 @@
         </div>
 
         <div class="border-t border-slate-100 pt-3 flex justify-end shrink-0">
-            <button type="button" class="dong-modal-daduyet px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all">Đóng</button>
+            <button type="button" class="dong-modal-daduyet px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer">Đóng</button>
         </div>
     </div>
 </div>
 
 <!-- MODAL XÁC NHẬN PHÊ DUYỆT -->
-<div id="modalXacNhanDuyetSP" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+<div id="modalXacNhanDuyetSP" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-circle-check text-indigo-700"></i> Phê Duyệt Lưu Hành Thuốc
             </h3>
-            <button type="button" class="dong-modal-duyet-sp text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-duyet-sp text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -364,8 +349,8 @@
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" class="dong-modal-duyet-sp px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">Hủy</button>
-                <button type="submit" id="nutXacNhanDuyetSPOnChain" class="px-6 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5">
+                <button type="button" class="dong-modal-duyet-sp px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all cursor-pointer">Hủy</button>
+                <button type="submit" id="nutXacNhanDuyetSPOnChain" class="px-6 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
                     <i class="fa-solid fa-shield-halved"></i> Xác Nhận Phê Duyệt
                 </button>
             </div>
@@ -374,13 +359,13 @@
 </div>
 
 <!-- MODAL XÁC NHẬN TỪ CHỐI -->
-<div id="modalTuChoiSP" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+<div id="modalTuChoiSP" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-circle-xmark text-red-600"></i> Từ Chối Đăng Ký Lưu Hành
             </h3>
-            <button type="button" class="dong-modal-tuchoi-sp text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-tuchoi-sp text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -406,12 +391,28 @@
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
-                <button type="button" class="dong-modal-tuchoi-sp px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl transition-all">Hủy</button>
-                <button type="submit" id="nutXacNhanTuChoiSPOffChain" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5">
+                <button type="button" class="dong-modal-tuchoi-sp px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl transition-all cursor-pointer">Hủy</button>
+                <button type="submit" id="nutXacNhanTuChoiSPOffChain" class="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-1.5 cursor-pointer">
                     <i class="fa-solid fa-ban"></i> Xác Nhận Từ Chối
                 </button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- MODAL POPUP THÔNG BÁO KẾT QUẢ (THAY THẾ BANNER THÔNG THƯỜNG) -->
+<div id="modalThongBaoKetQua" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-4 shadow-2xl border border-slate-100 text-center relative overflow-hidden">
+        <div id="iconThongBaoKetQua" class="w-16 h-16 rounded-full flex items-center justify-center mx-auto shadow-sm text-3xl">
+            <i class="fa-solid fa-circle-check"></i>
+        </div>
+        <div>
+            <h3 id="tieuDeThongBaoKetQua" class="text-lg font-bold text-slate-900">Thông Báo</h3>
+            <p id="noiDungThongBaoKetQua" class="text-xs text-slate-600 mt-2 leading-relaxed"></p>
+        </div>
+        <button type="button" id="btnDongThongBaoKetQua" class="w-full py-2.5 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-check"></i> Hoàn Tất & Tải Lại Trang
+        </button>
     </div>
 </div>
 
@@ -424,7 +425,7 @@
         <h4 id="tieuDeTienTrinh" class="text-sm font-bold text-slate-900">Đang khởi tạo giao dịch...</h4>
         <p id="noiDungTienTrinh" class="text-xs text-slate-600 leading-relaxed">Đang gửi yêu cầu và chờ mạng Ethereum Sepolia xác nhận...</p>
         <div id="cumNutDongTienTrinh" class="hidden pt-2">
-            <button type="button" onclick="location.reload()" class="w-full py-2 bg-emerald-700 text-white font-bold rounded-xl text-xs">Hoàn Thành & Tải Lại Trang</button>
+            <button type="button" onclick="location.reload()" class="w-full py-2 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs cursor-pointer">Hoàn Thành & Tải Lại Trang</button>
         </div>
     </div>
 </div>
@@ -434,6 +435,12 @@
 <script>
     window.danhSachYeuCau = @json($yeuCauDangKys);
     window.danhSachDaDuyet = @json($sanPhamDaDuyets);
+    @if(session('thanhCong'))
+    window.flashThanhCong = @json(session('thanhCong'));
+    @endif
+    @if(session('loi'))
+    window.flashLoi = @json(session('loi'));
+    @endif
 </script>
 <script src="{{ asset('assets/js/coQuanQuanLy/xetDuyetSanPham.js') }}"></script>
 @endpush
