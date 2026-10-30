@@ -79,6 +79,7 @@
                     $yeuCauMoiNhat = $toChuc->yeuCauDangKys->sortByDesc('id')->first();
                     $taiKhoanDaiDien = $toChuc->taiKhoans->first();
                     $soLanNop = $toChuc->yeuCauDangKys->max('versionHoSo') ?? 1;
+                    $diaChiVi = $toChuc->blockchainIdentity?->diaChiVi ?? '';
                     @endphp
                     <tr class="hover:bg-slate-50/80 transition-colors">
                         <td class="py-3 px-3">
@@ -128,6 +129,8 @@
                                 data-id="{{ $toChuc->id }}"
                                 data-tendangnhap="{{ $taiKhoanDaiDien?->tenDangNhap }}"
                                 data-trangthai="{{ $toChuc->trangThaiDuyet->value }}"
+                                data-loai-to-chuc="{{ $toChuc->loaiToChuc->value }}"
+                                data-dia-chi-vi="{{ $diaChiVi }}"
                                 data-lichsu="{{ json_encode($toChuc->yeuCauDangKys->sortByDesc('id')->map(fn($y) => [
                                         'phienBan' => $y->versionHoSo,
                                         'ngayGui' => \Carbon\Carbon::parse($y->ngayGui)->format('H:i d/m/Y'),
@@ -240,7 +243,7 @@
     </div>
 </div>
 
-<!-- MODAL DUYỆT -->
+<!-- MODAL XÁC NHẬN DUYỆT -->
 <div id="modalXacNhanDuyet" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
@@ -287,6 +290,55 @@
                 <button type="submit" id="nutXacNhanTuChoi" disabled class="px-6 py-2.5 bg-slate-200 text-slate-400 font-bold rounded-xl cursor-not-allowed">Xác Nhận Từ Chối</button>
             </div>
         </form>
+    </div>
+</div>
+
+<!-- MODAL POPUP: THÔNG BÁO ĐANG XỬ LÝ & THÀNH CÔNG TỐI GIẢN -->
+<div id="modalProcessBlockchain" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-slate-100 text-center relative overflow-hidden">
+
+        <!-- TRẠNG THÁI 1: ĐANG CHỜ XỬ LÝ (TĨNH, TỐI GIẢN) -->
+        <div id="popupStateProcessing" class="space-y-4">
+            <div class="w-16 h-16 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                <i class="fa-solid fa-clock text-3xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Đang Chờ Xử Lý On-Chain</h3>
+                <p class="text-xs text-slate-500 mt-2 leading-relaxed">
+                    Hệ thống đang khởi tạo Ví Custodial và cấp quyền doanh nghiệp trên Ethereum Sepolia Testnet. Vui lòng chờ trong giây lát...
+                </p>
+            </div>
+        </div>
+
+        <!-- TRẠNG THÁI 2: THÀNH CÔNG HOÀN TẤT -->
+        <div id="popupStateSuccess" class="space-y-4 hidden">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                <i class="fa-solid fa-circle-check text-3xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Phê Duyệt On-Chain Thành Công!</h3>
+                <p class="text-xs text-slate-600 mt-1">Tổ chức đã được xác thực và cấp quyền doanh nghiệp hợp lệ trên Blockchain.</p>
+            </div>
+
+            <div class="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 text-left text-xs space-y-2">
+                <div>
+                    <span class="text-slate-500 block text-[11px]">Địa chỉ ví On-chain (Custodial Wallet):</span>
+                    <span id="popupSuccessWallet" class="font-mono font-bold text-emerald-900 break-all text-xs"></span>
+                </div>
+                <div id="popupSuccessTxContainer">
+                    <span class="text-slate-500 block text-[11px]">Transaction Hash (Sepolia):</span>
+                    <a id="popupSuccessTxLink" href="#" target="_blank" class="font-mono font-bold text-indigo-700 hover:underline break-all text-xs inline-flex items-center gap-1">
+                        <span id="popupSuccessTxHash"></span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
+                </div>
+            </div>
+
+            <button type="button" id="btnHoanTatReload" class="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-check"></i> Hoàn Tất & Tải Lại Trang
+            </button>
+        </div>
+
     </div>
 </div>
 @endsection

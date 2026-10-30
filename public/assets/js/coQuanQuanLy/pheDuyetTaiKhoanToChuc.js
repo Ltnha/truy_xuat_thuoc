@@ -12,6 +12,17 @@ document.addEventListener('DOMContentLoaded', function () {
     const inputDiaChiVi = document.getElementById('duyetModalDiaChiVi');
     const textAddressDisplay = document.getElementById('duyetModalAddressText');
 
+    // Các phần tử Popup Modal
+    const modalProcess = document.getElementById('modalProcessBlockchain');
+    const stateProcessing = document.getElementById('popupStateProcessing');
+    const stateSuccess = document.getElementById('popupStateSuccess');
+    const popupWallet = document.getElementById('popupSuccessWallet');
+    const popupTxLink = document.getElementById('popupSuccessTxLink');
+    const popupTxHash = document.getElementById('popupSuccessTxHash');
+    const btnHoanTatReload = document.getElementById('btnHoanTatReload');
+
+    let pollingInterval = null;
+
     function renderDanhSachFile(fileList) {
         const containerFiles = document.getElementById('panelDanhSachTepMinhChung');
         if (!containerFiles) return;
@@ -110,10 +121,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            // Gán action URL & dữ liệu loại tổ chức vào Form Duyệt
             if (formActionDuyet) {
                 formActionDuyet.action = `/co-quan/phe-duyet-to-chuc/${id}`;
-                formActionDuyet.setAttribute('data-loai-to-chuc', loaiToChuc);
+                formActionDuyet.setAttribute('data-tochuc-id', id);
             }
             if (formActionTuChoi) {
                 formActionTuChoi.action = `/co-quan/phe-duyet-to-chuc/${id}`;
@@ -122,13 +132,8 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('duyetModalTenToChuc').textContent = lanMoiNhat.tenToChuc || '';
             document.getElementById('duyetModalMST').textContent = lanMoiNhat.maSoThue || '';
 
-            // Cập nhật giá trị địa chỉ ví vào ô Input & phần hiển thị giao diện
-            if (inputDiaChiVi) {
-                inputDiaChiVi.value = diaChiVi;
-            }
-            if (textAddressDisplay) {
-                textAddressDisplay.textContent = (diaChiVi && diaChiVi.length === 42) ? diaChiVi : 'Tự động khởi tạo';
-            }
+            if (inputDiaChiVi) inputDiaChiVi.value = diaChiVi;
+            if (textAddressDisplay) textAddressDisplay.textContent = (diaChiVi && diaChiVi.length === 42) ? diaChiVi : 'Tự động khởi tạo';
 
             const cumNut = document.getElementById('panelCumNutHanhDong');
             if (trangthai !== 'CHO_DUYET') {
@@ -168,4 +173,78 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
+
+    // XỬ LÝ SUBMIT AJAX PHÊ DUYỆT & HIỂN THỊ POPUP ĐƠN GIẢN
+    if (formActionDuyet) {
+        formActionDuyet.addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const toChucId = formActionDuyet.getAttribute('data-tochuc-id');
+            const actionUrl = formActionDuyet.action;
+            const formData = new FormData(formActionDuyet);
+            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+
+            // Ẩn modal xác nhận, bật popup trạng thái Đang xử lý
+            modalDuyet?.classList.add('hidden');
+            stateProcessing?.classList.remove('hidden');
+            stateSuccess?.classList.add('hidden');
+            modalProcess?.classList.remove('hidden');
+
+            fetch(actionUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken
+                }
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    batDauPollingTrangThai(toChucId);
+                } else {
+                    alert(data.message || 'Có lỗi xảy ra khi phê duyệt!');
+                    modalProcess?.classList.add('hidden');
+                }
+            })
+            .catch(() => {
+                alert('Lỗi kết nối máy chủ!');
+                modalProcess?.classList.add('hidden');
+            });
+        });
+    }
+
+    function batDauPollingTrangThai(toChucId) {
+        pollingInterval = setInterval(() => {
+            fetch(`/co-quan/to-chuc/${toChucId}/trang-thai-duyet`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(res => res.json())
+            .then(data => {
+                // Khi trangThaiDuyet chuyển sang DA_DUYET
+                if (data.trangThaiDuyet === 'DA_DUYET') {
+                    clearInterval(pollingInterval);
+
+                    // Chuyển sang Popup Thành công
+                    stateProcessing?.classList.add('hidden');
+                    stateSuccess?.classList.remove('hidden');
+
+                    if (popupWallet) popupWallet.textContent = data.diaChiVi || 'N/A';
+
+                    if (data.txHash) {
+                        document.getElementById('popupSuccessTxContainer')?.classList.remove('hidden');
+                        if (popupTxHash) popupTxHash.textContent = data.txHash;
+                        if (popupTxLink) popupTxLink.href = `https://sepolia.etherscan.io/tx/${data.txHash}`;
+                    } else {
+                        document.getElementById('popupSuccessTxContainer')?.classList.add('hidden');
+                    }
+                }
+            })
+            .catch(err => console.error('Polling error:', err));
+        }, 2000);
+    }
+
+    btnHoanTatReload?.addEventListener('click', () => {
+        location.reload();
+    });
 });

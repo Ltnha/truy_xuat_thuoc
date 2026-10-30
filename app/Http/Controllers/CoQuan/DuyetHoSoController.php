@@ -9,9 +9,10 @@ use App\Jobs\ProcessOrganizationApprovalJob;
 use App\Jobs\RevokeOrganizationRoleJob;
 use App\Jobs\RestoreOrganizationRoleJob;
 use App\Jobs\RotateOrganizationWalletJob;
+use App\Models\BlockchainTransaction;
 use App\Models\NhatKyHeThong;
-use App\Models\TaiKhoan;
 use App\Models\ToChuc;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -62,23 +63,27 @@ class DuyetHoSoController extends Controller
     /**
      * Phê duyệt hoặc Từ chối hồ sơ tổ chức
      */
-    public function approveOrganization(Request $request, ToChuc $toChuc): RedirectResponse
+    public function approveOrganization(Request $request, ToChuc $toChuc)
     {
         $duLieu = $request->validate([
             'trangThaiDuyet' => ['required', 'in:DA_DUYET,TU_CHOI'],
             'lyDo'           => ['nullable', 'required_if:trangThaiDuyet,TU_CHOI', 'string', 'max:500'],
         ]);
 
-        // 1. TRƯỜNG HỢP PHÊ DUYỆT:
         if ($duLieu['trangThaiDuyet'] === 'DA_DUYET') {
-            // Đẩy Job ngầm vào hàng đợi xử lý On-chain
-            // Job sẽ tự sinh ví, nạp gas, gọi grantRole và chỉ chuyển toChuc.trangThaiDuyet = 'DA_DUYET' khi On-chain thành công 100%
             ProcessOrganizationApprovalJob::dispatch($toChuc->id, $request->user()->id);
 
-            return back()->with('thanhCong', "Đã tiếp nhận yêu cầu phê duyệt tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang khởi tạo Ví Custodial và cấp quyền On-chain ngầm.");
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json([
+                    'success'  => true,
+                    'message'  => "Đã tiếp nhận yêu cầu phê duyệt tổ chức [{$toChuc->tenToChuc}].",
+                    'toChucId' => $toChuc->id,
+                ]);
+            }
+
+            return back()->with('thanhCong', "Đã tiếp nhận yêu cầu phê duyệt tổ chức [{$toChuc->tenToChuc}].");
         }
 
-        // 2. TRƯỜNG HỢP TỪ CHỐI:
         DB::transaction(function () use ($toChuc, $duLieu, $request): void {
             $status = OrganizationApprovalStatus::tuChoi;
             $toChuc->update(['trangThaiDuyet' => $status]);
@@ -105,26 +110,45 @@ class DuyetHoSoController extends Controller
             ]);
         });
 
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'message' => "Đã từ chối hồ sơ đăng ký của tổ chức [{$toChuc->tenToChuc}]."]);
+        }
+
         return back()->with('thanhCong', "Đã từ chối hồ sơ đăng ký của tổ chức [{$toChuc->tenToChuc}].");
+    }
+
+    /**
+     * API Polling kiểm tra tiến trình xử lý On-chain
+     */
+    public function checkApprovalStatus(ToChuc $toChuc): JsonResponse
+    {
+        $identity = $toChuc->blockchainIdentity;
+        $lastTx = BlockchainTransaction::where('toChucId', $toChuc->id)
+            ->latest('id')
+            ->first();
+
+        return response()->json([
+            'trangThaiDuyet' => $toChuc->trangThaiDuyet->value ?? (string)$toChuc->trangThaiDuyet,
+            'diaChiVi'       => $identity?->diaChiVi,
+            'trangThaiVi'    => $identity?->trangThai,
+            'txHash'         => $lastTx?->txHash,
+        ]);
     }
 
     /**
      * Thu hồi quyền Tổ chức (Revoke Role On-chain)
      */
-    public function thuHoiQuyenToChuc(Request $request, ToChuc $toChuc): RedirectResponse
+    public function thuHoiQuyenToChuc(Request $request, ToChuc $toChuc)
     {
         DB::transaction(function () use ($request, $toChuc): void {
-            // 1. Khóa Off-chain ngay lập tức
             $toChuc->update([
                 'trangThaiDuyet' => OrganizationApprovalStatus::biThuHoi ?? 'BI_THU_HOI',
             ]);
 
-            // Vô hiệu hóa tài khoản đăng nhập của doanh nghiệp
             $toChuc->taiKhoans()->update([
-                'trangThai' => AccountStatus::locked,
+                'trangThai' => AccountStatus::locked ?? 'LOCKED',
             ]);
 
-            // 2. Đẩy Job ngầm tước quyền On-chain (revokeRole)
             RevokeOrganizationRoleJob::dispatch($toChuc->id, $request->user()->id);
 
             NhatKyHeThong::create([
@@ -136,6 +160,15 @@ class DuyetHoSoController extends Controller
                 'chiTiet'    => "Đã đình chỉ tổ chức [{$toChuc->tenToChuc}]. Đang tước quyền On-chain ngầm.",
             ]);
         });
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success'  => true,
+                'message'  => "Đã tiếp nhận yêu cầu thu hồi quyền tổ chức [{$toChuc->tenToChuc}].",
+                'toChucId' => $toChuc->id,
+                'action'   => 'THU_HOI',
+            ]);
+        }
 
         return back()->with('thanhCong', "Đã đình chỉ tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang gửi lệnh tước quyền On-chain lên Sepolia.");
     }
@@ -177,20 +210,38 @@ class DuyetHoSoController extends Controller
     /**
      * Khôi phục quyền Tổ chức (Restore Role On-chain)
      */
-    public function khoiPhucQuyenToChuc(Request $request, ToChuc $toChuc): RedirectResponse
+    public function khoiPhucQuyenToChuc(Request $request, ToChuc $toChuc)
     {
         RestoreOrganizationRoleJob::dispatch($toChuc->id, $request->user()->id);
 
-        return back()->with('thanhCong', "Đã gửi yêu cầu khôi phục quyền cho tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang cấp lại quyền On-chain ngầm.");
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success'  => true,
+                'message'  => "Đã tiếp nhận yêu cầu khôi phục quyền tổ chức [{$toChuc->tenToChuc}].",
+                'toChucId' => $toChuc->id,
+                'action'   => 'KHOI_PHUC',
+            ]);
+        }
+
+        return back()->with('thanhCong', "Đã gửi yêu cầu khôi phục quyền cho tổ chức [{$toChuc->tenToChuc}].");
     }
 
     /**
      * Đổi ví mới (Rotate Wallet) cho Tổ chức
      */
-    public function doiViMoi(Request $request, ToChuc $toChuc): RedirectResponse
+    public function doiViMoi(Request $request, ToChuc $toChuc)
     {
         RotateOrganizationWalletJob::dispatch($toChuc->id, $request->user()->id);
 
-        return back()->with('thanhCong', "Đã gửi yêu cầu cấp ví mới cho tổ chức [{$toChuc->tenToChuc}]. Hệ thống đang thu hồi ví cũ, khởi tạo ví mới và cấp quyền On-chain ngầm.");
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json([
+                'success'  => true,
+                'message'  => "Đã tiếp nhận yêu cầu cấp ví mới cho tổ chức [{$toChuc->tenToChuc}].",
+                'toChucId' => $toChuc->id,
+                'action'   => 'DOI_VI',
+            ]);
+        }
+
+        return back()->with('thanhCong', "Đã gửi yêu cầu cấp ví mới cho tổ chức [{$toChuc->tenToChuc}].");
     }
 }

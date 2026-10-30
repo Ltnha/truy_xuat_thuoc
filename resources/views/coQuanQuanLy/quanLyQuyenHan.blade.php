@@ -152,7 +152,7 @@
 
                                 {{-- NÚT THU HỒI --}}
                                 @if(($toChuc->trangThaiDuyet->value ?? $toChuc->trangThaiDuyet) === 'DA_DUYET')
-                                <form method="POST" action="{{ route('co-quan.thu-hoi-quyen', $toChuc->id) }}" onsubmit="return confirm('Thu hồi quyền On-chain của tổ chức [{{ $toChuc->tenToChuc }}]?')">
+                                <form method="POST" action="{{ route('co-quan.thu-hoi-quyen', $toChuc->id) }}" class="form-action-blockchain" data-tochuc-id="{{ $toChuc->id }}" data-action-type="THU_HOI" data-confirm-msg="Thu hồi quyền On-chain của tổ chức [{{ $toChuc->tenToChuc }}]?">
                                     @csrf
                                     <button type="submit" class="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg border border-red-200 transition-all text-[11px] cursor-pointer" title="Thu hồi quyền">
                                         <i class="fa-solid fa-user-slash"></i> Thu hồi
@@ -160,7 +160,7 @@
                                 </form>
 
                                 {{-- NÚT ĐỔI VÍ --}}
-                                <form method="POST" action="{{ route('co-quan.doi-vi-moi', $toChuc->id) }}" onsubmit="return confirm('Cấp lại ví mới cho tổ chức [{{ $toChuc->tenToChuc }}]? Ví cũ sẽ bị tước quyền.')">
+                                <form method="POST" action="{{ route('co-quan.doi-vi-moi', $toChuc->id) }}" class="form-action-blockchain" data-tochuc-id="{{ $toChuc->id }}" data-action-type="DOI_VI" data-confirm-msg="Cấp lại ví mới cho tổ chức [{{ $toChuc->tenToChuc }}]? Ví cũ sẽ bị tước quyền.">
                                     @csrf
                                     <button type="submit" class="px-2.5 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold rounded-lg border border-indigo-200 transition-all text-[11px] cursor-pointer" title="Đổi ví mới">
                                         <i class="fa-solid fa-arrows-rotate"></i> Đổi ví
@@ -170,7 +170,7 @@
 
                                 {{-- NÚT KHÔI PHỤC --}}
                                 @if(($toChuc->trangThaiDuyet->value ?? $toChuc->trangThaiDuyet) === 'BI_THU_HOI')
-                                <form method="POST" action="{{ route('co-quan.khoi-phuc-quyen', $toChuc->id) }}" onsubmit="return confirm('Khôi phục quyền On-chain cho tổ chức [{{ $toChuc->tenToChuc }}]?')">
+                                <form method="POST" action="{{ route('co-quan.khoi-phuc-quyen', $toChuc->id) }}" class="form-action-blockchain" data-tochuc-id="{{ $toChuc->id }}" data-action-type="KHOI_PHUC" data-confirm-msg="Khôi phục quyền On-chain cho tổ chức [{{ $toChuc->tenToChuc }}]?">
                                     @csrf
                                     <button type="submit" class="px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg border border-emerald-200 transition-all text-[11px] cursor-pointer" title="Khôi phục quyền">
                                         <i class="fa-solid fa-user-check"></i> Khôi phục
@@ -225,7 +225,7 @@
             <p class="text-slate-600 leading-relaxed text-[11px]">Tài khoản đại diện đã bị khóa đăng nhập và địa chỉ ví On-chain đã bị tước quyền thực thi các giao dịch chuỗi cung ứng.</p>
         </div>
 
-        <!-- NỘI DUNG NHAU -->
+        <!-- NỘI DUNG -->
         <div class="flex-1 overflow-y-auto space-y-3.5 pr-1 text-xs">
 
             <!-- THỐNG KÊ HOẠT ĐỘNG -->
@@ -250,7 +250,7 @@
                 <!-- CỘT BÊN TRÁI: TÀI KHOẢN + PHÁP LÝ -->
                 <div class="lg:col-span-7 space-y-3.5">
 
-                    <!-- PHẦN 1: TÀI KHOẢN ĐĂNG NHẬP DẠNG CỤC BỘ -->
+                    <!-- PHẦN 1: TÀI KHOẢN ĐĂNG NHẬP -->
                     <div class="bg-nenChinh p-3.5 rounded-xl border border-emerald-900/10 space-y-2">
                         <span class="font-bold text-slate-800 uppercase tracking-wide flex items-center justify-between border-b border-slate-200 pb-1.5 text-[11px]">
                             <span class="flex items-center gap-1.5"><i class="fa-solid fa-user-gear text-indigo-700"></i> Tài Khoản Đăng Nhập Đại Diện</span>
@@ -361,6 +361,76 @@
                 Đóng
             </button>
         </div>
+    </div>
+</div>
+
+<!-- MODAL POPUP: XÁC NHẬN THAO TÁC (THAY THẾ DIALOG BROWSER) -->
+<div id="modalXacNhanHanhDong" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 bong-xanh text-center">
+        <div id="confirmModalIcon" class="w-16 h-16 rounded-full flex items-center justify-center mx-auto text-2xl shadow-sm">
+            <i class="fa-solid fa-triangle-exclamation"></i>
+        </div>
+        <div class="space-y-1.5">
+            <h3 id="confirmModalTitle" class="text-base font-bold text-slate-900">Xác Nhận Thao Tác</h3>
+            <p id="confirmModalDesc" class="text-xs text-slate-600 leading-relaxed"></p>
+        </div>
+        <div class="flex items-center justify-center gap-3 pt-3 border-t border-slate-100">
+            <button type="button" id="btnHuyXacNhan" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer">
+                Hủy
+            </button>
+            <button type="button" id="btnThucHienHanhDong" class="px-6 py-2.5 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer">
+                Xác Nhận
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL POPUP: THÔNG BÁO ĐANG XỬ LÝ & THÀNH CÔNG TỐI GIẢN -->
+<div id="modalProcessBlockchain" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 shadow-2xl border border-slate-100 text-center relative overflow-hidden">
+
+        <!-- TRẠNG THÁI 1: ĐANG CHỜ XỬ LÝ (TĨNH, TỐI GIẢN) -->
+        <div id="popupStateProcessing" class="space-y-4">
+            <div class="w-16 h-16 bg-amber-100 text-amber-700 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                <i class="fa-solid fa-clock text-3xl"></i>
+            </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Đang Chờ Xử Lý On-Chain</h3>
+                <p id="popupProcessingText" class="text-xs text-slate-500 mt-2 leading-relaxed">
+                    Hệ thống đang tương tác với Smart Contract trên Ethereum Sepolia Testnet. Vui lòng chờ trong giây lát...
+                </p>
+            </div>
+        </div>
+
+        <!-- TRẠNG THÁI 2: THÀNH CÔNG HOÀN TẤT -->
+        <div id="popupStateSuccess" class="space-y-4 hidden">
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto shadow-sm">
+                <i class="fa-solid fa-circle-check text-3xl"></i>
+            </div>
+            <div>
+                <h3 id="popupSuccessTitle" class="text-lg font-bold text-slate-900">Thao Tác On-Chain Thành Công!</h3>
+                <p id="popupSuccessDesc" class="text-xs text-slate-600 mt-1">Giao dịch đã được xác nhận thành công trên Blockchain.</p>
+            </div>
+
+            <div class="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 text-left text-xs space-y-2">
+                <div>
+                    <span class="text-slate-500 block text-[11px]">Địa chỉ ví On-chain (Custodial Wallet):</span>
+                    <span id="popupSuccessWallet" class="font-mono font-bold text-emerald-900 break-all text-xs"></span>
+                </div>
+                <div id="popupSuccessTxContainer">
+                    <span class="text-slate-500 block text-[11px]">Transaction Hash (Sepolia):</span>
+                    <a id="popupSuccessTxLink" href="#" target="_blank" class="font-mono font-bold text-indigo-700 hover:underline break-all text-xs inline-flex items-center gap-1">
+                        <span id="popupSuccessTxHash"></span>
+                        <i class="fa-solid fa-arrow-up-right-from-square text-[10px]"></i>
+                    </a>
+                </div>
+            </div>
+
+            <button type="button" id="btnHoanTatReload" class="w-full py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-check"></i> Hoàn Tất & Tải Lại Trang
+            </button>
+        </div>
+
     </div>
 </div>
 @endsection

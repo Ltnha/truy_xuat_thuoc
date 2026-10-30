@@ -78,9 +78,10 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     // CƠ QUAN QUẢN LÝ
     // ════════════════════════════════════════════════════════════════
     Route::middleware(['kiem.tra.vai.tro:CO_QUAN_QUAN_LY'])->prefix('co-quan')->group(function () {
-        // Phê duyệt tài khoản tổ chức
+        // Phê duyệt tài khoản tổ chức & API Polling kiểm tra trạng thái On-chain
         Route::get('/phe-duyet-tai-khoan', [DuyetHoSoController::class, 'index'])->name('co-quan.phe-duyet-tai-khoan');
         Route::post('/phe-duyet-to-chuc/{toChuc}', [DuyetHoSoController::class, 'approveOrganization'])->name('co-quan.approve-organization');
+        Route::get('/to-chuc/{toChuc}/trang-thai-duyet', [DuyetHoSoController::class, 'checkApprovalStatus'])->name('co-quan.check-approval-status');
         Route::post('/phe-duyet-san-pham/{sanPham}', [DuyetHoSoController::class, 'approveProduct'])->name('co-quan.approve-product');
 
         // Quản lý quyền hạn & Ví On-chain (Thu hồi, Khôi phục, Đổi ví)
@@ -141,7 +142,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     Route::middleware(['kiem.tra.vai.tro:NHA_PHAN_PHOI', 'to.chuc.da.duyet'])
         ->prefix('nha-phan-phoi')
         ->group(function () {
-            Route::get('/quan-ly-lo-hang', fn () => view('nhaPhanPhoi.quanLyLoHang'))
+            Route::get('/quan-ly-lo-hang', fn() => view('nhaPhanPhoi.quanLyLoHang'))
                 ->name('nha-phan-phoi.lo-hang');
 
             // API: danh sách chờ tiếp nhận (PENDING)
@@ -160,6 +161,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::get('/api/ton-kho', [NppChuyenGiaoController::class, 'danhSachTonKho'])
                 ->name('nha-phan-phoi.api.ton-kho');
         });
+
     // ════════════════════════════════════════════════════════════════
     // NHÀ THUỐC
     // ════════════════════════════════════════════════════════════════
