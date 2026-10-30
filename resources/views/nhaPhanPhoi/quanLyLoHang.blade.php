@@ -238,6 +238,9 @@
             <button type="button" class="dong-modal-nhan px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
                 Đối chiếu lại
             </button>
+            <button type="button" id="nutTuChoiNhan" class="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
+                <i class="fa-solid fa-ban"></i> Từ Chối Nhận
+            </button>
             <button type="button" id="nutXacNhanNhapKho" class="px-6 py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
                 <i class="fa-solid fa-check-double"></i> Xác Nhận Nhập Kho
             </button>

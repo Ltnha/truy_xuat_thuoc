@@ -35,6 +35,40 @@ contract BatchTraceability {
         uint256 timestamp
     );
 
+    // --- CẤU TRÚC & SỰ KIỆN CHUYỂN GIAO (TRANSFER MANAGEMENT) ---
+    enum TransferStatus { PENDING, RECEIVED, REJECTED }
+
+    struct TransferRecord {
+        bytes32 maChuyenGiao;
+        address benGui;
+        address benNhan;
+        TransferStatus status;
+        uint256 thoiGian;
+        string lyDo;
+    }
+
+    mapping(bytes32 => TransferRecord) public transfers;
+
+    event TransferSubmitted(
+        bytes32 indexed maChuyenGiao,
+        address indexed benGui,
+        address indexed benNhan,
+        uint256 thoiGian
+    );
+
+    event TransferReceived(
+        bytes32 indexed maChuyenGiao,
+        address indexed benNhan,
+        uint256 thoiGian
+    );
+
+    event TransferRejected(
+        bytes32 indexed maChuyenGiao,
+        address indexed benNhan,
+        uint256 thoiGian,
+        string lyDo
+    );
+
     // --- LỖI TỰ ĐỊNH NGHĨA (CUSTOM ERRORS) ---
     error Unauthorized();
     error InvalidAddress();
@@ -138,5 +172,56 @@ contract BatchTraceability {
             payloadHash,
             block.timestamp
         );
+    }
+
+    // --- QUẢN LÝ CHUYỂN GIAO LÔ HÀNG ON-CHAIN ---
+    function submitTransfer(bytes32 maChuyenGiao, address benNhan) external onlyWriter {
+        if (maChuyenGiao == bytes32(0) || benNhan == address(0)) revert InvalidEventData();
+
+        TransferRecord storage record = transfers[maChuyenGiao];
+        record.maChuyenGiao = maChuyenGiao;
+        record.benGui = msg.sender;
+        record.benNhan = benNhan;
+        record.status = TransferStatus.PENDING;
+        record.thoiGian = block.timestamp;
+
+        emit TransferSubmitted(maChuyenGiao, msg.sender, benNhan, block.timestamp);
+    }
+
+    function receiveTransfer(bytes32 maChuyenGiao) external onlyWriter {
+        if (maChuyenGiao == bytes32(0)) revert InvalidEventData();
+
+        TransferRecord storage record = transfers[maChuyenGiao];
+        record.maChuyenGiao = maChuyenGiao;
+        record.benNhan = msg.sender;
+        record.status = TransferStatus.RECEIVED;
+        record.thoiGian = block.timestamp;
+
+        emit TransferReceived(maChuyenGiao, msg.sender, block.timestamp);
+    }
+
+    /**
+     * @notice Từ chối tiếp nhận chuyển giao lô hàng
+     * @param maChuyenGiao Mã chuyển giao dạng bytes32
+     * @param lyDo Lý do từ chối tiếp nhận
+     */
+    function rejectTransfer(bytes32 maChuyenGiao, string calldata lyDo) public onlyWriter {
+        if (maChuyenGiao == bytes32(0)) revert InvalidEventData();
+
+        TransferRecord storage record = transfers[maChuyenGiao];
+        record.maChuyenGiao = maChuyenGiao;
+        record.benNhan = msg.sender;
+        record.status = TransferStatus.REJECTED;
+        record.thoiGian = block.timestamp;
+        record.lyDo = lyDo;
+
+        emit TransferRejected(maChuyenGiao, msg.sender, block.timestamp, lyDo);
+    }
+
+    /**
+     * @notice Hủy chuyển giao / Từ chối tiếp nhận (Alias)
+     */
+    function cancelTransfer(bytes32 maChuyenGiao, string calldata lyDo) external onlyWriter {
+        rejectTransfer(maChuyenGiao, lyDo);
     }
 }

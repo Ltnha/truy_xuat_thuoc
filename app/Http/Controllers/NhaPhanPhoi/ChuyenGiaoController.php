@@ -164,6 +164,51 @@ class ChuyenGiaoController extends Controller
     }
 
     /**
+     * POST /nha-phan-phoi/api/chuyen-giao/{chuyenGiao}/tu-choi
+     * NPP từ chối nhận hàng → chuyển trạng thái đơn sang CANCELLED, hoàn trả số lượng khả dụng cho bên gửi.
+     */
+    public function tuChoi(Request $request, ChuyenGiao $chuyenGiao): JsonResponse
+    {
+        $user = $request->user();
+        $toChuc = $user->toChuc;
+
+        if ($toChuc === null) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tài khoản chưa được liên kết với tổ chức.',
+            ], 403);
+        }
+
+        $lyDo = $request->input('lyDo', 'Nhà phân phối từ chối tiếp nhận lô hàng');
+
+        try {
+            $this->chuyenGiaoService->tuChoi($chuyenGiao, $toChuc, $user, $request->ip(), $lyDo);
+        } catch (NghiepVuException $exception) {
+            return response()->json([
+                'success' => false,
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+
+        $chuyenGiao->refresh()->load(['loThuoc.sanPham', 'benGui']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Đã từ chối nhận hàng và hoàn trả số lượng khả dụng.',
+            'data' => [
+                'chuyenGiaoId' => $chuyenGiao->id,
+                'maChuyenGiao' => $chuyenGiao->maChuyenGiao,
+                'trangThai' => $chuyenGiao->trangThai instanceof TransferStatus
+                    ? $chuyenGiao->trangThai->value
+                    : (string) $chuyenGiao->trangThai,
+                'thoiGianXacNhan' => optional($chuyenGiao->thoiGianXacNhan)?->toIso8601String(),
+                'txHash' => $chuyenGiao->txHash,
+                'soLuong' => (int) $chuyenGiao->soLuong,
+            ],
+        ]);
+    }
+
+    /**
      * GET /nha-phan-phoi/api/ton-kho
      * Tồn kho lô của tổ chức NPP hiện tại.
      */

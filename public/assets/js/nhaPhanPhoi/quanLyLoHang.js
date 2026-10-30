@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const API_CHO_NHAN = '/nha-phan-phoi/api/chuyen-giao/cho-nhan';
     const API_TON_KHO = '/nha-phan-phoi/api/ton-kho';
     const API_XAC_NHAN = (id) => `/nha-phan-phoi/api/chuyen-giao/${id}/xac-nhan`;
+    const API_TU_CHOI = (id) => `/nha-phan-phoi/api/chuyen-giao/${id}/tu-choi`;
 
     let trangHienTaiPending = 1;
     let trangHienTaiKho = 1;
@@ -417,6 +418,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // ── Modal nhận hàng ──
     const modalXacNhanNhan = document.getElementById('modalXacNhanNhan');
     const nutXacNhanNhapKho = document.getElementById('nutXacNhanNhapKho');
+    const nutTuChoiNhan = document.getElementById('nutTuChoiNhan');
     const nhanKetQuaDoiChieu = document.getElementById('nhanKetQuaDoiChieu');
     const linkBaoCaoTuNhanHang = document.getElementById('linkBaoCaoTuNhanHang');
 
@@ -453,6 +455,10 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
+        if (nutTuChoiNhan) {
+            nutTuChoiNhan.disabled = false;
+        }
+
         if (linkBaoCaoTuNhanHang) {
             linkBaoCaoTuNhanHang.href = `/bao-cao-nghi-van?maLo=${encodeURIComponent(item.maLo || '')}`;
         }
@@ -479,6 +485,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const id = itemPendingDangChon.id;
             const originalHtml = this.innerHTML;
             this.disabled = true;
+            if (nutTuChoiNhan) nutTuChoiNhan.disabled = true;
             this.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang xử lý...';
 
             try {
@@ -491,6 +498,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 alert('Xác nhận thất bại: ' + e.message);
             } finally {
                 this.disabled = false;
+                if (nutTuChoiNhan) nutTuChoiNhan.disabled = false;
+                this.innerHTML = originalHtml;
+            }
+        });
+    }
+
+    // [1B. XỬ LÝ NÚT TỪ CHỐI NHẬN HÀNG]
+    if (nutTuChoiNhan) {
+        nutTuChoiNhan.addEventListener('click', async function () {
+            if (!itemPendingDangChon || this.disabled) return;
+
+            const chapNhanTuChoi = confirm('Bạn có chắc chắn muốn từ chối nhận lô hàng này? Lô hàng sẽ được hoàn trả về số lượng khả dụng của nhà sản xuất.');
+            if (!chapNhanTuChoi) return;
+
+            const id = itemPendingDangChon.id;
+            const originalHtml = this.innerHTML;
+            this.disabled = true;
+            if (nutXacNhanNhapKho) nutXacNhanNhapKho.disabled = true;
+            this.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang từ chối...';
+
+            try {
+                const json = await apiPost(API_TU_CHOI(id), {
+                    lyDo: 'Nhà phân phối từ chối nhận hàng',
+                });
+                alert(json.message || 'Đã từ chối nhận hàng thành công!');
+                modalXacNhanNhan?.classList.add('hidden');
+                itemPendingDangChon = null;
+                await taiTatCa();
+            } catch (e) {
+                alert('Từ chối nhận hàng thất bại: ' + e.message);
+            } finally {
+                this.disabled = false;
+                if (nutXacNhanNhapKho) nutXacNhanNhapKho.disabled = false;
                 this.innerHTML = originalHtml;
             }
         });

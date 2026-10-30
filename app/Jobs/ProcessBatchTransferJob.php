@@ -43,6 +43,22 @@ class ProcessBatchTransferJob implements ShouldQueue
             throw new Exception("Chuyển giao #{$this->chuyenGiaoId} không gắn lô thuốc hợp lệ.");
         }
 
+        // 🚨 GUARD: Nếu đơn chuyển giao đã bị TỪ CHỐI hoặc HỦY bởi NPP,
+        // không cần ký on-chain nữa. Đánh FAILED blockchainTx PENDING và thoát.
+        $trangThaiCG = $cg->trangThai instanceof \App\Enums\TransferStatus
+            ? $cg->trangThai->value
+            : strtoupper((string) $cg->trangThai);
+
+        if (in_array($trangThaiCG, ['CANCELLED', 'REJECTED'], true)) {
+            Log::info("[ProcessBatchTransferJob] CG #{$cg->id} đã bị TỪ CHỐI/HỦY (trangThai={$trangThaiCG}). Bỏ qua ký on-chain.");
+            // Đảm bảo blockchainTransaction PENDING gắn với đơn này được đánh FAILED
+            // để UI phía NSX dừng hiển thị \"Đang xử lý Queue\"
+            \App\Models\BlockchainTransaction::where('chuyenGiaoId', $cg->id)
+                ->where('trangThai', 'PENDING')
+                ->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
+            return; // Xóa job khỏi queue mà không retry
+        }
+
         // 1. Tính 4 tham số bytes32 (cùng pattern BatchTraceability.sol)
         $batchId = '0x' . hash('sha256', 'BATCH_' . $loThuoc->maLo);
         $businessId = '0x' . hash('sha256', 'TRANSFER_' . $cg->id . '_' . $loThuoc->maLo);

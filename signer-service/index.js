@@ -176,6 +176,11 @@ app.post('/tx', authMiddleware, async (req, res) => {
                 params.eventType,
                 params.payloadHash
             );
+        } else if (action === 'rejectTransfer' || action === 'cancelTransfer') {
+            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && params.maChuyenGiao.startsWith('0x') && params.maChuyenGiao.length === 66
+                ? params.maChuyenGiao
+                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
+            tx = await contract.rejectTransfer(mgdBytes32, params.lyDo || '');
         } else {
             return res.status(400).json({ ok: false, reason: `Action [${action}] chưa được hỗ trợ` });
         }

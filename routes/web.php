@@ -152,6 +152,10 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::post('/api/chuyen-giao/{chuyenGiao}/xac-nhan', [NppChuyenGiaoController::class, 'xacNhan'])
                 ->name('nha-phan-phoi.api.xac-nhan');
 
+            // API: từ chối nhận hàng
+            Route::post('/api/chuyen-giao/{chuyenGiao}/tu-choi', [NppChuyenGiaoController::class, 'tuChoi'])
+                ->name('nha-phan-phoi.api.tu-choi');
+
             // API: tồn kho lô của NPP
             Route::get('/api/ton-kho', [NppChuyenGiaoController::class, 'danhSachTonKho'])
                 ->name('nha-phan-phoi.api.ton-kho');

@@ -24,8 +24,10 @@ class GhiNhanBlockchain
     {
         $ketQua = $this->gateway->ghiNhan($tenNghiepVu, [
             'businessId' => $businessId,
+            'maGiaoDich' => $businessId,
             'toChucId' => $toChuc->id,
             'loThuocId' => $loThuoc->id,
+            'maLo' => $loThuoc->maLoNghiepVu ?? $loThuoc->maLo,
             ...$thamChieu,
         ]);
         $txHash = $ketQua['txHash'] ?? null;

@@ -91,8 +91,7 @@ CREATE TABLE nhatKyHeThong (
     ketQua ENUM('THANH_CONG','BI_TU_CHOI','LOI') NOT NULL DEFAULT 'THANH_CONG',
     thoiGian DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     chiTiet TEXT,
-    FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id),
-    FOREIGN KEY (doiTuongId) REFERENCES taiKhoan(id)
+    FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id)   -- v7 
 );
 
 -- 7. Bảng sanPham
@@ -212,7 +211,7 @@ CREATE TABLE chuyenGiao (
     soLuong INT NOT NULL,
     thoiGianKhoiTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     thoiGianXacNhan DATETIME NULL,
-    trangThai ENUM('PENDING','RECEIVED') NOT NULL DEFAULT 'PENDING',
+    trangThai ENUM('PENDING','RECEIVED','CANCELLED','REJECTED') NOT NULL DEFAULT 'PENDING', --  v7
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (benGuiId) REFERENCES toChuc(id),
     FOREIGN KEY (benNhanId) REFERENCES toChuc(id),
