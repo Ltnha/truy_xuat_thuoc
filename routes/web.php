@@ -19,6 +19,8 @@ use App\Http\Controllers\CoQuan\DuyetSanPhamController;
 use App\Http\Controllers\QuanTri\TaiKhoanController;
 use App\Http\Controllers\QuanTri\NhatKyController;
 use App\Http\Controllers\NhaPhanPhoi\ChuyenGiaoController as NppChuyenGiaoController;
+use App\Http\Controllers\NhaPhanPhoi\QuanLyLoHangController;
+use App\Http\Controllers\NhaThuoc\TiepNhanLoHangController;
 
 // --- CONTROLLERS BÁO CÁO & BLOCKCHAIN ---
 use App\Http\Controllers\BaoCao\BaoCaoNghiVanController;
@@ -141,35 +143,50 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
     Route::middleware(['kiem.tra.vai.tro:NHA_PHAN_PHOI', 'to.chuc.da.duyet'])
         ->prefix('nha-phan-phoi')
         ->group(function () {
-            Route::get('/quan-ly-lo-hang', fn () => view('nhaPhanPhoi.quanLyLoHang'))
+            // Trang chính
+            Route::get('/quan-ly-lo-hang', [QuanLyLoHangController::class, 'index'])
                 ->name('nha-phan-phoi.lo-hang');
 
-            // API: danh sách chờ tiếp nhận (PENDING)
-            Route::get('/api/chuyen-giao/cho-nhan', [NppChuyenGiaoController::class, 'danhSachChoNhan'])
-                ->name('nha-phan-phoi.api.cho-nhan');
+            // API dữ liệu thật
+            Route::get('/api/cho-tiep-nhan', [QuanLyLoHangController::class, 'danhSachChoTiepNhan'])
+                ->name('nha-phan-phoi.api.cho-tiep-nhan');
+            Route::get('/api/kho', [QuanLyLoHangController::class, 'danhSachKho'])
+                ->name('nha-phan-phoi.api.kho');
+            Route::get('/api/nha-thuoc', [QuanLyLoHangController::class, 'danhSachNhaThuoc'])
+                ->name('nha-phan-phoi.api.nha-thuoc');
+            Route::post('/api/chuyen-giao', [QuanLyLoHangController::class, 'taoChuyenGiao'])
+                ->name('nha-phan-phoi.api.chuyen-giao');
+            Route::post('/api/tiep-nhan/{id}', [QuanLyLoHangController::class, 'tiepNhan'])
+                ->name('nha-phan-phoi.api.tiep-nhan');
 
-            // API: xác nhận nhận hàng + cập nhật tồn kho
-            Route::post('/api/chuyen-giao/{chuyenGiao}/xac-nhan', [NppChuyenGiaoController::class, 'xacNhan'])
-                ->name('nha-phan-phoi.api.xac-nhan');
-
-            // API: từ chối nhận hàng
-            Route::post('/api/chuyen-giao/{chuyenGiao}/tu-choi', [NppChuyenGiaoController::class, 'tuChoi'])
-                ->name('nha-phan-phoi.api.tu-choi');
-
-            // API: tồn kho lô của NPP
-            Route::get('/api/ton-kho', [NppChuyenGiaoController::class, 'danhSachTonKho'])
-                ->name('nha-phan-phoi.api.ton-kho');
+            Route::get('/bao-cao-nghi-van', [\App\Http\Controllers\BaoCao\BaoCaoNghiVanController::class, 'indexAuth'])
+                ->name('nha-phan-phoi.bao-cao');
         });
+
     // ════════════════════════════════════════════════════════════════
     // NHÀ THUỐC
     // ════════════════════════════════════════════════════════════════
     Route::middleware(['kiem.tra.vai.tro:NHA_THUOC', 'to.chuc.da.duyet'])
         ->prefix('nha-thuoc')
         ->group(function () {
-            Route::get('/tiep-nhan-lo-hang', fn() => view('nhaThuoc.tiepNhanLoHang'))->name('nha-thuoc.tiep-nhan');
-            Route::get('/quan-ly-ban-hang', fn() => view('nhaThuoc.quanLyBanHang'))->name('nha-thuoc.ban-hang');
-            Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('nha-thuoc.bao-cao');
+            // Trang chính
+            Route::get('/tiep-nhan-lo-hang', [TiepNhanLoHangController::class, 'index'])
+                ->name('nha-thuoc.tiep-nhan');
+
+            // API dữ liệu thật
+            Route::get('/api/cho-xac-nhan', [TiepNhanLoHangController::class, 'danhSachChoXacNhan'])
+                ->name('nha-thuoc.api.cho-xac-nhan');
+            Route::get('/api/da-tiep-nhan', [TiepNhanLoHangController::class, 'danhSachDaTiepNhan'])
+                ->name('nha-thuoc.api.da-tiep-nhan');
+            Route::post('/api/xac-nhan/{id}', [TiepNhanLoHangController::class, 'xacNhan'])
+                ->name('nha-thuoc.api.xac-nhan');
+
+            Route::get('/quan-ly-ban-hang', fn () => view('nhaThuoc.quanLyBanHang'))
+                ->name('nha-thuoc.ban-hang');
+            Route::get('/bao-cao-nghi-van', [\App\Http\Controllers\BaoCao\BaoCaoNghiVanController::class, 'indexAuth'])
+                ->name('nha-thuoc.bao-cao');
         });
+
 
     // ════════════════════════════════════════════════════════════════
     // QUẢN TRỊ VIÊN HỆ THỐNG

@@ -159,21 +159,33 @@ class ChuyenGiaoService
                 ],
             );
 
-            // Chuyển trạng thái đơn chuyenGiao sang CANCELLED (để tự động giải phóng soLuongKhaDung trả về kho NSX)
+            // Chuyển trạng thái đơn chuyenGiao sang CANCELLED / REJECTED
+            // → soLuongKhaDung bên gửi được giải phóng (chỉ trừ PENDING)
             $chuyenGiao->update([
                 'trangThai' => TransferStatus::cancelled,
                 'thoiGianXacNhan' => now(),
                 'txHash' => $txHash,
             ]);
 
-            // ĐÁP ỨNG NGAY: Cập nhật blockchainTransaction PENDING cũ sang FAILED
-            // để phía NSX dừng polling "Đang xử lý Queue" ngay lập tức.
+            // Cập nhật blockchainTransaction PENDING của CG này → FAILED
+            // (NSX không còn thấy "Đang xử lý Queue" cho giao dịch chuyển này)
             \App\Models\BlockchainTransaction::where('chuyenGiaoId', $chuyenGiao->id)
                 ->where('trangThai', 'PENDING')
                 ->update([
                     'trangThai' => 'FAILED',
                     'thoiGian'  => now(),
                 ]);
+
+            // Nếu lô không còn đơn PENDING nào khác → trả trạng thái lô về CREATED
+            // để NSX thấy nút Chuyển giao và badge hợp lý
+            $conPending = ChuyenGiao::query()
+                ->where('loThuocId', $loThuoc->id)
+                ->where('trangThai', TransferStatus::pending)
+                ->exists();
+
+            if (! $conPending && (string) ($loThuoc->trangThai?->value ?? $loThuoc->trangThai) === 'IN_TRANSIT') {
+                $loThuoc->update(['trangThai' => 'CREATED']);
+            }
 
             // Ghi nhật ký NhatKyHeThong hành động TU_CHOI_CHUYEN_GIAO đầy đủ doiTuongId, chiTiet, IP
             NhatKyHeThong::query()->create([

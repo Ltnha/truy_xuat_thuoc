@@ -18,9 +18,59 @@ document.addEventListener('DOMContentLoaded', function () {
     let pollingInterval = null;
 
     // ================== HELPERS ==================
-    function getLatestTx(item) {
+    function getTxList(item) {
         const list = item.blockchain_transactions || item.blockchainTransactions || [];
-        if (!Array.isArray(list) || list.length === 0) return null;
+        return Array.isArray(list) ? list : [];
+    }
+
+    function getLatestTx(item) {
+        const list = getTxList(item);
+        if (list.length === 0) return null;
+        return [...list].sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+    }
+
+    /**
+     * Lấy giao dịch ghi nhận LÔ (Batch Registration) – không lấy giao dịch chuyển giao.
+     * Ưu tiên eventName chứa Batch / Registration / không gắn chuyenGiaoId.
+     */
+    function getBatchRegistrationTx(item) {
+        const list = getTxList(item);
+        if (list.length === 0) return null;
+
+        const reg = list.filter(tx => {
+            const ev = String(tx.eventName || tx.event_name || '').toUpperCase();
+            const hasCg = tx.chuyenGiaoId != null || tx.chuyen_giao_id != null;
+            // Giao dịch đăng ký lô: không gắn chuyenGiao, hoặc event là batch registration
+            if (hasCg) return false;
+            if (ev.includes('TRANSFER')) return false;
+            return true;
+        });
+
+        if (reg.length > 0) {
+            return [...reg].sort((a, b) => (b.id || 0) - (a.id || 0))[0];
+        }
+
+        // Fallback: lấy tx CONFIRMED cũ nhất không phải PENDING_
+        const confirmed = list.filter(tx => {
+            const st = String(tx.trangThai || '').toUpperCase();
+            const hash = String(tx.txHash || '');
+            return (st === 'CONFIRMED' || st === 'SUCCESS') && hash && !hash.startsWith('PENDING_');
+        });
+        if (confirmed.length > 0) {
+            return [...confirmed].sort((a, b) => (a.id || 0) - (b.id || 0))[0];
+        }
+        return null;
+    }
+
+    /**
+     * Giao dịch chuyển giao gần nhất (có chuyenGiaoId)
+     */
+    function getLatestTransferTx(item) {
+        const list = getTxList(item).filter(tx =>
+            tx.chuyenGiaoId != null || tx.chuyen_giao_id != null
+            || String(tx.eventName || '').toUpperCase().includes('TRANSFER')
+        );
+        if (list.length === 0) return null;
         return [...list].sort((a, b) => (b.id || 0) - (a.id || 0))[0];
     }
 
@@ -40,8 +90,15 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!tx || isTxPending(tx)) return false;
         const st = String(tx.trangThai || '').toUpperCase();
         const hash = String(tx.txHash || '');
+        if (st === 'FAILED' || st === 'REJECTED' || st === 'CANCELLED') return false;
         if (st === 'CONFIRMED' || st === 'SUCCESS') return true;
         return !!(hash && !hash.startsWith('PENDING_'));
+    }
+
+    function isTxFailedOrRejected(tx) {
+        if (!tx) return false;
+        const st = String(tx.trangThai || '').toUpperCase();
+        return st === 'FAILED' || st === 'REJECTED' || st === 'CANCELLED';
     }
 
     function escapeHtml(str) {
@@ -154,30 +211,52 @@ document.addEventListener('DOMContentLoaded', function () {
         const danhSachTrang = danhSachDaLoc.slice(batDau, ketThuc);
 
         thanBang.innerHTML = danhSachTrang.map(item => {
-            const bctx = getLatestTx(item);
-            const txHash = bctx ? bctx.txHash : null;
-            const pending = isTxPending(bctx);
-            const confirmed = isTxConfirmed(bctx);
+            // Tx đăng ký lô (để quyết định có được chuyển giao) vs tx chuyển giao gần nhất (để hiển thị)
+            const batchTx = getBatchRegistrationTx(item);
+            const transferTx = getLatestTransferTx(item);
+            const latestTx = getLatestTx(item);
 
+            const batchConfirmed = isTxConfirmed(batchTx);
+            const batchPending = isTxPending(batchTx);
+            const transferPending = isTxPending(transferTx);
+            const transferFailed = isTxFailedOrRejected(transferTx);
+
+            // Cột mã On-chain: ưu tiên hiển thị tx đăng ký lô; nếu đang chuyển thì ghi chú thêm
             let txHtml = `<span class="text-slate-400 italic text-[11px]">Chưa gửi</span>`;
-            if (pending) {
+            const displayTx = batchTx || latestTx;
+            const displayHash = displayTx ? displayTx.txHash : null;
+
+            if (batchPending) {
                 txHtml = `<span class="inline-flex items-center gap-1.5 px-2 py-0.5 bg-amber-50 text-amber-800 border border-amber-200 rounded text-[11px] font-semibold">
                     <i class="fa-solid fa-spinner fa-spin text-amber-600"></i> Đang xử lý Queue
                 </span>`;
-            } else if (bctx && String(bctx.trangThai || '').toUpperCase() === 'FAILED') {
-                txHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[11px] font-semibold">Gửi thất bại</span>`;
-            } else if (confirmed && txHash) {
-                const short = txHash.length > 14
-                    ? `${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}`
-                    : txHash;
-                txHtml = `<a href="https://sepolia.etherscan.io/tx/${txHash}" target="_blank" rel="noopener"
+            } else if (batchTx && isTxFailedOrRejected(batchTx)) {
+                txHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[11px] font-semibold">Ghi lô thất bại</span>`;
+            } else if (batchConfirmed && displayHash && !String(displayHash).startsWith('PENDING_')) {
+                const short = displayHash.length > 14
+                    ? `${displayHash.substring(0, 8)}...${displayHash.substring(displayHash.length - 6)}`
+                    : displayHash;
+                txHtml = `<a href="https://sepolia.etherscan.io/tx/${displayHash}" target="_blank" rel="noopener"
                     class="text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 hover:underline font-mono text-[11px]"
-                    title="${escapeHtml(txHash)}">${escapeHtml(short)}</a>`;
+                    title="${escapeHtml(displayHash)}">${escapeHtml(short)}</a>`;
+                if (transferFailed) {
+                    txHtml += `<div class="mt-0.5 text-[10px] text-rose-600 font-semibold">Chuyển giao bị từ chối</div>`;
+                } else if (transferPending) {
+                    txHtml += `<div class="mt-0.5 text-[10px] text-amber-600 font-semibold">Đang chuyển giao...</div>`;
+                }
+            } else if (transferFailed) {
+                txHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[11px] font-semibold">CG bị từ chối</span>`;
             }
 
+            // Cột trạng thái nghiệp vụ lô
             let badgeStatusHtml = renderBadgeTrangThai(item.trangThai);
-            if (pending) {
+            if (batchPending) {
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">Chờ On-chain</span>`;
+            } else if (transferPending) {
+                badgeStatusHtml = `<span class="px-2 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-full text-[10px] font-bold">Đang chờ NPP nhận</span>`;
+            } else if (transferFailed && getKhaDung(item) > 0) {
+                // NPP từ chối → hàng đã hoàn về, hiển thị trạng thái sẵn sàng chuyển lại
+                badgeStatusHtml = `<span class="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold">Sẵn sàng chuyển</span>`;
             }
 
             const tenSp = item.san_pham?.tenSanPham || item.sanPham?.tenSanPham || 'N/A';
@@ -185,7 +264,9 @@ document.addEventListener('DOMContentLoaded', function () {
             const soLuong = Number(item.soLuong || 0);
             const khaDung = getKhaDung(item);
 
-            const canTransfer = confirmed && khaDung > 0 && item.trangThai !== 'RECALLED';
+            // Nút Chuyển giao: chỉ cần lô đã ghi on-chain + còn khả dụng + không bị thu hồi
+            // KHÔNG phụ thuộc tx chuyển giao gần nhất (tránh mất nút khi NPP từ chối)
+            const canTransfer = batchConfirmed && khaDung > 0 && item.trangThai !== 'RECALLED' && !transferPending;
 
             return `
                 <tr class="hover:bg-slate-50/80 transition-colors">
@@ -235,9 +316,13 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        const tx = getLatestTx(item);
-        if (!isTxConfirmed(tx)) {
+        const batchTx = getBatchRegistrationTx(item);
+        if (!isTxConfirmed(batchTx)) {
             alert('Lô thuốc chưa được ghi nhận On-chain thành công. Vui lòng đợi đồng bộ xong trước khi chuyển giao.');
+            return;
+        }
+        if (isTxPending(getLatestTransferTx(item))) {
+            alert('Lô này đang có yêu cầu chuyển giao chờ Nhà phân phối xác nhận. Vui lòng đợi hoặc chờ bên nhận từ chối/nhận xong.');
             return;
         }
 
