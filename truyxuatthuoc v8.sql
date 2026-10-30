@@ -388,19 +388,19 @@ VALUES
 INSERT INTO taiKhoan
     (id, tenDangNhap, matKhau, email, vaiTro, trangThai, toChucId, ngayTao)
 VALUES
-    (1, 'admin.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'admin.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-10-01 08:00:00'),
-    (2, 'coquan.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'coquan.demo@example.test', 'CO_QUAN_QUAN_LY', 'ACTIVE', 4, '2026-10-01 08:05:00'),
-    (3, 'nsx.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'nsx.demo@example.test', 'NHA_SAN_XUAT', 'ACTIVE', 1, '2026-10-01 08:10:00'),
-    (4, 'npp.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'npp.demo@example.test', 'NHA_PHAN_PHOI', 'ACTIVE', 2, '2026-10-01 08:15:00'),
-    (5, 'nhathuoc.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'nhathuoc.demo@example.test', 'NHA_THUOC', 'ACTIVE', 3, '2026-10-01 08:20:00'),
-    (6, 'nsx.choduyet.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'nsx.choduyet.demo@example.test', 'NHA_SAN_XUAT', 'PENDING', 5, '2026-10-05 09:00:00'),
-    (7, 'songhan.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'songhan.demo@example.test', 'NHA_SAN_XUAT', 'ACTIVE', 6, '2026-10-01 09:00:00'),
-    (8, 'caonguyen.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'caonguyen.demo@example.test', 'NHA_SAN_XUAT', 'ACTIVE', 7, '2026-10-02 09:00:00'),
-    (9, 'mientay.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'mientay.demo@example.test', 'NHA_PHAN_PHOI', 'ACTIVE', 8, '2026-10-03 09:00:00'),
-    (10, 'hoasen.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'hoasen.demo@example.test', 'NHA_THUOC', 'ACTIVE', 9, '2026-10-04 09:00:00'),
-    (11, 'cantho.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'cantho.demo@example.test', 'CO_QUAN_QUAN_LY', 'PENDING', 10, '2026-10-05 09:00:00'),
-    (12, 'admin.mo-rong.demo', '$2y$12$6/7/OIsgR39uGvQyD.2Oq.76cM8Jq3xN4A/8fP7mD2z1L3uX4kK1C', 'admin.mo-rong.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-10-06 09:00:00'),
-    (13, 'cqql.demo', '$2y$10$Zi0DJPfM42Uslc39G53WWuVLqd1L2sOOzGTsUWAsC/tpvKFiwje6q', 'cqql.cantho@example.test', 'CO_QUAN_QUAN_LY', 'ACTIVE', 11, '2026-10-06 10:00:00');
+    (1, 'admin.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'admin.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-10-01 08:00:00'),
+    (2, 'coquan.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'coquan.demo@example.test', 'CO_QUAN_QUAN_LY', 'ACTIVE', 4, '2026-10-01 08:05:00'),
+    (3, 'nsx.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'nsx.demo@example.test', 'NHA_SAN_XUAT', 'ACTIVE', 1, '2026-10-01 08:10:00'),
+    (4, 'npp.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'npp.demo@example.test', 'NHA_PHAN_PHOI', 'ACTIVE', 2, '2026-10-01 08:15:00'),
+    (5, 'nhathuoc.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'nhathuoc.demo@example.test', 'NHA_THUOC', 'ACTIVE', 3, '2026-10-01 08:20:00'),
+    (6, 'nsx.choduyet.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'nsx.choduyet.demo@example.test', 'NHA_SAN_XUAT', 'PENDING', 5, '2026-10-05 09:00:00'),
+    (7, 'songhan.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'songhan.demo@example.test', 'NHA_SAN_XUAT', 'ACTIVE', 6, '2026-10-01 09:00:00'),
+    (8, 'caonguyen.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'caonguyen.demo@example.test', 'NHA_SAN_XUAT', 'ACTIVE', 7, '2026-10-02 09:00:00'),
+    (9, 'mientay.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'mientay.demo@example.test', 'NHA_PHAN_PHOI', 'ACTIVE', 8, '2026-10-03 09:00:00'),
+    (10, 'hoasen.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'hoasen.demo@example.test', 'NHA_THUOC', 'ACTIVE', 9, '2026-10-04 09:00:00'),
+    (11, 'cantho.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'cantho.demo@example.test', 'CO_QUAN_QUAN_LY', 'PENDING', 10, '2026-10-05 09:00:00'),
+    (12, 'admin.mo-rong.demo', '$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'admin.mo-rong.demo@example.test', 'QUAN_TRI_VIEN', 'ACTIVE', NULL, '2026-1₀-₀6 ₀9:₀₀:₀₀'),
+    (13, 'cqql.demo', '$$2y$10$UZGNvs2fFlkL6q.tSzGoVeQ.Yv80AJdRE4OD.wbCeVPtIwTLjJ5OK', 'cqql.cantho@example.test', 'CO_QUAN_QUAN_LY', 'ACTIVE', 11, '2₀₂₆-₁₀-₀₆ ₁₀:₀₀:₀₀');
 
 -- 3. Bảng nhatKyHeThong
 INSERT INTO nhatKyHeThong (id, taiKhoanId, doiTuongId, hanhDong, ketQua, thoiGian, chiTiet)
