@@ -1,5 +1,4 @@
--- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION 3.2)
--- Database Schema chuẩn hóa kết hợp giữa v3 và v3.1
+-- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION v8)
 
 CREATE DATABASE IF NOT EXISTS truyxuatthuoc CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE truyxuatthuoc;
@@ -309,6 +308,28 @@ CREATE TABLE blockchainTransaction (
     FOREIGN KEY (donViSanPhamId) REFERENCES donViSanPham(id),
     FOREIGN KEY (banLeId) REFERENCES banLe(id)
 );
+-- 22. Bảng lưu hàng đợi xử lý ngầm (Jobs) v8
+CREATE TABLE IF NOT EXISTS `jobs` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `queue` VARCHAR(255) NOT NULL,
+  `payload` LONGTEXT NOT NULL,
+  `attempts` TINYINT UNSIGNED NOT NULL,
+  `reserved_at` INT UNSIGNED NULL,
+  `available_at` INT UNSIGNED NOT NULL,
+  `created_at` INT UNSIGNED NOT NULL,
+  INDEX `jobs_queue_index` (`queue`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 23. Bảng lưu các Job bị lỗi (Failed Jobs) v8 
+CREATE TABLE IF NOT EXISTS `failed_jobs` (
+  `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  `uuid` VARCHAR(255) NOT NULL UNIQUE,
+  `connection` TEXT NOT NULL,
+  `queue` TEXT NOT NULL,
+  `payload` LONGTEXT NOT NULL,
+  `exception` LONGTEXT NOT NULL,
+  `failed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 21. Các Index tối ưu truy vấn
 CREATE INDEX idx_taikhoan_tochuc ON taiKhoan(toChucId);

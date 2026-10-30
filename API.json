@@ -151,6 +151,93 @@
 		"inputs": [
 			{
 				"indexed": true,
+				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "benNhan",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "thoiGian",
+				"type": "uint256"
+			}
+		],
+		"name": "TransferReceived",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "benNhan",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "thoiGian",
+				"type": "uint256"
+			},
+			{
+				"indexed": false,
+				"internalType": "string",
+				"name": "lyDo",
+				"type": "string"
+			}
+		],
+		"name": "TransferRejected",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
+				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "benGui",
+				"type": "address"
+			},
+			{
+				"indexed": true,
+				"internalType": "address",
+				"name": "benNhan",
+				"type": "address"
+			},
+			{
+				"indexed": false,
+				"internalType": "uint256",
+				"name": "thoiGian",
+				"type": "uint256"
+			}
+		],
+		"name": "TransferSubmitted",
+		"type": "event"
+	},
+	{
+		"anonymous": false,
+		"inputs": [
+			{
+				"indexed": true,
 				"internalType": "address",
 				"name": "writer",
 				"type": "address"
@@ -215,6 +302,24 @@
 			}
 		],
 		"stateMutability": "view",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "string",
+				"name": "lyDo",
+				"type": "string"
+			}
+		],
+		"name": "cancelTransfer",
+		"outputs": [],
+		"stateMutability": "nonpayable",
 		"type": "function"
 	},
 	{
@@ -295,6 +400,19 @@
 		"inputs": [
 			{
 				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			}
+		],
+		"name": "receiveTransfer",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
 				"name": "batchId",
 				"type": "bytes32"
 			},
@@ -341,6 +459,24 @@
 	{
 		"inputs": [
 			{
+				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "string",
+				"name": "lyDo",
+				"type": "string"
+			}
+		],
+		"name": "rejectTransfer",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "address",
 				"name": "account",
 				"type": "address"
@@ -377,6 +513,24 @@
 	{
 		"inputs": [
 			{
+				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "address",
+				"name": "benNhan",
+				"type": "address"
+			}
+		],
+		"name": "submitTransfer",
+		"outputs": [],
+		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
 				"internalType": "address",
 				"name": "newOwner",
 				"type": "address"
@@ -385,6 +539,50 @@
 		"name": "transferOwnership",
 		"outputs": [],
 		"stateMutability": "nonpayable",
+		"type": "function"
+	},
+	{
+		"inputs": [
+			{
+				"internalType": "bytes32",
+				"name": "",
+				"type": "bytes32"
+			}
+		],
+		"name": "transfers",
+		"outputs": [
+			{
+				"internalType": "bytes32",
+				"name": "maChuyenGiao",
+				"type": "bytes32"
+			},
+			{
+				"internalType": "address",
+				"name": "benGui",
+				"type": "address"
+			},
+			{
+				"internalType": "address",
+				"name": "benNhan",
+				"type": "address"
+			},
+			{
+				"internalType": "enum BatchTraceability.TransferStatus",
+				"name": "status",
+				"type": "uint8"
+			},
+			{
+				"internalType": "uint256",
+				"name": "thoiGian",
+				"type": "uint256"
+			},
+			{
+				"internalType": "string",
+				"name": "lyDo",
+				"type": "string"
+			}
+		],
+		"stateMutability": "view",
 		"type": "function"
 	},
 	{
@@ -404,73 +602,6 @@
 			}
 		],
 		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "maChuyenGiao",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "benNhan",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "thoiGian",
-				"type": "uint256"
-			},
-			{
-				"indexed": false,
-				"internalType": "string",
-				"name": "lyDo",
-				"type": "string"
-			}
-		],
-		"name": "TransferRejected",
-		"type": "event"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "maChuyenGiao",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "string",
-				"name": "lyDo",
-				"type": "string"
-			}
-		],
-		"name": "rejectTransfer",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "maChuyenGiao",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "string",
-				"name": "lyDo",
-				"type": "string"
-			}
-		],
-		"name": "cancelTransfer",
-		"outputs": [],
-		"stateMutability": "nonpayable",
 		"type": "function"
 	}
 ]
