@@ -306,7 +306,6 @@ CREATE TABLE blockchainTransaction (
     FOREIGN KEY (sanPhamId) REFERENCES sanPham(id),
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (chuyenGiaoId) REFERENCES chuyenGiao(id),
-    INDEX idx_blockchainTransaction_chuyenGiaoId (chuyenGiaoId), --v8
     FOREIGN KEY (donViSanPhamId) REFERENCES donViSanPham(id),
     FOREIGN KEY (banLeId) REFERENCES banLe(id)
 );
@@ -363,3 +362,4 @@ CREATE INDEX idx_yeucaudk_trangthai ON yeuCauDangKy(trangThai);
 CREATE INDEX idx_yeucausp_trangthai ON yeuCauDangKySanPham(trangThai);
 CREATE INDEX idx_nhatky_ketqua ON nhatKyHeThong(ketQua);
 CREATE INDEX idx_bctx_eventname ON blockchainTransaction(eventName);
+CREATE INDEX idx_bctx_chuyengiao ON blockchainTransaction(chuyenGiaoId);
