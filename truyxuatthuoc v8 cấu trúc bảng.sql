@@ -212,6 +212,7 @@ CREATE TABLE chuyenGiao (
     thoiGianKhoiTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     thoiGianXacNhan DATETIME NULL,
     trangThai ENUM('PENDING','RECEIVED','CANCELLED','REJECTED') NOT NULL DEFAULT 'PENDING', -- v7
+    lyDoTuChoi VARCHAR(500) NULL AFTER trangThai;  -- v8
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (benGuiId) REFERENCES toChuc(id),
     FOREIGN KEY (benNhanId) REFERENCES toChuc(id),
@@ -305,6 +306,7 @@ CREATE TABLE blockchainTransaction (
     FOREIGN KEY (sanPhamId) REFERENCES sanPham(id),
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (chuyenGiaoId) REFERENCES chuyenGiao(id),
+    INDEX idx_blockchainTransaction_chuyenGiaoId (chuyenGiaoId), --v8
     FOREIGN KEY (donViSanPhamId) REFERENCES donViSanPham(id),
     FOREIGN KEY (banLeId) REFERENCES banLe(id)
 );

@@ -70,14 +70,13 @@ class ChuyenGiaoService
                 'trangThai' => TransferStatus::pending,
             ]);
 
-            $txHash = $this->ghiNhanBlockchain->ghi(
+            $this->ghiNhanBlockchain->ghi(
                 'TransferSubmitted',
                 $chuyenGiao->maChuyenGiao,
                 $benGui,
                 $loThuoc,
                 ['chuyenGiaoId' => $chuyenGiao->id, 'benNhanId' => $benNhan->id, 'soLuong' => $chuyenGiao->soLuong],
             );
-            $chuyenGiao->update(['txHash' => $txHash]);
 
             // Đã xóa câu lệnh LichSuLoThuoc::query()->create(...) gây lỗi CSDL
 
@@ -107,7 +106,7 @@ class ChuyenGiaoService
             $this->tonKhoService->tru($loThuoc->id, $chuyenGiao->benGuiId, (int) $chuyenGiao->soLuong);
             $this->tonKhoService->cong($loThuoc->id, $benNhan->id, (int) $chuyenGiao->soLuong);
 
-            $txHash = $this->ghiNhanBlockchain->ghi(
+            $this->ghiNhanBlockchain->ghi(
                 'TransferReceived',
                 $chuyenGiao->maChuyenGiao,
                 $benNhan,
@@ -117,7 +116,6 @@ class ChuyenGiaoService
             $chuyenGiao->update([
                 'trangThai' => TransferStatus::received,
                 'thoiGianXacNhan' => now(),
-                'txHash' => $txHash,
             ]);
 
             // Đã xóa câu lệnh LichSuLoThuoc::query()->create(...) gây lỗi CSDL
@@ -146,7 +144,7 @@ class ChuyenGiaoService
             $lyDoTuChoi = $lyDo ?: 'Nhà phân phối từ chối tiếp nhận đơn chuyển giao';
 
             // Kích hoạt gọi GhiNhanBlockchain::ghi() với sự kiện TransferRejected lên mạng Sepolia
-            $txHash = $this->ghiNhanBlockchain->ghi(
+            $this->ghiNhanBlockchain->ghi(
                 'TransferRejected',
                 $chuyenGiao->maChuyenGiao,
                 $benNhan,
@@ -164,12 +162,12 @@ class ChuyenGiaoService
             $chuyenGiao->update([
                 'trangThai' => TransferStatus::cancelled,
                 'thoiGianXacNhan' => now(),
-                'txHash' => $txHash,
             ]);
 
             // Cập nhật blockchainTransaction PENDING của CG này → FAILED
             // (NSX không còn thấy "Đang xử lý Queue" cho giao dịch chuyển này)
             \App\Models\BlockchainTransaction::where('chuyenGiaoId', $chuyenGiao->id)
+                ->where('txHash', 'like', 'PENDING_CG_%')
                 ->where('trangThai', 'PENDING')
                 ->update([
                     'trangThai' => 'FAILED',

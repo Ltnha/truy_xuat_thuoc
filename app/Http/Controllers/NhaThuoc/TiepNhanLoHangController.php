@@ -6,6 +6,7 @@ use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
 use App\Http\Controllers\Controller;
 use App\Models\ChuyenGiao;
+use App\Models\BlockchainTransaction;
 use App\Services\ChuoiCungUng\ChuyenGiaoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -68,7 +69,8 @@ class TiepNhanLoHangController extends Controller
                 'hanDung'       => optional($lo?->hanSuDung)->format('Y-m-d'),
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
-                'txHash'        => $cg->txHash,
+                'txHash'        => BlockchainTransaction::query()->where('chuyenGiaoId', $cg->id)->latest('id')->value('txHash'),
+                'lyDoTuChoi'    => $cg->lyDoTuChoi,
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });
@@ -126,7 +128,7 @@ class TiepNhanLoHangController extends Controller
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'ngayNhan'      => optional($cg->thoiGianXacNhan)->format('d/m/Y H:i'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
-                'txHash'        => $cg->txHash,
+                'txHash'        => BlockchainTransaction::query()->where('chuyenGiaoId', $cg->id)->latest('id')->value('txHash'),
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });

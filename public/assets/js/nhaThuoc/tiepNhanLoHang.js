@@ -92,10 +92,15 @@ document.addEventListener('DOMContentLoaded', function () {
                     </td>
                     <td class="py-3.5 px-3 text-center">
                         ${isRecalled
-                            ? '<span class="text-[11px] text-red-500 font-medium">Không thể nhận</span>'
-                            : `<button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[11px] font-bold transition">
-                                Xác nhận nhận hàng
-                               </button>`
+                            ? '<span class="text-[11px] text-red-500 font-medium">Lô đã thu hồi</span>'
+                            : `<div class="flex flex-wrap justify-center gap-1.5">
+                                <button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">
+                                    Xác nhận
+                                </button>
+                                <button type="button" data-id="${item.id}" class="btn-tu-choi px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">
+                                    Từ chối
+                                </button>
+                               </div>`
                         }
                     </td>
                 </tr>`;
@@ -118,6 +123,33 @@ document.addEventListener('DOMContentLoaded', function () {
                         toast(err.message, 'error');
                         btn.disabled = false;
                         btn.textContent = 'Xác nhận nhận hàng';
+                    }
+                });
+            });
+
+            tbody.querySelectorAll('.btn-tu-choi').forEach(btn => {
+                btn.addEventListener('click', async function () {
+                    const lyDo = prompt('Nhập lý do từ chối tiếp nhận (ít nhất 5 ký tự):');
+                    if (lyDo === null) return;
+                    if (lyDo.trim().length < 5) {
+                        toast('Lý do từ chối phải có ít nhất 5 ký tự.', 'error');
+                        return;
+                    }
+
+                    btn.disabled = true;
+                    btn.textContent = 'Đang xử lý...';
+                    try {
+                        await fetchJSON(`/nha-thuoc/api/tu-choi/${btn.dataset.id}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ lyDo: lyDo.trim() }),
+                        });
+                        toast('Đã từ chối tiếp nhận lô hàng.');
+                        loadChoXacNhan(currentPageCho);
+                    } catch (err) {
+                        toast(err.message, 'error');
+                        btn.disabled = false;
+                        btn.textContent = 'Từ chối';
                     }
                 });
             });

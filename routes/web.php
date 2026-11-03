@@ -20,7 +20,6 @@ use App\Http\Controllers\QuanTri\TaiKhoanController;
 use App\Http\Controllers\QuanTri\NhatKyController;
 
 // --- CONTROLLERS NHÀ PHÂN PHỐI & NHÀ THUỐC ---
-use App\Http\Controllers\NhaPhanPhoi\ChuyenGiaoController as NppChuyenGiaoController;
 use App\Http\Controllers\NhaPhanPhoi\QuanLyLoHangController;
 use App\Http\Controllers\NhaThuoc\TiepNhanLoHangController;
 
@@ -164,15 +163,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::post('/api/tu-choi/{id}', [QuanLyLoHangController::class, 'tuChoi'])
                 ->name('nha-phan-phoi.api.tu-choi');
 
-            // API Chuyển giao mở rộng (legacy/compatible APIs)
-            Route::get('/api/chuyen-giao/cho-nhan', [NppChuyenGiaoController::class, 'danhSachChoNhan'])
-                ->name('nha-phan-phoi.api.cho-nhan');
-            Route::post('/api/chuyen-giao/{chuyenGiao}/xac-nhan', [NppChuyenGiaoController::class, 'xacNhan'])
-                ->name('nha-phan-phoi.api.xac-nhan');
-            Route::post('/api/chuyen-giao/{chuyenGiao}/tu-choi', [NppChuyenGiaoController::class, 'tuChoi'])
-                ->name('nha-phan-phoi.api.tu-choi-chuyen-giao');
-            Route::get('/api/ton-kho', [NppChuyenGiaoController::class, 'danhSachTonKho'])
-                ->name('nha-phan-phoi.api.ton-kho');
+            // API chuyển giao tập trung tại QuanLyLoHangController.
 
             Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])
                 ->name('nha-phan-phoi.bao-cao');

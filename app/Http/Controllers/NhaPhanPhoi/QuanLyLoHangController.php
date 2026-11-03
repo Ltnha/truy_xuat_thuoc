@@ -79,7 +79,6 @@ class QuanLyLoHangController extends Controller
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'hanDung'       => optional($lo?->hanSuDung)->format('Y-m-d'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
-                'txHash'        => $cg->txHash,
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });
