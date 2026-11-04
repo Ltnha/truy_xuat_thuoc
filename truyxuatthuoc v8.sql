@@ -212,7 +212,7 @@ CREATE TABLE chuyenGiao (
     thoiGianKhoiTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     thoiGianXacNhan DATETIME NULL,
     trangThai ENUM('PENDING','RECEIVED','CANCELLED','REJECTED') NOT NULL DEFAULT 'PENDING', -- v7
-    lyDoTuChoi VARCHAR(500) NULL AFTER trangThai; -- v8
+    lyDoTuChoi VARCHAR(500) NULL, -- Đã bỏ chữ AFTER trangThai ở đây
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (benGuiId) REFERENCES toChuc(id),
     FOREIGN KEY (benNhanId) REFERENCES toChuc(id),

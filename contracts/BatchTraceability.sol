@@ -2,13 +2,12 @@
 pragma solidity ^0.8.24;
 
 contract BatchTraceability {
-    // Địa chỉ quản trị cao nhất (Owner/Admin)
-    address public owner;
 
-    // Danh sách địa chỉ được cấp quyền writer trực tiếp (Tính năng cũ)
+    // --- 1. QUẢN TỰ VÀ PHÂN QUYỀN TRỰC TIẾP (LEGACY WRITERS) ---
+    address public owner;
     mapping(address => bool) public writers;
 
-    // Các hằng số định danh Vai trò doanh nghiệp (Role Management mới)
+    // --- 2. VAI TRÒ DOANH NGHIỆP ON-CHAIN (ROLE MANAGEMENT) ---
     bytes32 public constant ROLE_CO_QUAN   = keccak256("CO_QUAN_QUAN_LY");
     bytes32 public constant ROLE_NSX       = keccak256("NHA_SAN_XUAT");
     bytes32 public constant ROLE_NPP       = keccak256("NHA_PHAN_PHOI");
@@ -17,10 +16,28 @@ contract BatchTraceability {
     // Bảng lưu trữ vai trò: địa chỉ ví => (mã vai trò => true/false)
     mapping(address => mapping(bytes32 => bool)) private _roles;
 
-    // Danh dấu event key đã ghi để tránh ghi trùng lặp
+    // --- 3. QUẢN LÝ SỰ KIỆN LÔ THUỐC ON-CHAIN ---
+    // Đánh dấu event key đã ghi để tránh ghi trùng lặp (Idempotency)
     mapping(bytes32 => bool) public recordedEventKeys;
 
-    // --- SỰ KIỆN (EVENTS) ---
+    // Mã băm định danh loại sự kiện Thu hồi lô
+    bytes32 public constant EVENT_RECALL_BATCH = keccak256("RECALL_BATCH");
+
+    // --- 4. CẤU TRÚC & SỰ KIỆN CHUYỂN GIAO LÔ HÀNG (TRANSFER MANAGEMENT) ---
+    enum TransferStatus { PENDING, RECEIVED, REJECTED }
+
+    struct TransferRecord {
+        bytes32 maChuyenGiao;
+        address benGui;
+        address benNhan;
+        TransferStatus status;
+        uint256 thoiGian;
+        string lyDo;
+    }
+
+    mapping(bytes32 => TransferRecord) public transfers;
+
+    // --- 5. SỰ KIỆN (EVENTS) ---
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
     event WriterPermissionChanged(address indexed writer, bool enabled);
     event RoleGranted(address indexed account, bytes32 indexed role, address indexed sender);
@@ -34,20 +51,6 @@ contract BatchTraceability {
         bytes32 payloadHash,
         uint256 timestamp
     );
-
-    // --- CẤU TRÚC & SỰ KIỆN CHUYỂN GIAO (TRANSFER MANAGEMENT) ---
-    enum TransferStatus { PENDING, RECEIVED, REJECTED }
-
-    struct TransferRecord {
-        bytes32 maChuyenGiao;
-        address benGui;
-        address benNhan;
-        TransferStatus status;
-        uint256 thoiGian;
-        string lyDo;
-    }
-
-    mapping(bytes32 => TransferRecord) public transfers;
 
     event TransferSubmitted(
         bytes32 indexed maChuyenGiao,
@@ -69,7 +72,7 @@ contract BatchTraceability {
         string lyDo
     );
 
-    // --- LỖI TỰ ĐỊNH NGHĨA (CUSTOM ERRORS) ---
+    // --- 6. LỖI TỰ ĐỊNH NGHĨA (CUSTOM ERRORS - TỐI ƯU GAS) ---
     error Unauthorized();
     error InvalidAddress();
     error InvalidEventData();
@@ -77,7 +80,7 @@ contract BatchTraceability {
     error RoleAlreadyGranted();
     error RoleNotGranted();
 
-    // --- MODIFIERS ---
+    // --- 7. MODIFIERS ---
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
         _;
@@ -89,25 +92,33 @@ contract BatchTraceability {
         _;
     }
 
+    // --- 8. CONSTRUCTOR ---
     constructor() {
         owner = msg.sender;
-        writers[msg.sender] = true; // Thiết lập người deploy là writer (Tính năng cũ)
+        writers[msg.sender] = true; // Thiết lập người deploy là writer
 
         emit OwnershipTransferred(address(0), msg.sender);
         emit WriterPermissionChanged(msg.sender, true);
 
-        // Tự động cấp vai trò Cơ quan quản lý cho tài khoản Owner (Tính năng mới)
+        // Tự động cấp vai trò Cơ quan quản lý cho tài khoản Owner
         _grantRole(msg.sender, ROLE_CO_QUAN);
     }
 
-    // --- QUẢN LÝ WRITER TRỰC TIẾP (TÍNH NĂNG CŨ) ---
+    // --- 9. QUẢN LÝ WRITER TRỰC TIẾP & OWNER ---
     function setWriter(address writer, bool enabled) external onlyOwner {
         if (writer == address(0)) revert InvalidAddress();
         writers[writer] = enabled;
         emit WriterPermissionChanged(writer, enabled);
     }
 
-    // --- QUẢN LÝ VAI TRÒ ON-CHAIN (TÍNH NĂNG MỚI) ---
+    function transferOwnership(address newOwner) external onlyOwner {
+        if (newOwner == address(0)) revert InvalidAddress();
+        address previousOwner = owner;
+        owner = newOwner;
+        emit OwnershipTransferred(previousOwner, newOwner);
+    }
+
+    // --- 10. QUẢN LÝ VAI TRÒ ON-CHAIN (ROLE MANAGEMENT) ---
     function hasRole(address account, bytes32 role) public view returns (bool) {
         return _roles[account][role];
     }
@@ -139,15 +150,7 @@ contract BatchTraceability {
         emit RoleGranted(account, role, msg.sender);
     }
 
-    // --- CHUYỂN QUYỀN OWNER ---
-    function transferOwnership(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert InvalidAddress();
-        address previousOwner = owner;
-        owner = newOwner;
-        emit OwnershipTransferred(previousOwner, newOwner);
-    }
-
-    // --- GHI NHẬN SỰ KIỆN LÔ THUỐC (HỢP NHẤT) ---
+    // --- 11. GHI NHẬN SỰ KIỆN LÔ THUỐC (RECORD BATCH EVENT) ---
     function recordBatchEvent(
         bytes32 batchId,
         bytes32 businessId,
@@ -158,7 +161,6 @@ contract BatchTraceability {
             revert InvalidEventData();
         }
 
-        // Tạo khóa sự kiện bằng abi.encodePacked theo chuẩn file cũ
         bytes32 eventKey = keccak256(abi.encodePacked(batchId, businessId, eventType));
         if (recordedEventKeys[eventKey]) revert DuplicateEvent();
 
@@ -174,7 +176,7 @@ contract BatchTraceability {
         );
     }
 
-    // --- QUẢN LÝ CHUYỂN GIAO LÔ HÀNG ON-CHAIN ---
+    // --- 12. QUẢN LÝ CHUYỂN GIAO LÔ HÀNG ON-CHAIN ---
     function submitTransfer(bytes32 maChuyenGiao, address benNhan) external onlyWriter {
         if (maChuyenGiao == bytes32(0) || benNhan == address(0)) revert InvalidEventData();
 
@@ -200,11 +202,6 @@ contract BatchTraceability {
         emit TransferReceived(maChuyenGiao, msg.sender, block.timestamp);
     }
 
-    /**
-     * @notice Từ chối tiếp nhận chuyển giao lô hàng
-     * @param maChuyenGiao Mã chuyển giao dạng bytes32
-     * @param lyDo Lý do từ chối tiếp nhận
-     */
     function rejectTransfer(bytes32 maChuyenGiao, string calldata lyDo) public onlyWriter {
         if (maChuyenGiao == bytes32(0)) revert InvalidEventData();
 
@@ -218,10 +215,30 @@ contract BatchTraceability {
         emit TransferRejected(maChuyenGiao, msg.sender, block.timestamp, lyDo);
     }
 
-    /**
-     * @notice Hủy chuyển giao / Từ chối tiếp nhận (Alias)
-     */
     function cancelTransfer(bytes32 maChuyenGiao, string calldata lyDo) external onlyWriter {
         rejectTransfer(maChuyenGiao, lyDo);
+    }
+
+    // --- 13. HÀM ĐỌC HỖ TRỢ ĐỒNG BỘ BACKEND & SIGNER SERVICE (VIEW FUNCTIONS) ---
+
+    /**
+     * @dev Kiểm tra xem một sự kiện cụ thể của Lô thuốc đã được ghi nhận On-chain chưa
+     * Phục vụ API GET /events/check-batch từ Signer Service
+     */
+    function isBatchEventRecorded(
+        bytes32 batchId,
+        bytes32 businessId,
+        bytes32 eventType
+    ) external view returns (bool) {
+        bytes32 eventKey = keccak256(abi.encodePacked(batchId, businessId, eventType));
+        return recordedEventKeys[eventKey];
+    }
+
+    /**
+     * @dev Kiểm tra nhanh xem Lô thuốc đã có quyết định thu hồi trên Blockchain chưa
+     */
+    function isBatchRecalled(bytes32 batchId, bytes32 businessId) external view returns (bool) {
+        bytes32 eventKey = keccak256(abi.encodePacked(batchId, businessId, EVENT_RECALL_BATCH));
+        return recordedEventKeys[eventKey];
     }
 }
