@@ -3,14 +3,17 @@
 namespace App\Services\ChuoiCungUng;
 
 use App\Enums\BatchStatus;
+use App\Enums\OrganizationApprovalStatus;
 use App\Enums\OrganizationType;
 use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
+use App\Models\BlockchainTransaction;
 use App\Models\ChuyenGiao;
 use App\Models\LoThuoc;
 use App\Models\NhatKyHeThong;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
+use App\Models\TonKhoLo;
 use App\Services\Blockchain\GhiNhanBlockchain;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,16 +23,18 @@ class ChuyenGiaoService
     public function __construct(
         private TonKhoService $tonKhoService,
         private GhiNhanBlockchain $ghiNhanBlockchain,
-    ) {
-    }
+    ) {}
 
+    /**
+     * Tạo đơn chuyển giao lô hàng
+     */
     public function tao(ToChuc $benGui, array $duLieu, TaiKhoan $taiKhoan, ?string $ip): ChuyenGiao
     {
         return DB::transaction(function () use ($benGui, $duLieu, $taiKhoan, $ip): ChuyenGiao {
             $loThuoc = LoThuoc::query()->whereKey($duLieu['loThuocId'])->lockForUpdate()->firstOrFail();
             $benNhan = ToChuc::query()->whereKey($duLieu['benNhanId'])->firstOrFail();
 
-            if ($benGui->id === $benNhan->id || $benNhan->trangThaiDuyet !== \App\Enums\OrganizationApprovalStatus::daDuyet) {
+            if ($benGui->id === $benNhan->id || $benNhan->trangThaiDuyet !== OrganizationApprovalStatus::daDuyet) {
                 throw new NghiepVuException('Đơn vị nhận không hợp lệ hoặc chưa được duyệt.');
             }
 
@@ -45,11 +50,12 @@ class ChuyenGiaoService
                 throw new NghiepVuException('Luồng chuyển giao giữa hai loại tổ chức này không được phép.');
             }
 
-            if ($loThuoc->trangThai === BatchStatus::recalled || $loThuoc->daHetHan()) {
-                throw new NghiepVuException('Không thể chuyển giao lô đã thu hồi hoặc hết hạn.');
+            // Guard: Chặn tạo chuyển giao nếu lô bị thu hồi hoặc hết hạn
+            if ($loThuoc->trangThai === BatchStatus::recalled || (is_string($loThuoc->trangThai) && strtoupper($loThuoc->trangThai) === 'RECALLED') || $loThuoc->daHetHan()) {
+                throw new NghiepVuException('Lô thuốc đã bị thu hồi hoặc hết hạn. Không thể khởi tạo chuyển giao.');
             }
 
-            $tonKho = \App\Models\TonKhoLo::query()
+            $tonKho = TonKhoLo::query()
                 ->where('loThuocId', $loThuoc->id)
                 ->where('toChucId', $benGui->id)
                 ->lockForUpdate()
@@ -78,8 +84,6 @@ class ChuyenGiaoService
                 ['chuyenGiaoId' => $chuyenGiao->id, 'benNhanId' => $benNhan->id, 'soLuong' => $chuyenGiao->soLuong],
             );
 
-            // Đã xóa câu lệnh LichSuLoThuoc::query()->create(...) gây lỗi CSDL
-
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
                 'doiTuongId' => $chuyenGiao->id,
@@ -93,6 +97,9 @@ class ChuyenGiaoService
         });
     }
 
+    /**
+     * Tiếp nhận chuyển giao lô hàng
+     */
     public function nhan(ChuyenGiao $chuyenGiao, ToChuc $benNhan, TaiKhoan $taiKhoan, ?string $ip): void
     {
         DB::transaction(function () use ($chuyenGiao, $benNhan, $taiKhoan, $ip): void {
@@ -103,6 +110,12 @@ class ChuyenGiaoService
             }
 
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
+
+            // Guard: Chặn xác nhận tiếp nhận nếu lô đã bị Cơ quan quản lý thu hồi hoặc hết hạn
+            if ($loThuoc->trangThai === BatchStatus::recalled || (is_string($loThuoc->trangThai) && strtoupper($loThuoc->trangThai) === 'RECALLED') || $loThuoc->daHetHan()) {
+                throw new NghiepVuException('Lô thuốc đã bị Cơ quan quản lý ban hành quyết định thu hồi hoặc đã hết hạn. Không thể tiếp nhận.');
+            }
+
             $this->tonKhoService->tru($loThuoc->id, $chuyenGiao->benGuiId, (int) $chuyenGiao->soLuong);
             $this->tonKhoService->cong($loThuoc->id, $benNhan->id, (int) $chuyenGiao->soLuong);
 
@@ -113,12 +126,11 @@ class ChuyenGiaoService
                 $loThuoc,
                 ['chuyenGiaoId' => $chuyenGiao->id, 'benGuiId' => $chuyenGiao->benGuiId, 'soLuong' => $chuyenGiao->soLuong],
             );
+
             $chuyenGiao->update([
                 'trangThai' => TransferStatus::received,
                 'thoiGianXacNhan' => now(),
             ]);
-
-            // Đã xóa câu lệnh LichSuLoThuoc::query()->create(...) gây lỗi CSDL
 
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
@@ -131,6 +143,9 @@ class ChuyenGiaoService
         });
     }
 
+    /**
+     * Từ chối tiếp nhận chuyển giao lô hàng
+     */
     public function tuChoi(ChuyenGiao $chuyenGiao, ToChuc $benNhan, TaiKhoan $taiKhoan, ?string $ip, ?string $lyDo = null): void
     {
         DB::transaction(function () use ($chuyenGiao, $benNhan, $taiKhoan, $ip, $lyDo): void {
@@ -143,7 +158,6 @@ class ChuyenGiaoService
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $lyDoTuChoi = $lyDo ?: 'Nhà phân phối từ chối tiếp nhận đơn chuyển giao';
 
-            // Kích hoạt gọi GhiNhanBlockchain::ghi() với sự kiện TransferRejected lên mạng Sepolia
             $this->ghiNhanBlockchain->ghi(
                 'TransferRejected',
                 $chuyenGiao->maChuyenGiao,
@@ -157,16 +171,12 @@ class ChuyenGiaoService
                 ],
             );
 
-            // Chuyển trạng thái đơn chuyenGiao sang CANCELLED / REJECTED
-            // → soLuongKhaDung bên gửi được giải phóng (chỉ trừ PENDING)
             $chuyenGiao->update([
                 'trangThai' => TransferStatus::cancelled,
                 'thoiGianXacNhan' => now(),
             ]);
 
-            // Cập nhật blockchainTransaction PENDING của CG này → FAILED
-            // (NSX không còn thấy "Đang xử lý Queue" cho giao dịch chuyển này)
-            \App\Models\BlockchainTransaction::where('chuyenGiaoId', $chuyenGiao->id)
+            BlockchainTransaction::where('chuyenGiaoId', $chuyenGiao->id)
                 ->where('txHash', 'like', 'PENDING_CG_%')
                 ->where('trangThai', 'PENDING')
                 ->update([
@@ -174,18 +184,15 @@ class ChuyenGiaoService
                     'thoiGian'  => now(),
                 ]);
 
-            // Nếu lô không còn đơn PENDING nào khác → trả trạng thái lô về CREATED
-            // để NSX thấy nút Chuyển giao và badge hợp lý
             $conPending = ChuyenGiao::query()
                 ->where('loThuocId', $loThuoc->id)
                 ->where('trangThai', TransferStatus::pending)
                 ->exists();
 
             if (! $conPending && (string) ($loThuoc->trangThai?->value ?? $loThuoc->trangThai) === 'IN_TRANSIT') {
-                $loThuoc->update(['trangThai' => 'CREATED']);
+                $loThuoc->update(['trangThai' => BatchStatus::created]);
             }
 
-            // Ghi nhật ký NhatKyHeThong hành động TU_CHOI_CHUYEN_GIAO đầy đủ doiTuongId, chiTiet, IP
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
                 'doiTuongId' => $chuyenGiao->id,

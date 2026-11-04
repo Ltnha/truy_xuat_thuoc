@@ -7,12 +7,12 @@ use App\Enums\OrganizationType;
 use App\Enums\UnitStatus;
 use App\Exceptions\NghiepVuException;
 use App\Models\BanLe;
+use App\Models\DonViSanPham;
 use App\Models\LichSuLoThuoc;
 use App\Models\LoThuoc;
 use App\Models\NhatKyHeThong;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
-use App\Models\DonViSanPham;
 use App\Services\Blockchain\GhiNhanBlockchain;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,9 +22,11 @@ class BanLeService
     public function __construct(
         private TonKhoService $tonKhoService,
         private GhiNhanBlockchain $ghiNhanBlockchain,
-    ) {
-    }
+    ) {}
 
+    /**
+     * Bán lẻ từng đơn vị sản phẩm tại Nhà thuốc
+     */
     public function banLe(string $maDonVi, ToChuc $nhaThuoc, TaiKhoan $taiKhoan, ?string $ip): BanLe
     {
         return DB::transaction(function () use ($maDonVi, $nhaThuoc, $taiKhoan, $ip): BanLe {
@@ -43,8 +45,10 @@ class BanLeService
             }
 
             $loThuoc = LoThuoc::query()->whereKey($donVi->loThuocId)->lockForUpdate()->firstOrFail();
-            if ($loThuoc->trangThai === BatchStatus::recalled || $loThuoc->daHetHan()) {
-                throw new NghiepVuException('Không thể bán thuốc đã thu hồi hoặc hết hạn.');
+
+            // Guard: Chặn xuất bán lẻ thuốc thuộc lô đã bị Cơ quan quản lý thu hồi hoặc hết hạn
+            if ($loThuoc->trangThai === BatchStatus::recalled || (is_string($loThuoc->trangThai) && strtoupper($loThuoc->trangThai) === 'RECALLED') || $loThuoc->daHetHan()) {
+                throw new NghiepVuException('Lô thuốc đã bị Cơ quan quản lý thu hồi hoặc hết hạn. Nhà thuốc không được phép xuất bán cho người tiêu dùng.');
             }
 
             $banLe = BanLe::query()->create([
@@ -56,6 +60,7 @@ class BanLeService
             ]);
 
             $this->tonKhoService->tru($loThuoc->id, $nhaThuoc->id, 1);
+
             $donVi->update([
                 'banLeId' => $banLe->id,
                 'trangThai' => UnitStatus::dispensed,
@@ -69,6 +74,7 @@ class BanLeService
                 $loThuoc,
                 ['banLeId' => $banLe->id, 'donViSanPhamId' => $donVi->id],
             );
+
             $banLe->update(['txHash' => $txHash]);
             $donVi->update(['txHash' => $txHash]);
 
@@ -78,6 +84,7 @@ class BanLeService
                 'moTa' => "{$nhaThuoc->tenToChuc} đã bán đơn vị {$donVi->maDonVi}.",
                 'txHash' => $txHash,
             ]);
+
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
                 'hanhDong' => 'BAN_LE_DON_VI_THUOC',

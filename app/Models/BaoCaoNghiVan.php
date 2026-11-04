@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use App\Enums\ReportStatus;
@@ -17,7 +18,7 @@ class BaoCaoNghiVan extends Model
     {
         return [
             'trangThai' => ReportStatus::class,
-            'ngayGui' => 'date',
+            'ngayGui' => 'datetime',
         ];
     }
 
@@ -27,6 +28,14 @@ class BaoCaoNghiVan extends Model
     }
 
     public function taiKhoan(): BelongsTo
+    {
+        return $this->belongsTo(TaiKhoan::class, 'taiKhoanId');
+    }
+
+    /**
+     * Alias quan hệ tới tài khoản người gửi (hỗ trợ eager loading with('nguoiGui'))
+     */
+    public function nguoiGui(): BelongsTo
     {
         return $this->belongsTo(TaiKhoan::class, 'taiKhoanId');
     }

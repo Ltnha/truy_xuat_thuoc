@@ -16,6 +16,8 @@ use App\Http\Controllers\LoThuoc\ChuyenGiaoController;
 // --- CONTROLLERS CƠ QUAN QUẢN LÝ & QUẢN TRỊ ---
 use App\Http\Controllers\CoQuan\DuyetHoSoController;
 use App\Http\Controllers\CoQuan\DuyetSanPhamController;
+use App\Http\Controllers\CoQuan\ThuHoiLoHangController;
+use App\Http\Controllers\CoQuan\XuLyNghiVanController;
 use App\Http\Controllers\QuanTri\TaiKhoanController;
 use App\Http\Controllers\QuanTri\NhatKyController;
 
@@ -99,9 +101,20 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::post('/xet-duyet-san-pham/{yeuCau}/tu-choi', [DuyetSanPhamController::class, 'tuChoi'])->name('co-quan.xet-duyet-san-pham.tu-choi');
 
         // Các trang tính năng quản lý khác
-        Route::get('/quan-ly-thu-hoi', fn() => view('coQuanQuanLy.quanLyThuHoi'));
         Route::get('/thong-ke-bao-cao', fn() => view('coQuanQuanLy.thongKeBaoCao'));
-        Route::get('/xu-ly-nghi-van', fn() => view('coQuanQuanLy.xuLyNghiVan'));
+
+        // Quản lý thu hồi lô hàng
+        Route::get('/quan-ly-thu-hoi', [ThuHoiLoHangController::class, 'index'])->name('coQuan.thuHoi.index');
+        Route::get('/quan-ly-thu-hoi/data', [ThuHoiLoHangController::class, 'danhSach'])->name('coQuan.thuHoi.data');
+        Route::post('/quan-ly-thu-hoi/thu-hoi', [ThuHoiLoHangController::class, 'thuHoi'])->name('coQuan.thuHoi.thucHien');
+        Route::post('/quan-ly-thu-hoi/{id}/dong-bo-lai', [ThuHoiLoHangController::class, 'dongBoLai'])->name('coQuan.thuHoi.dongBoLai');
+
+        // Xử lý báo cáo nghi vấn
+        Route::get('/xu-ly-nghi-van', [XuLyNghiVanController::class, 'index'])->name('coQuan.nghiVan.index');
+        Route::get('/xu-ly-nghi-van/data', [XuLyNghiVanController::class, 'danhSach'])->name('coQuan.nghiVan.data');
+        Route::post('/xu-ly-nghi-van/{id}/tu-choi', [XuLyNghiVanController::class, 'tuChoi'])->name('coQuan.nghiVan.tuChoi');
+        Route::post('/xu-ly-nghi-van/{id}/ghi-nhan-hang-gia', [XuLyNghiVanController::class, 'ghiNhanHangGia'])->name('coQuan.nghiVan.ghiNhanHangGia');
+        Route::post('/xu-ly-nghi-van/{id}/thu-hoi-tu-bao-cao', [XuLyNghiVanController::class, 'thuHoiTuBaoCao'])->name('coQuan.nghiVan.thuHoiTuBaoCao');
     });
 
     // ════════════════════════════════════════════════════════════════
