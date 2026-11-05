@@ -49,4 +49,12 @@ class BaoCaoNghiVan extends Model
     {
         return $this->hasOne(KetQuaXuLyBaoCao::class, 'baoCaoId');
     }
+
+    /**
+     * Alias hỗ trợ Eager Loading with('ketQuaXuLyBaoCao') từ Controller
+     */
+    public function ketQuaXuLyBaoCao(): HasOne
+    {
+        return $this->hasOne(KetQuaXuLyBaoCao::class, 'baoCaoId');
+    }
 }

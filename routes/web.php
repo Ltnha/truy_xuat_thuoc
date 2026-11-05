@@ -112,9 +112,11 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         // Xử lý báo cáo nghi vấn
         Route::get('/xu-ly-nghi-van', [XuLyNghiVanController::class, 'index'])->name('coQuan.nghiVan.index');
         Route::get('/xu-ly-nghi-van/data', [XuLyNghiVanController::class, 'danhSach'])->name('coQuan.nghiVan.data');
+        Route::post('/xu-ly-nghi-van/thu-hoi/{id}', [XuLyNghiVanController::class, 'thuHoi'])->name('coQuan.nghiVan.thuHoi');
+        Route::post('/xu-ly-nghi-van/{id}/thu-hoi', [XuLyNghiVanController::class, 'thuHoi']);
+        Route::post('/xu-ly-nghi-van/{id}/thu-hoi-tu-bao-cao', [XuLyNghiVanController::class, 'thuHoiTuBaoCao'])->name('coQuan.nghiVan.thuHoiTuBaoCao');
         Route::post('/xu-ly-nghi-van/{id}/tu-choi', [XuLyNghiVanController::class, 'tuChoi'])->name('coQuan.nghiVan.tuChoi');
         Route::post('/xu-ly-nghi-van/{id}/ghi-nhan-hang-gia', [XuLyNghiVanController::class, 'ghiNhanHangGia'])->name('coQuan.nghiVan.ghiNhanHangGia');
-        Route::post('/xu-ly-nghi-van/{id}/thu-hoi-tu-bao-cao', [XuLyNghiVanController::class, 'thuHoiTuBaoCao'])->name('coQuan.nghiVan.thuHoiTuBaoCao');
     });
 
     // ════════════════════════════════════════════════════════════════
