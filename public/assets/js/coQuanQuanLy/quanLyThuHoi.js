@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', function () {
-    // Thay đổi từ PolygonScan sang Etherscan Sepolia
     const EXPLORER_BASE_URL = "https://sepolia.etherscan.io/tx/";
     const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
     
@@ -8,7 +7,6 @@ document.addEventListener('DOMContentLoaded', function () {
     let loDangXemDetail = null;
     let loDangThuHoiId = null;
 
-    // Element DOM
     const thanBang = document.getElementById('thanBangThuHoi');
     const oTimKiem = document.getElementById('oTimKiemThuHoi');
     const locNSX = document.getElementById('locNhaSanXuat');
@@ -17,7 +15,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const thongTinPhanTrang = document.getElementById('thongTinPhanTrang');
     const cumNutPhanTrang = document.getElementById('cumNutPhanTrang');
 
-    // Helper: Định dạng ngày
     function dinhDangNgay(ngayYMD) {
         if (!ngayYMD) return '--';
         const parts = ngayYMD.split('T')[0].split('-');
@@ -25,7 +22,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return ngayYMD;
     }
 
-    // Helper: Tính số lượng đang lưu thông
     function tinhSoLuongDangLuuThong(lo) {
         if (!lo.phanBoKho) return 0;
         return lo.phanBoKho.reduce((sum, item) => sum + (item.giu || 0), 0);
@@ -152,6 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const detailBannerDaThuHoi = document.getElementById('detailBannerDaThuHoi');
     const detailBannerGoiYThuHoiHetHan = document.getElementById('detailBannerGoiYThuHoiHetHan');
     const detailKhungNutThuHoiNhanh = document.getElementById('detailKhungNutThuHoiNhanh');
+    const nutCopyTxHash = document.getElementById('nutCopyDetailTxThuHoi');
 
     function moModalChiTietLo(id) {
         loDangXemDetail = cachedDanhSachLo.find(x => x.id == id);
@@ -190,12 +187,14 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('detailNgayThuHoiText').textContent = loDangXemDetail.thongTinThuHoi.ngayThuHoi;
             document.getElementById('detailDongBoText').textContent = loDangXemDetail.thongTinThuHoi.trangThaiDongBo;
             
-            const hash = loDangXemDetail.thongTinThuHoi.hashBlockchain;
-            if (hash) {
-                document.getElementById('detailTxHashThuHoiText').textContent = hash;
+            // YÊU CẦU 1: HIỂN THỊ THẲNG TXHASH (KHÔNG ĐỂ ĐANG ĐỒNG BỘ...)
+            const hash = loDangXemDetail.thongTinThuHoi.hashBlockchain || 'N/A';
+            document.getElementById('detailTxHashThuHoiText').textContent = hash;
+            
+            if (hash.startsWith('0x')) {
                 document.getElementById('detailTxHashThuHoiLink').href = `${EXPLORER_BASE_URL}${hash}`;
             } else {
-                document.getElementById('detailTxHashThuHoiText').textContent = 'Đang đồng bộ...';
+                document.getElementById('detailTxHashThuHoiLink').href = '#';
             }
             detailKhungNutThuHoiNhanh.innerHTML = '';
         } else {
@@ -211,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <i class="fa-solid fa-ban text-[10px]"></i> Ban hành quyết định thu hồi
                 </button>
             `;
-            document.getElementById('nutMoThuHoiTuDetail').addEventListener('click', () => {
+            document.getElementById('nutMoThuHoiTuDetail')?.addEventListener('click', () => {
                 modalDetail.classList.add('hidden');
                 moModalThuHoi(loDangXemDetail.id);
             });
@@ -236,15 +235,31 @@ document.addEventListener('DOMContentLoaded', function () {
         modalDetail.classList.remove('hidden');
     }
 
+    nutCopyTxHash?.addEventListener('click', function () {
+        const text = document.getElementById('detailTxHashThuHoiText')?.textContent;
+        if (text && text !== 'N/A') {
+            navigator.clipboard.writeText(text);
+            this.innerHTML = `<i class="fa-solid fa-check text-emerald-600"></i>`;
+            setTimeout(() => {
+                this.innerHTML = `<i class="fa-regular fa-copy"></i>`;
+            }, 2000);
+        }
+    });
+
     document.querySelectorAll('.dong-modal-detail').forEach(btn => {
         btn.addEventListener('click', () => modalDetail.classList.add('hidden'));
     });
 
-    // ══ 4. MODAL BAN HÀNH THU HỒI LÔ THUỐC (API CALL) ══
+    // ══ 4. MODAL THU HỒI LÔ THUỐC (CHỜ BLOCKCHAIN CONFIRMED MỚI CHUYỂN POPUP) ══
     const modalThuHoi = document.getElementById('modalThuHoiLoHang');
     const manHinhFormThuHoi = document.getElementById('manHinhFormThuHoi');
     const manHinhDangGhiBlockchain = document.getElementById('manHinhDangGhiBlockchain');
-    const manHinhLoiBlockchain = document.getElementById('manHinhLoiBlockchain');
+    const manHinhKetQuaThuHoi = document.getElementById('manHinhKetQuaThuHoi');
+    
+    const iconKetQua = document.getElementById('iconKetQuaThuHoi');
+    const tieuDeKetQua = document.getElementById('tieuDeKetQuaThuHoi');
+    const noiDungKetQua = document.getElementById('noiDungKetQuaThuHoi');
+    
     const nhapLyDoThuHoi = document.getElementById('nhapLyDoThuHoiLo');
     const demKyTuThuHoi = document.getElementById('demKyTuThuHoi');
     const nutXacNhanThuHoi = document.getElementById('nutXacNhanThuHoiBlockchain');
@@ -276,7 +291,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         manHinhFormThuHoi.classList.remove('hidden');
         manHinhDangGhiBlockchain.classList.add('hidden');
-        manHinhLoiBlockchain.classList.add('hidden');
+        manHinhKetQuaThuHoi.classList.add('hidden');
         modalThuHoi.classList.remove('hidden');
     }
 
@@ -286,24 +301,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (len >= 5) {
             nutXacNhanThuHoi.disabled = false;
-            nutXacNhanThuHoi.className = "px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer";
+            nutXacNhanThuHoi.className = "px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5";
         } else {
             nutXacNhanThuHoi.disabled = true;
-            nutXacNhanThuHoi.className = "px-6 py-2 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all cursor-not-allowed shadow-none";
+            nutXacNhanThuHoi.className = "px-6 py-2 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all cursor-not-allowed shadow-none flex items-center gap-1.5";
         }
     }
 
-    nhapLyDoThuHoi.addEventListener('input', capNhatTrangThaiNutThuHoi);
+    nhapLyDoThuHoi?.addEventListener('input', capNhatTrangThaiNutThuHoi);
 
     document.querySelectorAll('.dong-modal-thuhoi').forEach(btn => {
         btn.addEventListener('click', () => modalThuHoi.classList.add('hidden'));
     });
 
-    nutXacNhanThuHoi.addEventListener('click', async function () {
+    // YÊU CẦU 2: CHỜ XÁC NHẬN BLOCKCHAIN HOÀN TẤT MỚI CHUYỂN SANG MÀN HÌNH 2
+    nutXacNhanThuHoi?.addEventListener('click', async function () {
         const lyDo = nhapLyDoThuHoi.value.trim();
         if (!lyDo || !loDangThuHoiId) return;
 
+        // BƯỚC 1: BẬT MÀN HÌNH LOADING (MÀN HÌNH 1)
         manHinhFormThuHoi.classList.add('hidden');
+        manHinhKetQuaThuHoi.classList.add('hidden');
         manHinhDangGhiBlockchain.classList.remove('hidden');
 
         try {
@@ -320,22 +338,87 @@ document.addEventListener('DOMContentLoaded', function () {
             });
 
             const data = await response.json();
-
-            if (data.success) {
-                modalThuHoi.classList.add('hidden');
-                alert(data.message || 'Đã ban hành quyết định thu hồi thành công.');
-                loadDanhSachLo();
-            } else {
-                throw new Error(data.message || 'Xử lý thất bại');
+            if (!data.success) {
+                throw new Error(data.message || 'Tạo quyết định thu hồi thất bại.');
             }
+
+            const thuHoiId = data.data.id;
+
+            // BƯỚC 2: TIẾP TỤC GIỮ MÀN HÌNH LOADING & POLLING CHỜ BLOCKCHAIN CONFIRMED
+            let numTries = 0;
+            const maxTries = 30; // Chờ tối đa 60 giây (30 x 2s)
+
+            const checkTimer = setInterval(async () => {
+                numTries++;
+                try {
+                    const resCheck = await fetch(`/co-quan/quan-ly-thu-hoi/check-status/${thuHoiId}`);
+                    const statusData = await resCheck.json();
+
+                    if (statusData.success && statusData.trangThai === 'CONFIRMED') {
+                        // KHI BLOCKCHAIN ĐÃ HOÀN TẤT -> CHUYỂN SANG MÀN HÌNH 2 THÀNH CÔNG
+                        clearInterval(checkTimer);
+                        manHinhDangGhiBlockchain.classList.add('hidden');
+                        manHinhKetQuaThuHoi.classList.remove('hidden');
+
+                        iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl";
+                        iconKetQua.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+                        
+                        tieuDeKetQua.className = "text-base font-bold text-emerald-800";
+                        tieuDeKetQua.textContent = "Thu Hồi & Neo Blockchain Thành Công!";
+                        
+                        noiDungKetQua.innerHTML = `Lô thuốc đã thu hồi chính thức.<br><span class="font-mono text-[11px] text-cyan-800 font-bold break-all">TxHash: ${statusData.txHash}</span>`;
+
+                        loadDanhSachLo();
+                    } else if (statusData.success && statusData.trangThai === 'FAILED') {
+                        // KHI BLOCKCHAIN BỊ LỖI -> CHUYỂN SANG MÀN HÌNH 2 THẤT BẠI
+                        clearInterval(checkTimer);
+                        manHinhDangGhiBlockchain.classList.add('hidden');
+                        manHinhKetQuaThuHoi.classList.remove('hidden');
+
+                        iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl";
+                        iconKetQua.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+                        
+                        tieuDeKetQua.className = "text-base font-bold text-red-700";
+                        tieuDeKetQua.textContent = "Giao Dịch Blockchain Thất Bại!";
+                        
+                        noiDungKetQua.textContent = "Cơ sở dữ liệu đã thu hồi nhưng giao dịch ký On-chain bị lỗi. Vui lòng kiểm tra lại Queue Worker / Signer Service.";
+
+                        loadDanhSachLo();
+                    } else if (numTries >= maxTries) {
+                        // NẾU HẾT THỜI GIAN CHỜ -> THÔNG BÁO VẪN ĐANG CHẠY NGẦM
+                        clearInterval(checkTimer);
+                        manHinhDangGhiBlockchain.classList.add('hidden');
+                        manHinhKetQuaThuHoi.classList.remove('hidden');
+
+                        iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-3xl";
+                        iconKetQua.innerHTML = `<i class="fa-solid fa-clock"></i>`;
+                        
+                        tieuDeKetQua.className = "text-base font-bold text-amber-800";
+                        tieuDeKetQua.textContent = "Đã Ban Hành (Đang Chờ Đào Block)";
+                        
+                        noiDungKetQua.textContent = "Quyết định đã được đưa vào hàng chờ Queue. Tiến trình Blockchain vẫn đang được xử lý ngầm.";
+
+                        loadDanhSachLo();
+                    }
+                } catch (err) {
+                    console.error("Lỗi khi polling:", err);
+                }
+            }, 2000);
+
         } catch (error) {
             manHinhDangGhiBlockchain.classList.add('hidden');
-            document.getElementById('noiDungLoiThuHoiText').textContent = error.message;
-            manHinhLoiBlockchain.classList.remove('hidden');
+            manHinhKetQuaThuHoi.classList.remove('hidden');
+
+            iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl";
+            iconKetQua.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
+            
+            tieuDeKetQua.className = "text-base font-bold text-red-700";
+            tieuDeKetQua.textContent = "Ban Hành Thất Bại!";
+            
+            noiDungKetQua.textContent = error.message;
         }
     });
 
-    // ══ 5. GẮN SỰ KIỆN VÀ LẮNG NGHE LỌC TÌM KIẾM ══
     function ganSuKienNutBang() {
         document.querySelectorAll('.btn-xem-chi-tiet-lo').forEach(btn => {
             btn.addEventListener('click', function () {
@@ -350,9 +433,9 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    oTimKiem.addEventListener('input', () => { trangHienTai = 1; loadDanhSachLo(); });
-    locNSX.addEventListener('change', () => { trangHienTai = 1; loadDanhSachLo(); });
-    locTrangThai.addEventListener('change', () => { trangHienTai = 1; loadDanhSachLo(); });
+    oTimKiem?.addEventListener('input', () => { trangHienTai = 1; loadDanhSachLo(); });
+    locNSX?.addEventListener('change', () => { trangHienTai = 1; loadDanhSachLo(); });
+    locTrangThai?.addEventListener('change', () => { trangHienTai = 1; loadDanhSachLo(); });
 
     loadDanhSachLo();
 });

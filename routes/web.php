@@ -108,7 +108,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::get('/quan-ly-thu-hoi/data', [ThuHoiLoHangController::class, 'danhSach'])->name('coQuan.thuHoi.data');
         Route::post('/quan-ly-thu-hoi/thu-hoi', [ThuHoiLoHangController::class, 'thuHoi'])->name('coQuan.thuHoi.thucHien');
         Route::post('/quan-ly-thu-hoi/{id}/dong-bo-lai', [ThuHoiLoHangController::class, 'dongBoLai'])->name('coQuan.thuHoi.dongBoLai');
-
+        Route::get('/quan-ly-thu-hoi/check-status/{id}', [ThuHoiLoHangController::class, 'kiemTraTrangThai'])->name('coQuan.thuHoi.checkStatus');
         // Xử lý báo cáo nghi vấn
         Route::get('/xu-ly-nghi-van', [XuLyNghiVanController::class, 'index'])->name('coQuan.nghiVan.index');
         Route::get('/xu-ly-nghi-van/data', [XuLyNghiVanController::class, 'danhSach'])->name('coQuan.nghiVan.data');

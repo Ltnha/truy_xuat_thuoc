@@ -22,9 +22,9 @@
             <select id="locNhaSanXuat" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
                 <option value="TAT_CA">-- Tất cả nhà sản xuất --</option>
                 @if(isset($nhaSanXuats))
-                    @foreach($nhaSanXuats as $nsx)
-                        <option value="{{ $nsx->id }}">{{ $nsx->tenToChuc }}</option>
-                    @endforeach
+                @foreach($nhaSanXuats as $nsx)
+                <option value="{{ $nsx->id }}">{{ $nsx->tenToChuc }}</option>
+                @endforeach
                 @endif
             </select>
 
@@ -191,9 +191,10 @@
     </div>
 </div>
 
-<!-- MODAL 2: THU HỒI LÔ HÀNG -->
+<!-- MODAL 2: THU HỒI LÔ HÀNG VỚI POPUP 2 TRẠNG THÁI -->
 <div id="modalThuHoiLoHang" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-7 space-y-4 bong-xanh max-h-[92vh] flex flex-col">
+        <!-- HEADER MODAL -->
         <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between shrink-0">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-ban text-red-600"></i> Quyết Định Thu Hồi Lô Thuốc
@@ -203,6 +204,7 @@
             </button>
         </div>
 
+        <!-- MÀN HÌNH 0: FORM NHẬP LÝ DO -->
         <div id="manHinhFormThuHoi" class="flex-1 overflow-y-auto space-y-3.5 text-xs pr-1">
             <div class="p-3 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1.5">
                 <div class="flex justify-between items-center">
@@ -245,31 +247,34 @@
                     Hủy
                 </button>
                 <button type="button" id="nutXacNhanThuHoiBlockchain" disabled class="px-6 py-2 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-not-allowed">
-                    <i class="fa-solid fa-ban"></i> Xác Nhận Thu Hồi
+                    <i class="fa-solid fa-ban"></i> Ban Hành Thu Hồi
                 </button>
             </div>
         </div>
 
-        <div id="manHinhDangGhiBlockchain" class="hidden text-center py-6 space-y-4">
-            <div class="w-14 h-14 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl">
-                <i class="fa-solid fa-cube fa-bounce"></i>
+        <!-- TRẠNG THÁI 1: ĐANG THỰC THI (LOADING POPUP) -->
+        <div id="manHinhDangGhiBlockchain" class="hidden text-center py-8 space-y-4">
+            <div class="w-16 h-16 mx-auto rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center text-3xl">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
             </div>
             <div class="space-y-1">
-                <h4 class="text-sm font-bold text-slate-900">Đang thực thi thu hồi...</h4>
-                <p class="text-xs text-slate-500">Đang cập nhật cơ sở dữ liệu và kích hoạt Job đồng bộ Blockchain.</p>
+                <h4 class="text-base font-bold text-slate-900">Đang thực thi thu hồi...</h4>
+                <p class="text-xs text-slate-500 max-w-xs mx-auto">Hệ thống đang cập nhật dữ liệu và kích hoạt Job đồng bộ Blockchain vào hàng chờ Queue.</p>
             </div>
         </div>
 
-        <div id="manHinhLoiBlockchain" class="hidden text-center py-4 space-y-4">
-            <div class="w-12 h-12 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-xl">
-                <i class="fa-solid fa-triangle-exclamation"></i>
+        <!-- TRẠNG THÁI 2: PHẢN HỒI KẾT QUẢ (SUCCESS / ERROR POPUP) -->
+        <div id="manHinhKetQuaThuHoi" class="hidden text-center py-6 space-y-4">
+            <div id="iconKetQuaThuHoi" class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl"></div>
+
+            <div class="space-y-1.5">
+                <h4 id="tieuDeKetQuaThuHoi" class="text-base font-bold"></h4>
+                <p id="noiDungKetQuaThuHoi" class="text-xs text-slate-600 leading-relaxed max-w-xs mx-auto"></p>
             </div>
-            <div class="space-y-1 text-xs">
-                <h4 class="text-sm font-bold text-red-700" id="noiDungLoiThuHoiText">Xử Lý Thất Bại!</h4>
-            </div>
-            <div class="flex items-center justify-center gap-3 pt-2">
-                <button type="button" class="dong-modal-thuhoi px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">
-                    Đóng
+
+            <div class="pt-2 border-t border-slate-100 flex justify-center">
+                <button type="button" class="dong-modal-thuhoi px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all shadow-md">
+                    <i class="fa-solid fa-check mr-1"></i> Hoàn Tất & Đóng
                 </button>
             </div>
         </div>

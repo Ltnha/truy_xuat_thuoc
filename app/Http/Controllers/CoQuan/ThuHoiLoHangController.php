@@ -19,9 +19,6 @@ class ThuHoiLoHangController extends Controller
 {
     public function __construct(protected ThuHoiLoService $thuHoiLoService) {}
 
-    /**
-     * Trả về giao diện quản lý thu hồi lô hàng
-     */
     public function index()
     {
         $nhaSanXuats = ToChuc::where('loaiToChuc', OrganizationType::nhaSanXuat)
@@ -31,9 +28,6 @@ class ThuHoiLoHangController extends Controller
         return view('coQuanQuanLy.quanLyThuHoi', compact('nhaSanXuats'));
     }
 
-    /**
-     * Lấy danh sách lô thuốc kèm thông tin tồn kho và trạng thái thu hồi cho Frontend
-     */
     public function danhSach(Request $request): JsonResponse
     {
         try {
@@ -44,7 +38,6 @@ class ThuHoiLoHangController extends Controller
                 'tonKhoLo.toChuc'
             ]);
 
-            // 1. Lọc theo từ khóa (Mã lô nghiệp vụ, Mã lô, Tên sản phẩm)
             if ($request->filled('tuKhoa')) {
                 $tuKhoa = trim($request->tuKhoa);
                 $query->where(function ($q) use ($tuKhoa) {
@@ -54,12 +47,10 @@ class ThuHoiLoHangController extends Controller
                 });
             }
 
-            // 2. Lọc theo Nhà sản xuất
             if ($request->filled('nhaSanXuatId') && $request->nhaSanXuatId !== 'TAT_CA') {
                 $query->where('toChucId', $request->nhaSanXuatId);
             }
 
-            // 3. Lọc theo Trạng thái lô thuốc (Xử lý an toàn với Enum)
             if ($request->filled('trangThaiLo') && $request->trangThaiLo !== 'TAT_CA') {
                 $recalledVal = BatchStatus::recalled instanceof BatchStatus ? BatchStatus::recalled->value : BatchStatus::recalled;
 
@@ -76,7 +67,6 @@ class ThuHoiLoHangController extends Controller
 
             $danhSach = $query->orderByDesc('id')->paginate(10);
 
-            // 4. Transform dữ liệu trả về cho Frontend JavaScript (Đảm bảo an toàn Null-safe)
             $danhSach->getCollection()->transform(function ($lo) {
                 $soBaoCao = BaoCaoNghiVan::where('loThuocId', $lo->id)->count();
 
@@ -101,14 +91,14 @@ class ThuHoiLoHangController extends Controller
                 if ($thuHoi) {
                     $bcTx = $thuHoi->blockchainTx;
                     $txHash = $bcTx?->txHash;
-                    $isPendingPlaceholder = $txHash && str_starts_with($txHash, 'PENDING_');
 
                     $thongTinThuHoi = [
                         'id' => $thuHoi->id,
                         'lyDo' => $thuHoi->lyDo,
                         'ngayThuHoi' => $thuHoi->ngayThuHoi ? date('d/m/Y H:i', strtotime($thuHoi->ngayThuHoi)) : null,
                         'trangThaiDongBo' => $bcTx?->trangThai ?? 'CHO_DONG_BO',
-                        'hashBlockchain' => ($txHash && !$isPendingPlaceholder) ? $txHash : null,
+                        // BẮT BUỘC: Hiển thị trực tiếp mã txHash (kể cả PENDING_RECALL_... hoặc 0x...)
+                        'hashBlockchain' => $txHash ?? 'N/A',
                     ];
                 }
 
@@ -158,9 +148,6 @@ class ThuHoiLoHangController extends Controller
         }
     }
 
-    /**
-     * Ban hành quyết định thu hồi lô thuốc chính thức
-     */
     public function thuHoi(Request $request): JsonResponse
     {
         $request->validate([
@@ -177,7 +164,7 @@ class ThuHoiLoHangController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã ban hành quyết định thu hồi lô thuốc thành công.',
+                'message' => 'Đã tạo quyết định thu hồi, đang chờ xác nhận Blockchain.',
                 'data' => $thuHoi,
             ]);
         } catch (\Throwable $e) {
@@ -189,8 +176,28 @@ class ThuHoiLoHangController extends Controller
     }
 
     /**
-     * Đẩy lại yêu cầu đồng bộ Blockchain cho quyết định thu hồi bị lỗi
+     * API kiểm tra tiến trình xác nhận trên Blockchain (Polling)
      */
+    public function kiemTraTrangThai(int $id): JsonResponse
+    {
+        try {
+            $thuHoi = ThuHoiLoHang::with('blockchainTx')->find($id);
+            if (!$thuHoi) {
+                return response()->json(['success' => false, 'message' => 'Không tìm thấy quyết định thu hồi'], 404);
+            }
+
+            $bcTx = $thuHoi->blockchainTx;
+            return response()->json([
+                'success' => true,
+                'trangThai' => $bcTx?->trangThai ?? 'PENDING',
+                'txHash' => $bcTx?->txHash ?? 'N/A',
+                'blockNumber' => $bcTx?->blockNumber,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+        }
+    }
+
     public function dongBoLai(int $id): JsonResponse
     {
         try {
@@ -198,13 +205,13 @@ class ThuHoiLoHangController extends Controller
 
             BlockchainTransaction::where(function ($q) use ($thuHoi) {
                 $q->where('businessId', (string) $thuHoi->id)
-                  ->orWhere('loThuocId', $thuHoi->loThuocId);
+                    ->orWhere('loThuocId', $thuHoi->loThuocId);
             })
-            ->whereIn('eventName', ['BatchRecalled', 'RECALL_BATCH'])
-            ->update([
-                'trangThai' => 'PENDING',
-                'thoiGian' => now(),
-            ]);
+                ->whereIn('eventName', ['BatchRecalled', 'RECALL_BATCH'])
+                ->update([
+                    'trangThai' => 'PENDING',
+                    'thoiGian' => now(),
+                ]);
 
             ProcessBatchRecallJob::dispatch($thuHoi->id);
 
