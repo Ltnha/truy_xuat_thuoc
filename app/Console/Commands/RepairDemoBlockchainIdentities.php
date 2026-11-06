@@ -1,15 +1,15 @@
 <?php
 
-namespace App\\Console\\Commands;
+namespace App\Console\Commands;
 
-use App\\Models\\BlockchainIdentity;
-use App\\Models\\BlockchainTransaction;
-use App\\Models\\ToChuc;
-use App\\Services\\Blockchain\\RoleMap;
-use App\\Services\\Blockchain\\SignerClient;
-use Illuminate\\Console\\Command;
-use Illuminate\\Support\\Facades\\DB;
-use Illuminate\\Support\\Str;
+use App\Models\BlockchainIdentity;
+use App\Models\BlockchainTransaction;
+use App\Models\ToChuc;
+use App\Services\Blockchain\RoleMap;
+use App\Services\Blockchain\SignerClient;
+use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Throwable;
 
 /**
