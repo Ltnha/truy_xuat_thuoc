@@ -25,13 +25,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
     async function fetchJSON(url, options = {}) {
         const res = await fetch(url, {
+            ...options,
             headers: {
                 'Accept': 'application/json',
                 'X-CSRF-TOKEN': CSRF,
                 'X-Requested-With': 'XMLHttpRequest',
                 ...(options.headers || {}),
             },
-            ...options,
         });
         const data = await res.json();
         if (!res.ok || data.success === false) {
@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
-                        toast('Tiếp nhận thành công!');
+                        toast('Đã gửi yêu cầu tiếp nhận. Kho sẽ cập nhật sau khi blockchain xác nhận.');
                         loadChoXacNhan(currentPageCho);
                         // Cập nhật badge lịch sử nếu đang mở
                     } catch (err) {
@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ lyDo: lyDo.trim() }),
                         });
-                        toast('Đã từ chối tiếp nhận lô hàng.');
+                        toast('Đã gửi yêu cầu từ chối. Trạng thái sẽ cập nhật sau khi blockchain xác nhận.');
                         loadChoXacNhan(currentPageCho);
                     } catch (err) {
                         toast(err.message, 'error');
