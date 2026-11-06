@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\BlockchainIdentity;
 use App\Models\BlockchainTransaction;
 use App\Models\LoThuoc;
 use App\Models\NhatKyHeThong;
@@ -50,38 +51,58 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             'hanSuDung' => (string) $loThuoc->hanSuDung,
         ]));
 
-        $adminKeyId = config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
+        // Lô mới phải do chính ví của Nhà sản xuất ký, không dùng ví Admin để giả danh tổ chức.
+        $identity = BlockchainIdentity::query()
+            ->where('toChucId', $loThuoc->toChucId)
+            ->where('trangThai', 'ACTIVE')
+            ->first();
 
-        // 2. Đối soát On-chain trước khi ký (Đảm bảo tính Idempotent khi retry)
+        if (!$identity || !is_string($identity->signerKeyId) || trim($identity->signerKeyId) === '') {
+            throw new Exception("Nhà sản xuất #{$loThuoc->toChucId} chưa có ví Signer ACTIVE.");
+        }
+
+        $signerKeyId = $identity->signerKeyId;
+
+        // 2. Đối soát trước khi retry để tránh gửi giao dịch trùng.
+        // Nếu event đã tồn tại nhưng DB không có txHash thật, dừng để đối soát thủ công;
+        // tuyệt đối không tạo chuỗi ONCHAIN_* giả làm transaction hash.
         $isAlreadyRecorded = $signer->isBatchEventRecorded($batchId, $businessId, $eventType);
         $txHash = null;
         $blockNumber = null;
 
-        $existingTx = BlockchainTransaction::where('loThuocId', $loThuoc->id)->first();
+        $existingTx = BlockchainTransaction::query()
+            ->where('loThuocId', $loThuoc->id)
+            ->where('eventName', 'BatchEventRecorded')
+            ->orderByDesc('id')
+            ->first();
 
         if ($isAlreadyRecorded) {
-            Log::info("[ProcessBatchRegistrationJob] Lô [{$loThuoc->maLoNghiepVu}] đã được ghi nhận On-chain trước đó. Bỏ qua bước gọi Smart Contract.");
-            $txHash = ($existingTx && !str_starts_with($existingTx->txHash, 'PENDING_')) 
-                ? $existingTx->txHash 
-                : 'ONCHAIN_CONFIRMED_' . substr(md5($batchId), 0, 32);
+            $existingHash = $existingTx?->txHash;
+            if (!is_string($existingHash) || !preg_match('/^0x[a-fA-F0-9]{64}$/', $existingHash)) {
+                throw new Exception("Event lô [{$loThuoc->maLoNghiepVu}] đã có trên chain nhưng DB chưa có txHash thật. Cần đối soát transaction trước khi retry.");
+            }
+            $txHash = $existingHash;
+            $blockNumber = $existingTx?->blockNumber;
         } else {
-            // Đảm bảo gas cho ví Admin
-            $signer->ensureGas($adminKeyId);
+            $signer->ensureGas($signerKeyId);
 
-            // Ký và gửi giao dịch On-chain qua Signer Service
-            $res = $signer->tx($adminKeyId, 'recordBatchEvent', [
+            $res = $signer->tx($signerKeyId, 'recordBatchEvent', [
                 'batchId'     => $batchId,
                 'businessId'  => $businessId,
                 'eventType'   => $eventType,
                 'payloadHash' => $payloadHash,
             ]);
 
-            if (!$res['ok']) {
+            if (empty($res['ok'])) {
                 throw new Exception("Lỗi đăng ký lô thuốc On-chain: " . ($res['reason'] ?? 'Không rõ nguyên nhân'));
             }
 
-            $txHash = $res['txHash'];
+            $txHash = $res['txHash'] ?? null;
             $blockNumber = $res['blockNumber'] ?? null;
+        }
+
+        if (!is_string($txHash) || !preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+            throw new Exception('Signer không trả về Ethereum transaction hash hợp lệ.');
         }
 
         // 3. Cập nhật MySQL trong Transaction an toàn
@@ -152,5 +173,21 @@ class ProcessBatchRegistrationJob implements ShouldQueue
         });
 
         Log::info("[ProcessBatchRegistrationJob] Hoàn tất đăng ký lô thuốc [{$loThuoc->maLoNghiepVu}]. TxHash: {$txHash}");
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        $transaction = BlockchainTransaction::query()
+            ->where('loThuocId', $this->loThuocId)
+            ->where('eventName', 'BatchEventRecorded')
+            ->where('trangThai', 'PENDING')
+            ->orderByDesc('id')
+            ->first();
+
+        if ($transaction && !preg_match('/^0x[a-fA-F0-9]{64}$/', (string) $transaction->txHash)) {
+            $transaction->update(['txHash' => null, 'trangThai' => 'FAILED']);
+        }
+
+        Log::error('[ProcessBatchRegistrationJob] FAILED lô #' . $this->loThuocId . ': ' . ($exception?->getMessage() ?? ''));
     }
 }
