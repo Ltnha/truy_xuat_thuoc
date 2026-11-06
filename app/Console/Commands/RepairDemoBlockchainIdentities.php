@@ -66,7 +66,7 @@ class RepairDemoBlockchainIdentities extends Command
 
                 if ($keyId === '' || str_starts_with($keyId, 'KEY-DEMO-')
                     || ! preg_match('/^0x[a-fA-F0-9]{40}$/', $address)) {
-                    throw new \\RuntimeException("Signer không trả về keyId/địa chỉ ví thật hợp lệ cho tổ chức #{$organization->id}.");
+                    throw new \RuntimeException("Signer không trả về keyId/địa chỉ ví thật hợp lệ cho tổ chức #{$organization->id}.");
                 }
 
                 // Cấp gas cho đúng địa chỉ ví, không truyền signerKeyId vào endpoint này.
@@ -83,7 +83,7 @@ class RepairDemoBlockchainIdentities extends Command
                     ]);
 
                     if (empty($result['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) ($result['txHash'] ?? ''))) {
-                        throw new \\RuntimeException('Không thể cấp role on-chain: ' . ($result['reason'] ?? 'Signer không trả txHash hợp lệ.'));
+                        throw new \RuntimeException('Không thể cấp role on-chain: ' . ($result['reason'] ?? 'Signer không trả txHash hợp lệ.'));
                     }
 
                     $txHash = $result['txHash'];
