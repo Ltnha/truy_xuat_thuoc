@@ -24,7 +24,7 @@ contract BatchTraceability {
     bytes32 public constant EVENT_RECALL_BATCH = keccak256("RECALL_BATCH");
 
     // --- 4. CẤU TRÚC & SỰ KIỆN CHUYỂN GIAO LÔ HÀNG (TRANSFER MANAGEMENT) ---
-    enum TransferStatus { PENDING, RECEIVED, REJECTED }
+    enum TransferStatus { NONE, PENDING, RECEIVED, REJECTED, CANCELLED }
 
     struct TransferRecord {
         bytes32 maChuyenGiao;
@@ -72,6 +72,13 @@ contract BatchTraceability {
         string lyDo
     );
 
+    event TransferCancelled(
+        bytes32 indexed maChuyenGiao,
+        address indexed benGui,
+        uint256 thoiGian,
+        string lyDo
+    );
+
     // --- 6. LỖI TỰ ĐỊNH NGHĨA (CUSTOM ERRORS - TỐI ƯU GAS) ---
     error Unauthorized();
     error InvalidAddress();
@@ -89,6 +96,16 @@ contract BatchTraceability {
     // Cho phép gọi nếu là Writer trực tiếp HOẶC có Vai trò doanh nghiệp hợp lệ
     modifier onlyWriter() {
         if (!writers[msg.sender] && !isAuthorizedRole(msg.sender)) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyTransferSender() {
+        if (!_roles[msg.sender][ROLE_NSX] && !_roles[msg.sender][ROLE_NPP]) revert Unauthorized();
+        _;
+    }
+
+    modifier onlyTransferReceiver() {
+        if (!_roles[msg.sender][ROLE_NPP] && !_roles[msg.sender][ROLE_NHA_THUOC]) revert Unauthorized();
         _;
     }
 
@@ -177,10 +194,13 @@ contract BatchTraceability {
     }
 
     // --- 12. QUẢN LÝ CHUYỂN GIAO LÔ HÀNG ON-CHAIN ---
-    function submitTransfer(bytes32 maChuyenGiao, address benNhan) external onlyWriter {
-        if (maChuyenGiao == bytes32(0) || benNhan == address(0)) revert InvalidEventData();
+    function submitTransfer(bytes32 maChuyenGiao, address benNhan) external onlyTransferSender {
+        if (maChuyenGiao == bytes32(0) || benNhan == address(0) || benNhan == msg.sender) revert InvalidEventData();
+        if (!_roles[benNhan][ROLE_NPP] && !_roles[benNhan][ROLE_NHA_THUOC]) revert Unauthorized();
 
         TransferRecord storage record = transfers[maChuyenGiao];
+        if (record.status != TransferStatus.NONE) revert DuplicateEvent();
+
         record.maChuyenGiao = maChuyenGiao;
         record.benGui = msg.sender;
         record.benNhan = benNhan;
@@ -190,33 +210,33 @@ contract BatchTraceability {
         emit TransferSubmitted(maChuyenGiao, msg.sender, benNhan, block.timestamp);
     }
 
-    function receiveTransfer(bytes32 maChuyenGiao) external onlyWriter {
-        if (maChuyenGiao == bytes32(0)) revert InvalidEventData();
-
+    function receiveTransfer(bytes32 maChuyenGiao) external onlyTransferReceiver {
         TransferRecord storage record = transfers[maChuyenGiao];
-        record.maChuyenGiao = maChuyenGiao;
-        record.benNhan = msg.sender;
+        if (record.status != TransferStatus.PENDING || record.benNhan != msg.sender) revert Unauthorized();
+
         record.status = TransferStatus.RECEIVED;
         record.thoiGian = block.timestamp;
-
         emit TransferReceived(maChuyenGiao, msg.sender, block.timestamp);
     }
 
-    function rejectTransfer(bytes32 maChuyenGiao, string calldata lyDo) public onlyWriter {
-        if (maChuyenGiao == bytes32(0)) revert InvalidEventData();
-
+    function rejectTransfer(bytes32 maChuyenGiao, string calldata lyDo) external onlyTransferReceiver {
         TransferRecord storage record = transfers[maChuyenGiao];
-        record.maChuyenGiao = maChuyenGiao;
-        record.benNhan = msg.sender;
+        if (record.status != TransferStatus.PENDING || record.benNhan != msg.sender) revert Unauthorized();
+
         record.status = TransferStatus.REJECTED;
         record.thoiGian = block.timestamp;
         record.lyDo = lyDo;
-
         emit TransferRejected(maChuyenGiao, msg.sender, block.timestamp, lyDo);
     }
 
-    function cancelTransfer(bytes32 maChuyenGiao, string calldata lyDo) external onlyWriter {
-        rejectTransfer(maChuyenGiao, lyDo);
+    function cancelTransfer(bytes32 maChuyenGiao, string calldata lyDo) external onlyTransferSender {
+        TransferRecord storage record = transfers[maChuyenGiao];
+        if (record.status != TransferStatus.PENDING || record.benGui != msg.sender) revert Unauthorized();
+
+        record.status = TransferStatus.CANCELLED;
+        record.thoiGian = block.timestamp;
+        record.lyDo = lyDo;
+        emit TransferCancelled(maChuyenGiao, msg.sender, block.timestamp, lyDo);
     }
 
     // --- 13. HÀM ĐỌC HỖ TRỢ ĐỒNG BỘ BACKEND & SIGNER SERVICE (VIEW FUNCTIONS) ---
