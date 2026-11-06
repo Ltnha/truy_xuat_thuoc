@@ -177,7 +177,7 @@ class LoThuocController extends Controller
             ]);
 
             BlockchainTransaction::create([
-                'txHash'           => 'PENDING_' . str_replace('-', '', $maBusinessId),
+                'txHash'           => null,
                 'blockNumber'      => null,
                 'eventName'        => 'BatchEventRecorded',
                 'doiTuongToChucId' => $toChuc->id,
