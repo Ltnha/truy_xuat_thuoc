@@ -131,6 +131,10 @@ class SignerClient
             'eventType'  => $eventType,
         ]);
 
-        return $response->successful() && $response->json('isRecorded') === true;
+        if (!$response->successful() || $response->json('ok') !== true) {
+            throw new Exception('Không thể đối soát trạng thái event trên blockchain: ' . ($response->json('reason') ?? $response->body()));
+        }
+
+        return $response->json('isRecorded') === true;
     }
 }
