@@ -116,7 +116,10 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             $tonKhoService
         ) {
             // Cập nhật trạng thái transaction trong CSDL
-            $bctx = BlockchainTransaction::where('loThuocId', $loThuoc->id)->first();
+            $bctx = BlockchainTransaction::where('loThuocId', $loThuoc->id)
+                ->where('eventName', 'BatchEventRecorded')
+                ->orderByDesc('id')
+                ->first();
             if ($bctx) {
                 $bctx->update([
                     'txHash'      => $txHash,
