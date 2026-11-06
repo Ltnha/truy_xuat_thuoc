@@ -56,6 +56,12 @@ const authMiddleware = (req, res, next) => {
     next();
 };
 
+function normalizeTransferId(value) {
+    if (typeof value === 'string' && /^0x[a-fA-F0-9]{64}$/.test(value)) return value;
+    if (!value) throw new Error('Thiếu mã chuyển giao.');
+    return ethers.sha256(ethers.toUtf8Bytes(String(value)));
+}
+
 // 1. Sinh ví Custodial
 app.post('/wallets', authMiddleware, async (req, res) => {
     try {
@@ -158,6 +164,9 @@ app.post('/tx', authMiddleware, async (req, res) => {
             if (!wData) {
                 return res.status(400).json({ ok: false, reason: `Không tìm thấy keyId [${keyId}]` });
             }
+            if (wData.status !== 'ACTIVE') {
+                return res.status(403).json({ ok: false, reason: 'Ví tổ chức không ở trạng thái ACTIVE.' });
+            }
             const plainPk = decrypt(wData.encryptedPk);
             walletToUse = new ethers.Wallet(plainPk, provider);
         }
@@ -176,11 +185,18 @@ app.post('/tx', authMiddleware, async (req, res) => {
                 params.eventType,
                 params.payloadHash
             );
-        } else if (action === 'rejectTransfer' || action === 'cancelTransfer') {
-            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && params.maChuyenGiao.startsWith('0x') && params.maChuyenGiao.length === 66
-                ? params.maChuyenGiao
-                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
-            tx = await contract.rejectTransfer(mgdBytes32, params.lyDo || '');
+        } else if (action === 'submitTransfer') {
+            const transferId = normalizeTransferId(params.maChuyenGiao);
+            if (!ethers.isAddress(params.benNhan)) {
+                return res.status(400).json({ ok: false, reason: 'Địa chỉ ví bên nhận không hợp lệ.' });
+            }
+            tx = await contract.submitTransfer(transferId, params.benNhan);
+        } else if (action === 'receiveTransfer') {
+            tx = await contract.receiveTransfer(normalizeTransferId(params.maChuyenGiao));
+        } else if (action === 'rejectTransfer') {
+            tx = await contract.rejectTransfer(normalizeTransferId(params.maChuyenGiao), String(params.lyDo || 'Từ chối tiếp nhận'));
+        } else if (action === 'cancelTransfer') {
+            tx = await contract.cancelTransfer(normalizeTransferId(params.maChuyenGiao), String(params.lyDo || 'Bên gửi hủy chuyển giao'));
         } else {
             return res.status(400).json({ ok: false, reason: `Action [${action}] chưa được hỗ trợ` });
         }
@@ -236,6 +252,50 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
         });
     } catch (err) {
         return res.status(500).json({ ok: false, isRecorded: false, reason: err.message });
+    }
+});
+
+
+/**
+ * Đối soát transaction event chuyển giao trước khi retry.
+ * Chỉ trả txHash của log thực tế, không sinh hash giả.
+ */
+app.get('/transfers/check', authMiddleware, async (req, res) => {
+    try {
+        const { maChuyenGiao, eventName } = req.query;
+        const allowed = ['TransferSubmitted', 'TransferReceived', 'TransferRejected'];
+        if (!maChuyenGiao || !allowed.includes(eventName)) {
+            return res.status(400).json({ ok: false, reason: 'Tham số chuyển giao hoặc eventName không hợp lệ.' });
+        }
+
+        const transferId = normalizeTransferId(String(maChuyenGiao));
+        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        const filterFactory = contract.filters[eventName];
+        if (typeof filterFactory !== 'function') {
+            return res.status(400).json({ ok: false, reason: `ABI không có event ${eventName}` });
+        }
+
+        const filter = filterFactory(transferId);
+        const latest = await provider.getBlockNumber();
+        const fromBlock = Number(process.env.BLOCKCHAIN_DEPLOYMENT_BLOCK || 0);
+        const chunkSize = 2000;
+        for (let start = fromBlock; start <= latest; start += chunkSize) {
+            const end = Math.min(start + chunkSize - 1, latest);
+            const logs = await contract.queryFilter(filter, start, end);
+            if (logs.length) {
+                const log = logs[logs.length - 1];
+                return res.json({
+                    ok: true,
+                    isRecorded: true,
+                    txHash: log.transactionHash,
+                    blockNumber: Number(log.blockNumber)
+                });
+            }
+        }
+
+        return res.json({ ok: true, isRecorded: false, txHash: null, blockNumber: null });
+    } catch (err) {
+        return res.status(503).json({ ok: false, reason: err.message });
     }
 });
 
