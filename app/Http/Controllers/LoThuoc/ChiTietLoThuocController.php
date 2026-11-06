@@ -139,6 +139,10 @@ class ChiTietLoThuocController extends Controller
             return response()->json(['success' => false, 'message' => 'Lô thuốc đã được ghi nhận On-chain thành công.'], 422);
         }
 
+        if ($tx && strtoupper((string) $tx->trangThai) === 'PENDING') {
+            return response()->json(['success' => true, 'message' => 'Yêu cầu ghi nhận lô đang được xử lý. Vui lòng chờ kết quả.']);
+        }
+
         if (! $tx) {
             $tx = BlockchainTransaction::query()->create([
                 'txHash' => null,
