@@ -109,67 +109,59 @@ class ChiTietLoThuocController extends Controller
     public function guiBlockchain(int $id)
     {
         $user = Auth::user();
-
-        $loThuoc = LoThuoc::where('id', $id)
+        $loThuoc = LoThuoc::query()
+            ->whereKey($id)
             ->where('toChucId', $user->toChucId ?? 0)
             ->first();
 
-        if (!$loThuoc) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy lô thuốc.',
-            ], 404);
+        if (! $loThuoc) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy lô thuốc.'], 404);
         }
 
-        // Kiểm tra đã confirmed chưa
-        $txHienTai = BlockchainTransaction::where('loThuocId', $loThuoc->id)
+        $identity = \App\\Models\\BlockchainIdentity::query()
+            ->where('toChucId', $loThuoc->toChucId)
+            ->where('trangThai', 'ACTIVE')
+            ->whereNotNull('signerKeyId')
+            ->first();
+
+        if (! $identity || trim((string) $identity->signerKeyId) === '') {
+            return response()->json(['success' => false, 'message' => 'Nhà sản xuất chưa có ví Signer ACTIVE.'], 422);
+        }
+
+        $tx = BlockchainTransaction::query()
+            ->where('loThuocId', $loThuoc->id)
+            ->where('eventName', 'BatchEventRecorded')
             ->orderByDesc('id')
             ->first();
 
-        if ($txHienTai) {
-            $st = strtoupper((string) ($txHienTai->trangThai ?? ''));
-            $hash = (string) ($txHienTai->txHash ?? '');
-
-            if (in_array($st, ['CONFIRMED', 'SUCCESS'], true) || ($hash && !str_starts_with($hash, 'PENDING_'))) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Lô thuốc này đã được ghi nhận On-chain thành công.',
-                ], 422);
-            }
-
-            // Nếu đang PENDING thì không tạo record mới
-            if ($st === 'PENDING' || str_starts_with($hash, 'PENDING_')) {
-                // Vẫn dispatch lại job để retry
-                ProcessBatchRegistrationJob::dispatch($loThuoc->id, $user->id);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => 'Đã yêu cầu xử lý lại hàng đợi Blockchain.',
-                ]);
-            }
+        if ($tx && strtoupper((string) $tx->trangThai) === 'CONFIRMED'
+            && preg_match('/^0x[a-fA-F0-9]{64}$/', (string) $tx->txHash)) {
+            return response()->json(['success' => false, 'message' => 'Lô thuốc đã được ghi nhận On-chain thành công.'], 422);
         }
 
-        // Tạo record PENDING mới
-        BlockchainTransaction::create([
-            'txHash'           => 'PENDING_' . str_replace('-', '', (string) $loThuoc->maLo),
-            'blockNumber'      => null,
-            'eventName'        => 'BatchEventRecorded',
-            'doiTuongToChucId' => $loThuoc->toChucId,
-            'businessId'       => $loThuoc->maLo,
-            'network'          => config('truyXuat.blockchain.mang', 'Ethereum Sepolia'),
-            'trangThai'        => 'PENDING',
-            'toChucId'         => $loThuoc->toChucId,
-            'sanPhamId'        => $loThuoc->sanPhamId,
-            'loThuocId'        => $loThuoc->id,
-            'thoiGian'         => now(),
-        ]);
+        if (! $tx) {
+            $tx = BlockchainTransaction::query()->create([
+                'txHash' => null,
+                'blockNumber' => null,
+                'eventName' => 'BatchEventRecorded',
+                'doiTuongToChucId' => $loThuoc->toChucId,
+                'businessId' => $loThuoc->maLo,
+                'network' => config('truyXuat.blockchain.network', 'Ethereum Sepolia Testnet'),
+                'trangThai' => 'PENDING',
+                'toChucId' => $loThuoc->toChucId,
+                'sanPhamId' => $loThuoc->sanPhamId,
+                'loThuocId' => $loThuoc->id,
+                'thoiGian' => now(),
+            ]);
+        } else {
+            $tx->update(['txHash' => null, 'blockNumber' => null, 'trangThai' => 'PENDING', 'thoiGian' => now()]);
+        }
 
-        // Đẩy vào Queue thật
-        ProcessBatchRegistrationJob::dispatch($loThuoc->id, $user->id);
+        ProcessBatchRegistrationJob::dispatch($loThuoc->id, $user->id)->afterCommit();
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã đưa yêu cầu gửi Blockchain vào hàng đợi.',
+            'message' => 'Đã đưa yêu cầu đăng ký lô vào hàng đợi. Hệ thống sẽ ký bằng ví của Nhà sản xuất.',
         ]);
     }
 }
