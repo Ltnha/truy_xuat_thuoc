@@ -276,7 +276,7 @@ class QuanLyLoHangController extends Controller
             return response()->json(['success' => true, 'message' => 'Đã gửi yêu cầu hủy. Trạng thái sẽ cập nhật sau khi blockchain xác nhận.']);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             report($e);
             return response()->json(['success' => false, 'message' => 'Không thể gửi yêu cầu hủy.'], 500);
         }
