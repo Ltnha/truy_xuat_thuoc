@@ -118,7 +118,7 @@ class ChiTietLoThuocController extends Controller
             return response()->json(['success' => false, 'message' => 'Không tìm thấy lô thuốc.'], 404);
         }
 
-        $identity = \App\\Models\\BlockchainIdentity::query()
+        $identity = \App\Models\BlockchainIdentity::query()
             ->where('toChucId', $loThuoc->toChucId)
             ->where('trangThai', 'ACTIVE')
             ->whereNotNull('signerKeyId')
