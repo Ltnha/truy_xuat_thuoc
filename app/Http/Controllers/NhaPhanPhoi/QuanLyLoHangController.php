@@ -257,4 +257,29 @@ class QuanLyLoHangController extends Controller
             return response()->json(['success' => false, 'message' => 'Có lỗi hệ thống, vui lòng thử lại.'], 500);
         }
     }
+    /** API: Nhà phân phối hủy yêu cầu chuyển giao đang chờ Nhà thuốc. */
+    public function huyChuyenGiao(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $toChuc = $user?->toChuc;
+        if (! $toChuc || $toChuc->loaiToChuc !== OrganizationType::nhaPhanPhoi) {
+            return response()->json(['success' => false, 'message' => 'Chỉ Nhà phân phối mới được hủy chuyển giao.'], 403);
+        }
+
+        $chuyenGiao = ChuyenGiao::query()->find($id);
+        if (! $chuyenGiao) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch.'], 404);
+        }
+
+        try {
+            $this->chuyenGiaoService->huy($chuyenGiao, $toChuc, $user, $request->ip(), $request->input('lyDo'));
+            return response()->json(['success' => true, 'message' => 'Đã gửi yêu cầu hủy. Trạng thái sẽ cập nhật sau khi blockchain xác nhận.']);
+        } catch (NghiepVuException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\\Throwable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => 'Không thể gửi yêu cầu hủy.'], 500);
+        }
+    }
+
 }
