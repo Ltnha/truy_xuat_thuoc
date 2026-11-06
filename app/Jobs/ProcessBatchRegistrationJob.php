@@ -141,9 +141,8 @@ class ProcessBatchRegistrationJob implements ShouldQueue
                 ]);
             }
 
-            // Đảm bảo lô ở trạng thái CREATED
-            $loThuoc->update(['trangThai' => 'CREATED']);
-
+            // LoThuocController đã tạo lô ở trạng thái CREATED.
+            // Không ghi đè trạng thái hiện tại ở retry vì lô có thể đã IN_TRANSIT/RECALLED.
             // 4. Sinh đơn vị thuốc lẻ (Nếu chưa sinh)
             $coDonVi = DB::table('donViSanPham')->where('loThuocId', $loThuoc->id)->exists();
             if (!$coDonVi) {
