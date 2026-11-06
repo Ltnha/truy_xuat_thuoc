@@ -175,7 +175,7 @@ class ProcessBatchRegistrationJob implements ShouldQueue
         Log::info("[ProcessBatchRegistrationJob] Hoàn tất đăng ký lô thuốc [{$loThuoc->maLoNghiepVu}]. TxHash: {$txHash}");
     }
 
-    public function failed(?\\Throwable $exception): void
+    public function failed(?\Throwable $exception): void
     {
         $transaction = BlockchainTransaction::query()
             ->where('loThuocId', $this->loThuocId)
