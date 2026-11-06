@@ -56,6 +56,7 @@ class TiepNhanLoHangController extends Controller
 
         $data = $paginator->getCollection()->map(function (ChuyenGiao $cg) {
             $lo = $cg->loThuoc;
+            $latestTx = $cg->blockchainTransactions->sortByDesc('id')->first();
             return [
                 'id'            => $cg->id,
                 'maGiaoDich'    => $cg->maChuyenGiao,
@@ -69,7 +70,9 @@ class TiepNhanLoHangController extends Controller
                 'hanDung'       => optional($lo?->hanSuDung)->format('Y-m-d'),
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
-                'txHash'        => $cg->blockchainTransactions->sortByDesc('id')->first()?->txHash,
+                'txHash'        => $latestTx?->txHash,
+                'trangThaiBlockchain' => $latestTx?->trangThai,
+                'dangXuLyBlockchain' => $latestTx && strtoupper((string) $latestTx->trangThai) === 'PENDING',
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });
