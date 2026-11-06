@@ -263,7 +263,7 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
 app.get('/transfers/check', authMiddleware, async (req, res) => {
     try {
         const { maChuyenGiao, eventName } = req.query;
-        const allowed = ['TransferSubmitted', 'TransferReceived', 'TransferRejected'];
+        const allowed = ['TransferSubmitted', 'TransferReceived', 'TransferRejected', 'TransferCancelled'];
         if (!maChuyenGiao || !allowed.includes(eventName)) {
             return res.status(400).json({ ok: false, reason: 'Tham số chuyển giao hoặc eventName không hợp lệ.' });
         }
