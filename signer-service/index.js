@@ -244,11 +244,39 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
         );
 
         const isRecorded = await contract.recordedEventKeys(eventKey);
+        if (!isRecorded) {
+            return res.json({ ok: true, isRecorded: false, eventKey, txHash: null, blockNumber: null });
+        }
 
-        return res.json({ 
-            ok: true, 
-            isRecorded: Boolean(isRecorded), 
-            eventKey: eventKey 
+        // Tra cứu log để khôi phục txHash thật khi Laravel bị timeout sau khi tx đã mined.
+        const filter = contract.filters.BatchEventRecorded(batchId, businessId, null);
+        const latest = await provider.getBlockNumber();
+        const fromBlock = Number(process.env.BLOCKCHAIN_DEPLOYMENT_BLOCK || 0);
+        const chunkSize = 2000;
+        for (let start = fromBlock; start <= latest; start += chunkSize) {
+            const end = Math.min(start + chunkSize - 1, latest);
+            const logs = await contract.queryFilter(filter, start, end);
+            const matched = logs.find(log =>
+                String(log.args?.eventType || '').toLowerCase() === String(eventType).toLowerCase()
+            );
+            if (matched) {
+                return res.json({
+                    ok: true,
+                    isRecorded: true,
+                    eventKey,
+                    txHash: matched.transactionHash,
+                    blockNumber: Number(matched.blockNumber)
+                });
+            }
+        }
+
+        return res.json({
+            ok: true,
+            isRecorded: true,
+            eventKey,
+            txHash: null,
+            blockNumber: null,
+            reason: 'Contract xác nhận event đã tồn tại nhưng không tìm thấy log tương ứng trong phạm vi quét.'
         });
     } catch (err) {
         return res.status(500).json({ ok: false, isRecorded: false, reason: err.message });
