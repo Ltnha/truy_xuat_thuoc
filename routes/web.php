@@ -201,6 +201,8 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
                 ->name('nha-thuoc.api.da-tiep-nhan');
             Route::post('/api/xac-nhan/{id}', [TiepNhanLoHangController::class, 'xacNhan'])
                 ->name('nha-thuoc.api.xac-nhan');
+            Route::post('/api/tu-choi/{id}', [TiepNhanLoHangController::class, 'tuChoi'])
+                ->name('nha-thuoc.api.tu-choi');
 
             Route::get('/quan-ly-ban-hang', fn() => view('nhaThuoc.quanLyBanHang'))
                 ->name('nha-thuoc.ban-hang');

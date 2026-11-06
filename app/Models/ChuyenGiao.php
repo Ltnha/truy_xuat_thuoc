@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\TransferStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
 class ChuyenGiao extends Model
@@ -13,9 +14,6 @@ class ChuyenGiao extends Model
     public $timestamps = false;
     protected $guarded = ['id'];
 
-    /**
-     * Tự động sinh maChuyenGiao (UUID) khi khởi tạo bản ghi mới
-     */
     protected static function booted(): void
     {
         static::creating(function ($chuyenGiao) {
@@ -47,5 +45,10 @@ class ChuyenGiao extends Model
     public function benNhan(): BelongsTo
     {
         return $this->belongsTo(ToChuc::class, 'benNhanId');
+    }
+
+    public function blockchainTransactions(): HasMany
+    {
+        return $this->hasMany(BlockchainTransaction::class, 'chuyenGiaoId');
     }
 }

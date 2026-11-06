@@ -4,22 +4,18 @@ namespace App\Http\Controllers\LoThuoc;
 
 use App\Enums\OrganizationApprovalStatus;
 use App\Enums\OrganizationType;
-use App\Enums\TransferStatus;
 use App\Http\Controllers\Controller;
-use App\Jobs\ProcessBatchTransferJob;
-use App\Models\BlockchainIdentity;
 use App\Models\BlockchainTransaction;
-use App\Models\ChuyenGiao;
 use App\Models\LoThuoc;
 use App\Models\ToChuc;
-use App\Services\ChuoiCungUng\TonKhoService;
+use App\Services\ChuoiCungUng\ChuyenGiaoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class ChuyenGiaoController extends Controller
 {
+    public function __construct(private ChuyenGiaoService $chuyenGiaoService) {}
+
     /**
      * API: Danh sách Nhà phân phối đã duyệt (CSDL thật)
      */
@@ -117,77 +113,20 @@ class ChuyenGiaoController extends Controller
             ], 422);
         }
 
-        // Ví on-chain bên nhận nên ACTIVE (khuyến nghị)
-        $identityNhan = BlockchainIdentity::where('toChucId', $benNhan->id)
-            ->where('trangThai', 'ACTIVE')
-            ->first();
-
         $soLuong = (int) $request->soLuong;
-        $tonKhoService = app(TonKhoService::class);
-        $khaDung = $tonKhoService->soLuongKhaDung($loThuoc->id, $toChuc->id);
-
-        if ($soLuong > $khaDung) {
-            return response()->json([
-                'success' => false,
-                'message' => "Số lượng chuyển ({$soLuong}) vượt quá số khả dụng ({$khaDung}).",
-            ], 422);
+        try {
+            $chuyenGiao = $this->chuyenGiaoService->tao($toChuc, [
+                'loThuocId' => (int) $loThuoc->id,
+                'benNhanId' => (int) $benNhan->id,
+                'soLuong' => $soLuong,
+            ], $user, $request->ip());
+        } catch (\App\Exceptions\NghiepVuException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
-
-        $maChuyenGiao = (string) Str::uuid();
-
-        $chuyenGiao = DB::transaction(function () use (
-            $request, $loThuoc, $toChuc, $benNhan, $soLuong, $maChuyenGiao, $user
-        ) {
-            $cg = ChuyenGiao::create([
-                'maChuyenGiao'    => $maChuyenGiao,
-                'loThuocId'       => $loThuoc->id,
-                'benGuiId'        => $toChuc->id,
-                'benNhanId'       => $benNhan->id,
-                'soLuong'         => $soLuong,
-                'trangThai'       => TransferStatus::pending->value, // đã xuất, chờ NPP nhận
-                'thoiGianKhoiTao' => now(),
-            ]);
-
-            // Ghi blockchain_transaction PENDING gắn chuyenGiao
-            BlockchainTransaction::create([
-                'txHash'           => 'PENDING_CG_' . str_replace('-', '', $maChuyenGiao),
-                'blockNumber'      => null,
-                'eventName'        => 'BatchEventRecorded',
-                'doiTuongToChucId' => $toChuc->id,
-                'businessId'       => $cg->maChuyenGiao,
-                'network'          => config('truyXuat.blockchain.network', 'Ethereum Sepolia Testnet'),
-                'trangThai'        => 'PENDING',
-                'toChucId'         => $toChuc->id,
-                'sanPhamId'        => $loThuoc->sanPhamId,
-                'loThuocId'        => $loThuoc->id,
-                'chuyenGiaoId'     => $cg->id,
-                'thoiGian'         => now(),
-            ]);
-
-            // Cập nhật trạng thái nghiệp vụ lô (đang phân phối) nếu còn hàng chuyển
-            if ($loThuoc->trangThai === 'CREATED') {
-                $loThuoc->update(['trangThai' => 'IN_TRANSIT']);
-            }
-
-            // Audit log
-            if (class_exists(\App\Models\NhatKyHeThong::class)) {
-                \App\Models\NhatKyHeThong::create([
-                    'taiKhoanId' => $user->id,
-                    'doiTuongId' => $cg->id,
-                    'hanhDong'   => 'KHOI_TAO_CHUYEN_GIAO',
-                    'ketQua'     => 'THANH_CONG',
-                    'chiTiet'    => "NSX chuyển {$soLuong} hộp lô [{$loThuoc->maLoNghiepVu}] → NPP [{$benNhan->tenToChuc}]. Chờ ký On-chain.",
-                ]);
-            }
-
-            return $cg;
-        });
-
-        ProcessBatchTransferJob::dispatch($chuyenGiao->id, $user->id)->afterCommit();
 
         return response()->json([
             'success' => true,
-            'message' => 'Đã khởi tạo chuyển giao. Hệ thống đang ký giao dịch On-chain.',
+            'message' => 'Đã khởi tạo chuyển giao. Hệ thống đang gửi giao dịch submitTransfer lên Ethereum Sepolia.',
             'data' => [
                 'chuyenGiaoId' => $chuyenGiao->id,
                 'trangThai'    => $chuyenGiao->trangThai,
@@ -196,7 +135,6 @@ class ChuyenGiaoController extends Controller
                     'id' => $benNhan->id,
                     'tenToChuc' => $benNhan->tenToChuc,
                 ],
-                'canhBaoVi' => $identityNhan ? null : 'Nhà phân phối chưa có ví On-chain ACTIVE. Vẫn ghi off-chain; on-chain có thể dùng ví Admin.',
             ],
         ]);
     }

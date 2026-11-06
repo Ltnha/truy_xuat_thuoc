@@ -176,23 +176,46 @@ app.post('/tx', authMiddleware, async (req, res) => {
                 params.eventType,
                 params.payloadHash
             );
-        } else if (action === 'rejectTransfer' || action === 'cancelTransfer') {
-            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && params.maChuyenGiao.startsWith('0x') && params.maChuyenGiao.length === 66
+        } else if (action === 'submitTransfer') {
+            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
+                ? params.maChuyenGiao
+                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
+            if (!ethers.isAddress(params.benNhan)) throw new Error('Địa chỉ ví bên nhận không hợp lệ');
+            tx = await contract.submitTransfer(mgdBytes32, params.benNhan);
+        } else if (action === 'receiveTransfer') {
+            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
+                ? params.maChuyenGiao
+                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
+            tx = await contract.receiveTransfer(mgdBytes32);
+        } else if (action === 'rejectTransfer') {
+            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
                 ? params.maChuyenGiao
                 : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
             tx = await contract.rejectTransfer(mgdBytes32, params.lyDo || '');
+        } else if (action === 'cancelTransfer') {
+            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
+                ? params.maChuyenGiao
+                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
+            tx = await contract.cancelTransfer(mgdBytes32, params.lyDo || '');
         } else {
             return res.status(400).json({ ok: false, reason: `Action [${action}] chưa được hỗ trợ` });
         }
 
         console.log(`[TX] Đã gửi giao dịch [${action}]. Chờ xác nhận Block...`);
         const receipt = await tx.wait();
+        if (!receipt || receipt.status !== 1) {
+            return res.status(500).json({
+                ok: false,
+                reason: `Giao dịch [${action}] on-chain thất bại (status=${receipt ? receipt.status : 'null'})`,
+                txHash: receipt && receipt.hash ? receipt.hash : null,
+            });
+        }
         console.log(`[TX SUCCESS] TxHash: ${receipt.hash}`);
 
-        return res.json({ 
-            ok: true, 
+        return res.json({
+            ok: true,
             txHash: receipt.hash,
-            blockNumber: receipt.blockNumber ? Number(receipt.blockNumber) : null
+            blockNumber: receipt.blockNumber ? Number(receipt.blockNumber) : null,
         });
     } catch (err) {
         console.error("[TX ERROR]", err.reason || err.message);
@@ -228,14 +251,62 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
         );
 
         const isRecorded = await contract.recordedEventKeys(eventKey);
+        let txHash = null;
+        let blockNumber = null;
 
-        return res.json({ 
-            ok: true, 
-            isRecorded: Boolean(isRecorded), 
-            eventKey: eventKey 
+        if (isRecorded) {
+            // eventType không indexed, nên lọc theo batchId/businessId rồi so sánh eventType.
+            const filter = contract.filters.BatchEventRecorded(batchId, businessId);
+            const latestBlk = await provider.getBlockNumber();
+            const fromBlk = Math.max(0, latestBlk - 40000);
+            const logs = await contract.queryFilter(filter, fromBlk, latestBlk);
+            const matched = logs.find(log => String(log.args.eventType).toLowerCase() === String(eventType).toLowerCase());
+            if (matched) {
+                txHash = matched.transactionHash;
+                blockNumber = Number(matched.blockNumber);
+            }
+        }
+
+        return res.json({
+            ok: true,
+            isRecorded: Boolean(isRecorded),
+            eventKey,
+            txHash,
+            blockNumber
         });
     } catch (err) {
         return res.status(500).json({ ok: false, isRecorded: false, reason: err.message });
+    }
+});
+
+// 4c. Đối soát transaction theo event chuyển giao để Job retry không gửi trùng.
+app.get('/transfers/check', authMiddleware, async (req, res) => {
+    try {
+        const { maChuyenGiao, eventName } = req.query;
+        const allowed = ['TransferSubmitted', 'TransferReceived', 'TransferRejected'];
+        if (!maChuyenGiao || !allowed.includes(eventName)) {
+            return res.status(400).json({ ok: false, reason: 'Thiếu mã chuyển giao hoặc eventName không hợp lệ' });
+        }
+        // Job Laravel gửi sẵn bytes32 (sha256); nếu là UUID thì keccak256 để tương thích
+        const mgdBytes32 = /^0x[a-fA-F0-9]{64}$/.test(String(maChuyenGiao))
+            ? String(maChuyenGiao)
+            : ethers.keccak256(ethers.toUtf8Bytes(String(maChuyenGiao)));
+        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        const filter = contract.filters[eventName](mgdBytes32);
+        // Sepolia RPC giới hạn ~50000 block — chỉ quét cửa sổ gần
+        const latest = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, latest - 40000);
+        const logs = await contract.queryFilter(filter, fromBlock, latest);
+        const matched = logs.length ? logs[logs.length - 1] : null;
+        return res.json({
+            ok: true,
+            isRecorded: Boolean(matched),
+            txHash: matched ? matched.transactionHash : null,
+            blockNumber: matched ? Number(matched.blockNumber) : null
+        });
+    } catch (err) {
+        // Không chặn Job ký: trả ok + isRecorded false
+        return res.json({ ok: true, isRecorded: false, reason: err.message, txHash: null, blockNumber: null });
     }
 });
 

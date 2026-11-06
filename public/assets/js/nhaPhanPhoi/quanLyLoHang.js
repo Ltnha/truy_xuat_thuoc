@@ -107,6 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             tbody.innerHTML = list.map(item => {
                 const isRecalled = item.trangThaiLo === 'RECALLED';
+                const isExpired = item.hanDung && item.hanDung < new Date().toISOString().slice(0, 10);
                 const hanDung = dinhDangNgay(item.hanDung);
                 return `
                 <tr class="hover:bg-slate-50/80">
@@ -123,8 +124,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         </span>
                     </td>
                     <td class="py-3 px-3 text-center">
-                        ${isRecalled
-                            ? '<span class="text-[11px] text-red-500 font-medium">Không thể nhận</span>'
+                        ${isRecalled || isExpired
+                            ? '<span class="text-[11px] text-amber-600 font-medium">Không thể tiếp nhận</span>'
                             : `<div class="flex items-center justify-center gap-1.5">
                                 <button type="button" data-id="${item.id}" class="btn-tiep-nhan px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition">
                                     Tiếp nhận
@@ -134,6 +135,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 </button>
                                </div>`
                         }
+                        ${(isRecalled || isExpired) ? `<button type="button" data-id="${item.id}" class="btn-tu-choi px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Từ chối</button>` : ''}
                     </td>
                 </tr>`;
             }).join('');
@@ -146,7 +148,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     const oldText = btn.textContent;
                     btn.textContent = 'Đang xử lý...';
                     try {
-                        // Ưu tiên API repo hiện tại; fallback API trong ZIP trước
+                        // Gọi API NPP chính thức duy nhất.
                         await fetchJSON(`/nha-phan-phoi/api/tiep-nhan/${btn.dataset.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -199,35 +201,39 @@ document.addEventListener('DOMContentLoaded', function () {
         const tbody = document.getElementById('thanBangKho');
         if (!tbody) return;
 
-        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Đang tải tồn kho...</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400">Đang tải tồn kho...</td></tr>`;
 
         try {
             const res = await fetchJSON('/nha-phan-phoi/api/kho');
             const list = res.data || [];
 
-            document.getElementById('badgeSoLuongKho').textContent = list.length;
+            const badgeKho = document.getElementById('badgeSoLuongKho');
+            if (badgeKho) badgeKho.textContent = list.length;
+            const soLuongKho = document.getElementById('soLuongKhoHienThi');
+            if (soLuongKho) soLuongKho.textContent = 'Hiển thị: ' + list.length + ' lô';
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-slate-400">Kho trống hoặc không có lô khả dụng</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-slate-400">Kho trống hoặc không có lô khả dụng</td></tr>`;
                 return;
             }
 
             tbody.innerHTML = list.map(item => `
                 <tr class="hover:bg-slate-50/80">
-                    <td class="py-3 px-3 font-semibold">${item.maLo}</td>
+                    <td class="py-3 px-3 font-semibold whitespace-nowrap">${item.maLo || '--'}</td>
+                    <td class="py-3 px-2 text-center text-slate-400 text-[11px]">${item.temQr || item.maTem || '--'}</td>
                     <td class="py-3 px-3">${item.tenSanPham || '--'}</td>
-                    <td class="py-3 px-3 text-center">${dinhDangNgay(item.hanDung)}</td>
-                    <td class="py-3 px-3 text-right">${Number(item.soLuongHienCo).toLocaleString('vi-VN')}</td>
-                    <td class="py-3 px-3 text-right font-bold text-emerald-700">${Number(item.soLuongKhaDung).toLocaleString('vi-VN')}</td>
-                    <td class="py-3 px-3 text-center">
+                    <td class="py-3 px-2.5 text-center whitespace-nowrap">${dinhDangNgay(item.hanDung)}</td>
+                    <td class="py-3 px-3 text-right whitespace-nowrap">${Number(item.soLuongHienCo || 0).toLocaleString('vi-VN')}</td>
+                    <td class="py-3 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">${Number(item.soLuongKhaDung || 0).toLocaleString('vi-VN')}</td>
+                    <td class="py-3 px-2.5 text-center">
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">KHẢ DỤNG</span>
                     </td>
-                    <td class="py-3 px-3 text-center">
+                    <td class="py-3 px-3 text-center whitespace-nowrap">
                         <button type="button"
                             class="btn-chuyen-tiep px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition"
                             data-lo-id="${item.loThuocId}"
                             data-ma-lo="${item.maLo}"
-                            data-ten="${item.tenSanPham}"
+                            data-ten="${item.tenSanPham || ''}"
                             data-kha-dung="${item.soLuongKhaDung}">
                             Chuyển sang Nhà thuốc
                         </button>
@@ -240,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 btn.addEventListener('click', () => openModalChuyen(btn.dataset));
             });
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-red-500">${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">${err.message}</td></tr>`;
         }
     }
 

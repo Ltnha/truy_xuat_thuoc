@@ -59,24 +59,22 @@ class TonKhoService
      */
     public function cong(int $loThuocId, int $toChucId, int $soLuong): void
     {
+        // Tạo dòng số 0 theo kiểu idempotent trước, tránh hai lần nhận đồng thời
+        // cùng INSERT một cặp (loThuocId, toChucId) và đụng unique key.
+        DB::table('tonKhoLo')->insertOrIgnore([
+            'loThuocId' => $loThuocId,
+            'toChucId' => $toChucId,
+            'soLuong' => 0,
+            'ngayCapNhat' => now(),
+        ]);
+
         $tonKho = TonKhoLo::query()
             ->where('loThuocId', $loThuocId)
             ->where('toChucId', $toChucId)
             ->lockForUpdate()
-            ->first();
+            ->firstOrFail();
 
-        if ($tonKho) {
-            $tonKho->increment('soLuong', $soLuong);
-            $tonKho->update(['ngayCapNhat' => now()]);
-
-            return;
-        }
-
-        DB::table('tonKhoLo')->insert([
-            'loThuocId'   => $loThuocId,
-            'toChucId'    => $toChucId,
-            'soLuong'     => $soLuong,
-            'ngayCapNhat' => now(),
-        ]);
+        $tonKho->increment('soLuong', $soLuong);
+        $tonKho->update(['ngayCapNhat' => now()]);
     }
 }

@@ -7,12 +7,7 @@ use App\Enums\OrganizationType;
 use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
 use App\Http\Controllers\Controller;
-use App\Jobs\ProcessBatchTransferJob;
-use App\Models\BlockchainIdentity;
-use App\Models\BlockchainTransaction;
 use App\Models\ChuyenGiao;
-use App\Models\LoThuoc;
-use App\Models\NhatKyHeThong;
 use App\Models\ToChuc;
 use App\Models\TonKhoLo;
 use App\Services\ChuoiCungUng\ChuyenGiaoService;
@@ -20,8 +15,6 @@ use App\Services\ChuoiCungUng\TonKhoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class QuanLyLoHangController extends Controller
@@ -51,7 +44,7 @@ class QuanLyLoHangController extends Controller
         }
 
         $query = ChuyenGiao::query()
-            ->with(['loThuoc.sanPham', 'benGui'])
+            ->with(['loThuoc.sanPham', 'benGui', 'blockchainTransactions'])
             ->where('benNhanId', $toChuc->id)
             ->where('trangThai', TransferStatus::pending->value)
             ->latest('id');
@@ -79,6 +72,7 @@ class QuanLyLoHangController extends Controller
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'hanDung'       => optional($lo?->hanSuDung)->format('Y-m-d'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
+                'txHash'        => $cg->blockchainTransactions->sortByDesc('id')->first()?->txHash,
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });
@@ -132,7 +126,7 @@ class QuanLyLoHangController extends Controller
                 'hanDung'        => optional($lo->hanSuDung)->format('Y-m-d'),
                 'soLuongHienCo'  => (int) $tk->soLuong,
                 'soLuongKhaDung' => $khaDung,
-                'trangThaiLo'    => $lo->trangThai?->value ?? $lo->trangThai,
+                'trangThaiLo'    => $lo->trangThai instanceof \App\Enums\BatchStatus ? $lo->trangThai->value : (string) ($lo->trangThai ?? ''),
             ];
         })->filter(fn ($item) => $item['soLuongKhaDung'] > 0)->values();
 
@@ -166,136 +160,34 @@ class QuanLyLoHangController extends Controller
      */
     public function taoChuyenGiao(Request $request): JsonResponse
     {
-        $request->validate([
+        $validated = $request->validate([
             'loThuocId' => 'required|integer|exists:loThuoc,id',
             'benNhanId' => 'required|integer|exists:toChuc,id',
-            'soLuong'   => 'required|integer|min:1',
-        ], [
-            'loThuocId.required' => 'Thiếu mã lô thuốc.',
-            'benNhanId.required' => 'Vui lòng chọn nhà thuốc tiếp nhận.',
-            'soLuong.required'   => 'Vui lòng nhập số lượng chuyển.',
-            'soLuong.min'        => 'Số lượng tối thiểu là 1.',
+            'soLuong' => 'required|integer|min:1',
         ]);
 
-        $user   = Auth::user();
+        $user = Auth::user();
         $toChuc = $user?->toChuc;
-
         if (! $toChuc || $toChuc->loaiToChuc !== OrganizationType::nhaPhanPhoi) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Chỉ Nhà phân phối mới được thực hiện thao tác này.',
-            ], 403);
+            return response()->json(['success' => false, 'message' => 'Chỉ Nhà phân phối mới được thực hiện thao tác này.'], 403);
         }
-
-        $loThuoc = LoThuoc::find($request->loThuocId);
-        if (! $loThuoc) {
-            return response()->json(['success' => false, 'message' => 'Không tìm thấy lô thuốc.'], 404);
-        }
-
-        // Kiểm tra tồn kho khả dụng
-        $soLuong = (int) $request->soLuong;
-        $khaDung = $this->tonKhoService->soLuongKhaDung($loThuoc->id, $toChuc->id);
-        if ($soLuong > $khaDung) {
-            return response()->json([
-                'success' => false,
-                'message' => "Số lượng chuyển ({$soLuong}) vượt quá số khả dụng ({$khaDung}).",
-            ], 422);
-        }
-
-        // Nhà thuốc thật, đã duyệt
-        $benNhan = ToChuc::where('id', $request->benNhanId)
-            ->where('loaiToChuc', OrganizationType::nhaThuoc->value)
-            ->where('trangThaiDuyet', OrganizationApprovalStatus::daDuyet->value)
-            ->first();
-
-        if (! $benNhan) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Nhà thuốc không hợp lệ hoặc chưa được phê duyệt.',
-            ], 422);
-        }
-
-        if ($benNhan->id === $toChuc->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không thể chuyển giao cho chính tổ chức của bạn.',
-            ], 422);
-        }
-
-        // Ví on-chain bên nhận (khuyến nghị)
-        $identityNhan = BlockchainIdentity::where('toChucId', $benNhan->id)
-            ->where('trangThai', 'ACTIVE')
-            ->first();
-
-        $maChuyenGiao = (string) Str::uuid();
 
         try {
-            $chuyenGiao = DB::transaction(function () use (
-                $loThuoc, $toChuc, $benNhan, $soLuong, $maChuyenGiao, $user
-            ) {
-                $cg = ChuyenGiao::create([
-                    'maChuyenGiao'    => $maChuyenGiao,
-                    'loThuocId'       => $loThuoc->id,
-                    'benGuiId'        => $toChuc->id,
-                    'benNhanId'       => $benNhan->id,
-                    'soLuong'         => $soLuong,
-                    'trangThai'       => TransferStatus::pending->value,
-                    'thoiGianKhoiTao' => now(),
-                ]);
-
-                // Ghi blockchain_transaction PENDING (job sẽ cập nhật thành CONFIRMED)
-                BlockchainTransaction::create([
-                    'txHash'           => 'PENDING_CG_' . str_replace('-', '', $maChuyenGiao),
-                    'blockNumber'      => null,
-                    'eventName'        => 'BatchEventRecorded',
-                    'doiTuongToChucId' => $toChuc->id,
-                    'businessId'       => $cg->maChuyenGiao,
-                    'network'          => config('truyXuat.blockchain.mang', 'Ethereum Sepolia'),
-                    'trangThai'        => 'PENDING',
-                    'toChucId'         => $toChuc->id,
-                    'sanPhamId'        => $loThuoc->sanPhamId,
-                    'loThuocId'        => $loThuoc->id,
-                    'chuyenGiaoId'     => $cg->id,
-                    'thoiGian'         => now(),
-                ]);
-
-                // Audit log
-                if (class_exists(NhatKyHeThong::class)) {
-                    NhatKyHeThong::create([
-                        'taiKhoanId' => $user->id,
-                        'doiTuongId' => $cg->id,
-                        'hanhDong'   => 'KHOI_TAO_CHUYEN_GIAO',
-                        'ketQua'     => 'THANH_CONG',
-                        'chiTiet'    => "NPP chuyển {$soLuong} đơn vị lô [{$loThuoc->maLoNghiepVu}] → Nhà thuốc [{$benNhan->tenToChuc}]. Chờ ký On-chain.",
-                        'thoiGian'   => now(),
-                        'diaChiIP'   => request()->ip(),
-                    ]);
-                }
-
-                return $cg;
-            });
-
-            // ★ Tự động ký on-chain thật (giống luồng NSX → NPP)
-            ProcessBatchTransferJob::dispatch($chuyenGiao->id, $user->id)->afterCommit();
-
+            $chuyenGiao = $this->chuyenGiaoService->tao($toChuc, $validated, $user, $request->ip());
             return response()->json([
                 'success' => true,
-                'message' => 'Đã gửi yêu cầu chuyển giao. Hệ thống đang ký giao dịch On-chain.',
-                'data'    => [
-                    'id'         => $chuyenGiao->id,
+                'message' => 'Đã tạo yêu cầu chuyển giao. Hệ thống đang gửi giao dịch submitTransfer lên Ethereum Sepolia.',
+                'data' => [
+                    'id' => $chuyenGiao->id,
                     'maGiaoDich' => $chuyenGiao->maChuyenGiao,
-                    'trangThai'  => $chuyenGiao->trangThai,
-                    'canhBaoVi'  => $identityNhan
-                        ? null
-                        : 'Nhà thuốc chưa có ví On-chain ACTIVE. Vẫn ghi off-chain; on-chain có thể dùng ví Admin.',
+                    'trangThai' => $chuyenGiao->trangThai instanceof TransferStatus ? $chuyenGiao->trangThai->value : (string) $chuyenGiao->trangThai,
                 ],
             ]);
+        } catch (NghiepVuException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             report($e);
-            return response()->json([
-                'success' => false,
-                'message' => 'Có lỗi hệ thống, vui lòng thử lại.',
-            ], 500);
+            return response()->json(['success' => false, 'message' => 'Có lỗi hệ thống khi tạo chuyển giao.'], 500);
         }
     }
 

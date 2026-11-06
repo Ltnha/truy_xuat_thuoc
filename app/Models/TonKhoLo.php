@@ -8,16 +8,12 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class TonKhoLo extends Model
 {
     protected $table = 'tonKhoLo';
-
     public $timestamps = false;
-
     protected $guarded = ['id'];
 
     protected function casts(): array
     {
-        return [
-            'ngayCapNhat' => 'datetime',
-        ];
+        return ['ngayCapNhat' => 'datetime'];
     }
 
     public function loThuoc(): BelongsTo

@@ -12,8 +12,12 @@ class SignerClient
 
     public function __construct()
     {
-        $this->baseUrl = config('truyXuat.blockchain.signerUrl', env('SIGNER_SERVICE_URL', 'http://127.0.0.1:3000'));
-        $this->apiToken = env('SIGNER_API_TOKEN', 'SECRET_SIGNER_TOKEN_2026');
+        $baseUrl = (string) config('truyXuat.blockchain.signerUrl', '');
+        if ($baseUrl === '') {
+            $baseUrl = (string) env('SIGNER_SERVICE_URL', 'http://127.0.0.1:3000');
+        }
+        $this->baseUrl = rtrim($baseUrl, '/');
+        $this->apiToken = (string) config('truyXuat.blockchain.signerApiToken', env('SIGNER_API_TOKEN', ''));
     }
 
     /**
@@ -21,6 +25,7 @@ class SignerClient
      */
     public function taoVi(int $toChucId): array
     {
+        $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/wallets", [
             'toChucId' => $toChucId,
         ]);
@@ -40,6 +45,16 @@ class SignerClient
      */
     public function ensureGas(string $keyIdOrAddress): void
     {
+        $this->assertConfigured();
+
+        // Các event chuyển giao đang ký bằng ví Admin Master. Không gọi gas/ensure
+        // cho chính ví Admin vì Signer Service có thể tự chuyển ETH về cùng một ví,
+        // gây tốn gas vô ích. Ví Admin phải được nạp Sepolia ETH trước.
+        $adminKeyId = (string) config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
+        if ($keyIdOrAddress === $adminKeyId || $keyIdOrAddress === 'ADMIN_MASTER_KEY') {
+            return;
+        }
+
         $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/gas/ensure", [
             'target' => $keyIdOrAddress,
         ]);
@@ -54,6 +69,7 @@ class SignerClient
      */
     public function tx(string $keyId, string $action, array $params): array
     {
+        $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/tx", [
             'keyId'  => $keyId,
             'action' => $action,
@@ -93,6 +109,7 @@ class SignerClient
      */
     public function hasRole(string $roleHash, string $accountAddress): bool
     {
+        $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/roles/check", [
             'role'    => $roleHash,
             'account' => $accountAddress,
@@ -106,6 +123,7 @@ class SignerClient
      */
     public function doiViMoi(int $toChucId): array
     {
+        $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/wallets/rotate", [
             'toChucId' => $toChucId,
         ]);
@@ -125,6 +143,7 @@ class SignerClient
      */
     public function isBatchEventRecorded(string $batchId, string $businessId, string $eventType): bool
     {
+        $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/events/check-batch", [
             'batchId'    => $batchId,
             'businessId' => $businessId,
@@ -133,4 +152,48 @@ class SignerClient
 
         return $response->successful() && $response->json('isRecorded') === true;
     }
+
+    /** Trả về txHash thật của event đã ghi để job retry không sinh hash giả. */
+    public function findBatchEvent(string $batchId, string $businessId, string $eventType): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/events/check-batch", [
+            'batchId' => $batchId,
+            'businessId' => $businessId,
+            'eventType' => $eventType,
+        ]);
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể đối soát event trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json();
+    }
+
+    /** Tra cứu event chuyển giao đã mined để Job retry không gửi giao dịch trùng. */
+    public function findTransferEvent(string $maChuyenGiao, string $eventName): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/transfers/check", [
+            'maChuyenGiao' => $maChuyenGiao,
+            'eventName' => $eventName,
+        ]);
+        // RPC range / network lỗi: trả isRecorded=false để Job vẫn gửi tx, không chặn luồng
+        if ($response->failed() || ! $response->json('ok')) {
+            return [
+                'ok' => true,
+                'isRecorded' => false,
+                'txHash' => null,
+                'blockNumber' => null,
+                'reason' => $response->json('reason') ?? $response->body(),
+            ];
+        }
+        return $response->json();
+    }
+
+    private function assertConfigured(): void
+    {
+        if ($this->baseUrl === '' || $this->apiToken === '') {
+            throw new Exception('Thiếu BLOCKCHAIN_SIGNER_URL hoặc SIGNER_API_TOKEN trong .env.');
+        }
+    }
+
 }

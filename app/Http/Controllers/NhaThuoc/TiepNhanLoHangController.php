@@ -6,7 +6,7 @@ use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
 use App\Http\Controllers\Controller;
 use App\Models\ChuyenGiao;
-use App\Models\BlockchainTransaction;
+use App\Models\TonKhoLo;
 use App\Services\ChuoiCungUng\ChuyenGiaoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,7 +39,7 @@ class TiepNhanLoHangController extends Controller
         }
 
         $query = ChuyenGiao::query()
-            ->with(['loThuoc.sanPham', 'benGui'])
+            ->with(['loThuoc.sanPham', 'benGui', 'blockchainTransactions'])
             ->where('benNhanId', $toChuc->id)
             ->where('trangThai', TransferStatus::pending->value)
             ->latest('id');
@@ -69,8 +69,7 @@ class TiepNhanLoHangController extends Controller
                 'hanDung'       => optional($lo?->hanSuDung)->format('Y-m-d'),
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
-                'txHash'        => BlockchainTransaction::query()->where('chuyenGiaoId', $cg->id)->latest('id')->value('txHash'),
-                'lyDoTuChoi'    => $cg->lyDoTuChoi,
+                'txHash'        => $cg->blockchainTransactions->sortByDesc('id')->first()?->txHash,
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });
@@ -98,7 +97,7 @@ class TiepNhanLoHangController extends Controller
         }
 
         $query = ChuyenGiao::query()
-            ->with(['loThuoc.sanPham', 'benGui'])
+            ->with(['loThuoc.sanPham', 'benGui', 'blockchainTransactions'])
             ->where('benNhanId', $toChuc->id)
             ->where('trangThai', TransferStatus::received->value)
             ->latest('thoiGianXacNhan');
@@ -128,7 +127,7 @@ class TiepNhanLoHangController extends Controller
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'ngayNhan'      => optional($cg->thoiGianXacNhan)->format('d/m/Y H:i'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
-                'txHash'        => BlockchainTransaction::query()->where('chuyenGiaoId', $cg->id)->latest('id')->value('txHash'),
+                'txHash'        => $cg->blockchainTransactions->sortByDesc('id')->first()?->txHash,
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });
@@ -176,4 +175,41 @@ class TiepNhanLoHangController extends Controller
             return response()->json(['success' => false, 'message' => 'Có lỗi hệ thống, vui lòng thử lại.'], 500);
         }
     }
+
+    /** API: Nhà thuốc từ chối tiếp nhận lô từ Nhà phân phối. */
+    public function tuChoi(Request $request, int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $toChuc = $user?->toChuc;
+        if (! $toChuc) {
+            return response()->json(['success' => false, 'message' => 'Tài khoản chưa gắn tổ chức.'], 403);
+        }
+
+        $chuyenGiao = ChuyenGiao::query()->find($id);
+        if (! $chuyenGiao) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch.'], 404);
+        }
+
+        // Không dùng validate() để tránh HTML redirect khi Accept không khớp; lấy input trực tiếp.
+        $lyDo = $request->input('lyDo');
+        if (is_string($lyDo)) {
+            $lyDo = mb_substr(trim($lyDo), 0, 500);
+        } else {
+            $lyDo = null;
+        }
+
+        try {
+            $this->chuyenGiaoService->tuChoi($chuyenGiao, $toChuc, $user, $request->ip(), $lyDo);
+            return response()->json(['success' => true, 'message' => 'Đã từ chối lô hàng. Số lượng được giải phóng về kho bên gửi.']);
+        } catch (NghiepVuException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            report($e);
+            $msg = config('app.debug')
+                ? ('Lỗi: ' . $e->getMessage())
+                : 'Có lỗi hệ thống, vui lòng thử lại. (Kiểm tra cột lyDoTuChoi đã chạy patch SQL chưa)';
+            return response()->json(['success' => false, 'message' => $msg], 500);
+        }
+    }
+
 }
