@@ -150,7 +150,10 @@ class SignerClient
             'eventType'  => $eventType,
         ]);
 
-        return $response->successful() && $response->json('isRecorded') === true;
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể đối soát event trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json('isRecorded') === true;
     }
 
     /** Trả về txHash thật của event đã ghi để job retry không sinh hash giả. */
@@ -176,15 +179,10 @@ class SignerClient
             'maChuyenGiao' => $maChuyenGiao,
             'eventName' => $eventName,
         ]);
-        // RPC range / network lỗi: trả isRecorded=false để Job vẫn gửi tx, không chặn luồng
+        // Không được gửi giao dịch mới khi không thể đối soát, vì có thể tx trước
+        // đã mined nhưng phản hồi bị timeout. Dừng để retry an toàn.
         if ($response->failed() || ! $response->json('ok')) {
-            return [
-                'ok' => true,
-                'isRecorded' => false,
-                'txHash' => null,
-                'blockNumber' => null,
-                'reason' => $response->json('reason') ?? $response->body(),
-            ];
+            throw new Exception('Không thể đối soát giao dịch chuyển giao trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
     }
