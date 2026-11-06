@@ -213,7 +213,7 @@ class QuanLyLoHangController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã tiếp nhận lô hàng và cập nhật tồn kho thành công.',
+                'message' => 'Đã gửi yêu cầu tiếp nhận. Tồn kho sẽ cập nhật sau khi blockchain xác nhận.',
             ]);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
@@ -248,7 +248,7 @@ class QuanLyLoHangController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã từ chối nhận hàng và hoàn trả số lượng về nhà sản xuất.',
+                'message' => 'Đã gửi yêu cầu từ chối. Số lượng sẽ được giải phóng sau khi blockchain xác nhận.',
             ]);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
