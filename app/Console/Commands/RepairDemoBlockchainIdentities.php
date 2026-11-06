@@ -110,9 +110,14 @@ class RepairDemoBlockchainIdentities extends Command
                         ]);
                     }
 
-                    if ($oldIdentity->id !== $newIdentity->id) {
-                        $oldIdentity->update(['trangThai' => 'REVOKED']);
-                    }
+                    // Thu hồi toàn bộ identity DEMO ACTIVE cũ của tổ chức.
+                    // Tránh trường hợp query first() ở Job lấy nhầm một dòng seed cũ.
+                    BlockchainIdentity::query()
+                        ->where('toChucId', $organization->id)
+                        ->where('trangThai', 'ACTIVE')
+                        ->where('signerKeyId', 'like', 'KEY-DEMO-%')
+                        ->where('signerKeyId', 'not like', 'KEY-DEMO-CQ%')
+                        ->update(['trangThai' => 'REVOKED']);
 
                     if ($txHash) {
                         BlockchainTransaction::query()->create([
