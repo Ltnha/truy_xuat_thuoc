@@ -43,24 +43,29 @@ class SignerClient
     /**
      * Yêu cầu Ví kho (Treasury) nạp Gas tự động cho ví mục tiêu
      */
-    public function ensureGas(string $keyIdOrAddress): void
+    public function ensureGas(string $targetAddress): void
     {
         $this->assertConfigured();
 
-        // Các event chuyển giao đang ký bằng ví Admin Master. Không gọi gas/ensure
-        // cho chính ví Admin vì Signer Service có thể tự chuyển ETH về cùng một ví,
-        // gây tốn gas vô ích. Ví Admin phải được nạp Sepolia ETH trước.
-        $adminKeyId = (string) config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
-        if ($keyIdOrAddress === $adminKeyId || $keyIdOrAddress === 'ADMIN_MASTER_KEY') {
-            return;
+        // Kiểm tra địa chỉ ví Ethereum
+        if (! preg_match('/^0x[a-fA-F0-9]{40}$/', $targetAddress)) {
+            throw new Exception(
+                'Địa chỉ ví Ethereum không hợp lệ: ' . $targetAddress
+            );
         }
 
-        $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/gas/ensure", [
-            'target' => $keyIdOrAddress,
-        ]);
+        $response = Http::withToken($this->apiToken)->post(
+            "{$this->baseUrl}/gas/ensure",
+            [
+                'target' => $targetAddress,
+            ]
+        );
 
-        if ($response->failed() || !$response->json('ok')) {
-            throw new Exception("Lỗi Signer [ensureGas]: " . ($response->json('reason') ?? $response->body()));
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception(
+                "Lỗi Signer [ensureGas]: " .
+                ($response->json('reason') ?? $response->body())
+            );
         }
     }
 

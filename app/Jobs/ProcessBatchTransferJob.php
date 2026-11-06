@@ -114,8 +114,16 @@ class ProcessBatchTransferJob implements ShouldQueue
         }
 
         if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
-            $signer->ensureGas((string) $identity->signerKeyId);
-            $result = $signer->tx((string) $identity->signerKeyId, $action, $params);
+
+            // Nạp Gas bằng địa chỉ ví Ethereum thực tế
+            $signer->ensureGas((string) $identity->diaChiVi);
+
+            // Ký giao dịch bằng signerKeyId
+            $result = $signer->tx(
+                (string) $identity->signerKeyId,
+                $action,
+                $params
+            );
             if (empty($result['ok']) || empty($result['txHash'])) {
                 throw new Exception('Signer không gửi được ' . $action . ': ' . ($result['reason'] ?? 'Không có txHash.'));
             }
