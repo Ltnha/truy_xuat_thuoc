@@ -157,6 +157,26 @@ class ProcessBatchTransferJob implements ShouldQueue
                 $lockedCg->update(['trangThai' => \App\Enums\TransferStatus::cancelled, 'thoiGianXacNhan' => now()]);
             }
 
+            if (in_array($this->eventName, ['TransferRejected', 'TransferCancelled'], true)
+                && (int) $cg->loThuoc->toChucId === (int) $cg->benGuiId) {
+                $hasOtherPending = ChuyenGiao::query()
+                    ->where('loThuocId', $cg->loThuoc->id)
+                    ->where('benGuiId', $cg->benGuiId)
+                    ->where('id', '!=', $cg->id)
+                    ->where('trangThai', \App\Enums\TransferStatus::pending->value)
+                    ->exists();
+                $hasReceived = ChuyenGiao::query()
+                    ->where('loThuocId', $cg->loThuoc->id)
+                    ->where('benGuiId', $cg->benGuiId)
+                    ->where('trangThai', \App\Enums\TransferStatus::received->value)
+                    ->exists();
+
+                if (! $hasOtherPending && ! $hasReceived
+                    && (string) ($cg->loThuoc->trangThai?->value ?? $cg->loThuoc->trangThai) === \App\Enums\BatchStatus::inTransit->value) {
+                    $cg->loThuoc->update(['trangThai' => \App\Enums\BatchStatus::created->value]);
+                }
+            }
+
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $this->userId,
                 'doiTuongId' => $cg->id,
