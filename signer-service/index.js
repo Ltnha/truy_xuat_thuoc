@@ -321,6 +321,18 @@ app.get('/transfers/check', authMiddleware, async (req, res) => {
             }
         }
 
+        // Nếu mapping đã có trạng thái nhưng log không tìm thấy, tuyệt đối không coi là chưa gửi.
+        const record = await contract.transfers(transferId);
+        if (Number(record.status) !== 0) {
+            return res.json({
+                ok: true,
+                isRecorded: true,
+                txHash: null,
+                blockNumber: null,
+                reason: 'Transfer đã tồn tại on-chain nhưng không tìm thấy log; cần đối soát deployment block/RPC.'
+            });
+        }
+
         return res.json({ ok: true, isRecorded: false, txHash: null, blockNumber: null });
     } catch (err) {
         return res.status(503).json({ ok: false, reason: err.message });
