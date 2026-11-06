@@ -66,7 +66,8 @@ class ProcessBatchRegistrationJob implements ShouldQueue
         // 2. Đối soát trước khi retry để tránh gửi giao dịch trùng.
         // Nếu event đã tồn tại nhưng DB không có txHash thật, dừng để đối soát thủ công;
         // tuyệt đối không tạo chuỗi ONCHAIN_* giả làm transaction hash.
-        $isAlreadyRecorded = $signer->isBatchEventRecorded($batchId, $businessId, $eventType);
+        $eventCheck = $signer->findBatchEvent($batchId, $businessId, $eventType);
+        $isAlreadyRecorded = !empty($eventCheck['isRecorded']);
         $txHash = null;
         $blockNumber = null;
 
@@ -77,12 +78,12 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             ->first();
 
         if ($isAlreadyRecorded) {
-            $existingHash = $existingTx?->txHash;
+            $existingHash = $eventCheck['txHash'] ?? $existingTx?->txHash;
             if (!is_string($existingHash) || !preg_match('/^0x[a-fA-F0-9]{64}$/', $existingHash)) {
-                throw new Exception("Event lô [{$loThuoc->maLoNghiepVu}] đã có trên chain nhưng DB chưa có txHash thật. Cần đối soát transaction trước khi retry.");
+                throw new Exception("Event lô [{$loThuoc->maLoNghiepVu}] đã có trên chain nhưng chưa truy xuất được txHash thật. Cần kiểm tra BLOCKCHAIN_DEPLOYMENT_BLOCK/RPC.");
             }
             $txHash = $existingHash;
-            $blockNumber = $existingTx?->blockNumber;
+            $blockNumber = $eventCheck['blockNumber'] ?? $existingTx?->blockNumber;
         } else {
             $signer->ensureGas($signerKeyId);
 
