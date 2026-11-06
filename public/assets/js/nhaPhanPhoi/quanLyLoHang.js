@@ -120,12 +120,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td class="py-3 px-2.5 text-center text-[11px]">${item.ngayGui || '--'}</td>
                     <td class="py-3 px-2.5 text-center">
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${isRecalled ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}">
-                            ${isRecalled ? 'THU HỒI' : 'CHỜ NHẬN'}
+                            ${isRecalled ? 'THU HỒI' : (item.dangXuLyBlockchain ? 'ĐANG ĐỒNG BỘ BLOCKCHAIN' : 'CHỜ NHẬN')}
                         </span>
                     </td>
                     <td class="py-3 px-3 text-center">
-                        ${isRecalled || isExpired
-                            ? '<span class="text-[11px] text-amber-600 font-medium">Không thể tiếp nhận</span>'
+                        ${isRecalled || isExpired || item.dangXuLyBlockchain
+                            ? `<span class="text-[11px] text-amber-600 font-medium">${item.dangXuLyBlockchain ? 'Đang chờ xác nhận blockchain' : 'Không thể tiếp nhận'}</span>`
                             : `<div class="flex items-center justify-center gap-1.5">
                                 <button type="button" data-id="${item.id}" class="btn-tiep-nhan px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition">
                                     Tiếp nhận
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
-                        toast('Tiếp nhận thành công!');
+                        toast('Đã gửi yêu cầu tiếp nhận. Kho sẽ cập nhật sau khi blockchain xác nhận.');
                         loadPending(currentPagePending);
                         loadKho();
                     } catch (err) {
@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ lyDo }),
                         });
-                        toast('Đã từ chối nhận hàng. Số lượng đã hoàn về NSX.');
+                        toast('Đã gửi yêu cầu từ chối. Số lượng sẽ được giải phóng sau khi blockchain xác nhận.');
                         loadPending(currentPagePending);
                         loadKho();
                     } catch (err) {
@@ -322,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         soLuong: soLuong,
                     }),
                 });
-                toast('Đã gửi yêu cầu chuyển giao thành công!');
+                toast('Đã gửi yêu cầu chuyển giao. Hệ thống đang ghi nhận trên blockchain.');
                 modal.remove();
                 loadKho();
             } catch (err) {
@@ -378,6 +378,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Init
     showTab('cho');
+
+    // Tự cập nhật trạng thái chờ sau khi giao dịch được xác nhận trên Sepolia.
+    setInterval(() => {
+        if (khungCho && !khungCho.classList.contains('hidden')) loadPending(currentPagePending);
+        if (khungKho && !khungKho.classList.contains('hidden')) loadKho();
+    }, 10000);
 
     function debounce(fn, delay) {
         let t;

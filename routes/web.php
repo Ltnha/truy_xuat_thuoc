@@ -140,6 +140,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             // Chuyển giao lô thuốc
             Route::get('/api/nha-phan-phoi', [ChuyenGiaoController::class, 'danhSachNhaPhanPhoi'])->name('lo-thuoc.api.npp');
             Route::post('/api/chuyen-giao', [ChuyenGiaoController::class, 'store'])->name('lo-thuoc.chuyen-giao.store');
+            Route::post('/api/chuyen-giao/{id}/huy', [ChuyenGiaoController::class, 'huy'])->name('lo-thuoc.chuyen-giao.huy');
 
             // Chi Tiết Lô Thuốc & APIs On-chain
             Route::get('/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'show'])->name('lo-thuoc.chi-tiet');
@@ -173,6 +174,8 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
                 ->name('nha-phan-phoi.api.nha-thuoc');
             Route::post('/api/chuyen-giao', [QuanLyLoHangController::class, 'taoChuyenGiao'])
                 ->name('nha-phan-phoi.api.chuyen-giao');
+            Route::post('/api/chuyen-giao/{id}/huy', [QuanLyLoHangController::class, 'huyChuyenGiao'])
+                ->name('nha-phan-phoi.api.chuyen-giao.huy');
             Route::post('/api/tiep-nhan/{id}', [QuanLyLoHangController::class, 'tiepNhan'])
                 ->name('nha-phan-phoi.api.tiep-nhan');
             Route::post('/api/tu-choi/{id}', [QuanLyLoHangController::class, 'tuChoi'])

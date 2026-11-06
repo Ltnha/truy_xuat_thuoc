@@ -56,6 +56,7 @@ class TiepNhanLoHangController extends Controller
 
         $data = $paginator->getCollection()->map(function (ChuyenGiao $cg) {
             $lo = $cg->loThuoc;
+            $latestTx = $cg->blockchainTransactions->sortByDesc('id')->first();
             return [
                 'id'            => $cg->id,
                 'maGiaoDich'    => $cg->maChuyenGiao,
@@ -69,7 +70,9 @@ class TiepNhanLoHangController extends Controller
                 'hanDung'       => optional($lo?->hanSuDung)->format('Y-m-d'),
                 'ngayGui'       => optional($cg->thoiGianKhoiTao)->format('d/m/Y H:i'),
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
-                'txHash'        => $cg->blockchainTransactions->sortByDesc('id')->first()?->txHash,
+                'txHash'        => $latestTx?->txHash,
+                'trangThaiBlockchain' => $latestTx?->trangThai,
+                'dangXuLyBlockchain' => $latestTx && strtoupper((string) $latestTx->trangThai) === 'PENDING',
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
             ];
         });
@@ -166,7 +169,7 @@ class TiepNhanLoHangController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã tiếp nhận lô hàng và cập nhật tồn kho thành công.',
+                'message' => 'Đã gửi yêu cầu tiếp nhận. Tồn kho sẽ cập nhật sau khi blockchain xác nhận.',
             ]);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
@@ -200,7 +203,7 @@ class TiepNhanLoHangController extends Controller
 
         try {
             $this->chuyenGiaoService->tuChoi($chuyenGiao, $toChuc, $user, $request->ip(), $lyDo);
-            return response()->json(['success' => true, 'message' => 'Đã từ chối lô hàng. Số lượng được giải phóng về kho bên gửi.']);
+            return response()->json(['success' => true, 'message' => 'Đã gửi yêu cầu từ chối. Số lượng sẽ được giải phóng sau khi blockchain xác nhận.']);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {

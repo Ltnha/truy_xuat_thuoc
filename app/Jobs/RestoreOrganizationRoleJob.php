@@ -59,7 +59,7 @@ class RestoreOrganizationRoleJob implements ShouldQueue
         // 2. Nạp gas tự động cho ví Admin và ví Tổ chức
         $signer->ensureGas($adminKeyId);
         if ($identity->signerKeyId) {
-            $signer->ensureGas($identity->signerKeyId);
+            $signer->ensureGas((string) $identity->diaChiVi);
         }
         $identity->update(['trangThai' => 'DA_NAP_GAS']);
 

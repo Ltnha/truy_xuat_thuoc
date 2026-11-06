@@ -140,12 +140,7 @@ class ChuyenGiaoService
                 'thoiGian' => now(),
             ]);
 
-            $trangThaiLoHienTai = $loThuoc->trangThai instanceof BatchStatus
-                ? $loThuoc->trangThai
-                : BatchStatus::tryFrom((string) $loThuoc->trangThai);
-            if ($loaiGui === OrganizationType::nhaSanXuat && $trangThaiLoHienTai === BatchStatus::created) {
-                $loThuoc->update(['trangThai' => BatchStatus::inTransit->value]);
-            }
+            // Không đổi trạng thái lô trước khi submitTransfer được xác nhận on-chain.
 
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
@@ -179,19 +174,24 @@ class ChuyenGiaoService
                 throw new NghiepVuException('Giao dịch không thuộc đơn vị nhận hoặc không còn chờ tiếp nhận.');
             }
 
+            $dangXuLyNhan = BlockchainTransaction::query()
+                ->where('chuyenGiaoId', $chuyenGiao->id)
+                ->where('eventName', 'TransferReceived')
+                ->where('trangThai', 'PENDING')
+                ->exists();
+            if ($dangXuLyNhan) {
+                throw new NghiepVuException('Yêu cầu tiếp nhận đang được xử lý trên blockchain.');
+            }
+
+            $this->assertSubmitConfirmed($chuyenGiao);
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus ? $loThuoc->trangThai : BatchStatus::tryFrom((string) $loThuoc->trangThai);
             if ($trangThaiLo === BatchStatus::recalled || ($loThuoc->hanSuDung && Carbon::parse($loThuoc->hanSuDung)->startOfDay()->lt(today()))) {
                 throw new NghiepVuException('Không thể tiếp nhận lô thuốc đã thu hồi hoặc hết hạn.');
             }
 
-            $this->tonKhoService->tru((int) $loThuoc->id, (int) $chuyenGiao->benGuiId, (int) $chuyenGiao->soLuong);
-            $this->tonKhoService->cong((int) $loThuoc->id, (int) $benNhan->id, (int) $chuyenGiao->soLuong);
-
-            $chuyenGiao->update([
-                'trangThai' => TransferStatus::received,
-                'thoiGianXacNhan' => now(),
-            ]);
+            // Chỉ tạo yêu cầu blockchain. Job sẽ chuyển kho và đổi trạng thái
+            // sau khi receipt TransferReceived được xác nhận trên Sepolia.
             $tx = $this->taoGiaoDichBlockchain($chuyenGiao, $benNhan, $loThuoc, 'TransferReceived', 'TRANSFER_RECEIVED');
 
             NhatKyHeThong::query()->create([
@@ -216,33 +216,22 @@ class ChuyenGiaoService
                 throw new NghiepVuException('Giao dịch không thuộc đơn vị nhận hoặc không còn chờ tiếp nhận.');
             }
 
+            $dangXuLyTuChoi = BlockchainTransaction::query()
+                ->where('chuyenGiaoId', $chuyenGiao->id)
+                ->where('eventName', 'TransferRejected')
+                ->where('trangThai', 'PENDING')
+                ->exists();
+            if ($dangXuLyTuChoi) {
+                throw new NghiepVuException('Yêu cầu từ chối đang được xử lý trên blockchain.');
+            }
+
+            $this->assertSubmitConfirmed($chuyenGiao);
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $lyDoTuChoi = trim((string) $lyDo) ?: 'Đơn vị nhận từ chối tiếp nhận lô hàng';
-            // REJECTED giải phóng lượng giữ chỗ vì TonKhoService chỉ trừ PENDING.
-            $chuyenGiao->update([
-                'trangThai' => TransferStatus::rejected,
-                'thoiGianXacNhan' => now(),
-                'lyDoTuChoi' => $lyDoTuChoi,
-            ]);
+            // Chỉ lưu lý do và tạo yêu cầu. Giải phóng reservation khi job
+            // xác nhận TransferRejected trên chain.
+            $chuyenGiao->update(['lyDoTuChoi' => $lyDoTuChoi]);
             $tx = $this->taoGiaoDichBlockchain($chuyenGiao, $benNhan, $loThuoc, 'TransferRejected', 'TRANSFER_REJECTED');
-
-            $conPending = ChuyenGiao::query()
-                ->where('loThuocId', $loThuoc->id)
-                ->where('benGuiId', $chuyenGiao->benGuiId)
-                ->where('trangThai', TransferStatus::pending->value)
-                ->exists();
-            $daCoChuyenGiaoThanhCong = ChuyenGiao::query()
-                ->where('loThuocId', $loThuoc->id)
-                ->where('benGuiId', $chuyenGiao->benGuiId)
-                ->where('trangThai', TransferStatus::received->value)
-                ->exists();
-            if (! $conPending && ! $daCoChuyenGiaoThanhCong
-                && (int) $loThuoc->toChucId === (int) $chuyenGiao->benGuiId
-                && ($loThuoc->trangThai instanceof BatchStatus
-                    ? $loThuoc->trangThai === BatchStatus::inTransit
-                    : (string) $loThuoc->trangThai === BatchStatus::inTransit->value)) {
-                $loThuoc->update(['trangThai' => BatchStatus::created->value]);
-            }
 
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
@@ -256,6 +245,62 @@ class ChuyenGiaoService
         });
 
         ProcessBatchTransferJob::dispatch($chuyenGiao->id, $taiKhoan->id, $blockchainTransaction->id, 'TransferRejected', 'TRANSFER_REJECTED')->afterCommit();
+    }
+
+    /**
+     * Bên gửi hủy chuyển giao khi giao dịch vẫn đang chờ bên nhận.
+     * Trạng thái chỉ chuyển CANCELLED sau receipt TransferCancelled.
+     */
+    public function huy(ChuyenGiao $chuyenGiao, ToChuc $benGui, TaiKhoan $taiKhoan, ?string $ip, ?string $lyDo = null): void
+    {
+        $blockchainTransaction = DB::transaction(function () use ($chuyenGiao, $benGui, $taiKhoan, $ip, $lyDo): BlockchainTransaction {
+            $chuyenGiao = ChuyenGiao::query()->whereKey($chuyenGiao->id)->lockForUpdate()->firstOrFail();
+            if ((int) $chuyenGiao->benGuiId !== (int) $benGui->id || $chuyenGiao->trangThai !== TransferStatus::pending) {
+                throw new NghiepVuException('Chỉ bên gửi mới được hủy giao dịch đang chờ tiếp nhận.');
+            }
+
+            $dangXuLyHuy = BlockchainTransaction::query()
+                ->where('chuyenGiaoId', $chuyenGiao->id)
+                ->where('eventName', 'TransferCancelled')
+                ->where('trangThai', 'PENDING')
+                ->exists();
+            if ($dangXuLyHuy) {
+                throw new NghiepVuException('Yêu cầu hủy đang được xử lý trên blockchain.');
+            }
+
+            $this->assertSubmitConfirmed($chuyenGiao);
+            $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
+            $lyDoHuy = trim((string) $lyDo) ?: 'Bên gửi chủ động hủy chuyển giao';
+
+            $chuyenGiao->update(['lyDoTuChoi' => $lyDoHuy]);
+            $tx = $this->taoGiaoDichBlockchain($chuyenGiao, $benGui, $loThuoc, 'TransferCancelled', 'TRANSFER_CANCELLED');
+
+            NhatKyHeThong::query()->create([
+                'taiKhoanId' => $taiKhoan->id,
+                'doiTuongId' => $chuyenGiao->id,
+                'hanhDong' => 'HUY_CHUYEN_GIAO',
+                'ketQua' => 'THANH_CONG',
+                'thoiGian' => now(),
+                'chiTiet' => "{$benGui->tenToChuc} gửi yêu cầu hủy {$chuyenGiao->maChuyenGiao}. Lý do: {$lyDoHuy}." . ($ip ? " IP: {$ip}" : ''),
+            ]);
+            return $tx;
+        });
+
+        ProcessBatchTransferJob::dispatch($chuyenGiao->id, $taiKhoan->id, $blockchainTransaction->id, 'TransferCancelled', 'TRANSFER_CANCELLED')->afterCommit();
+    }
+
+    private function assertSubmitConfirmed(ChuyenGiao $chuyenGiao): void
+    {
+        $submitted = BlockchainTransaction::query()
+            ->where('chuyenGiaoId', $chuyenGiao->id)
+            ->where('eventName', 'TransferSubmitted')
+            ->where('trangThai', 'CONFIRMED')
+            ->whereNotNull('txHash')
+            ->exists();
+
+        if (! $submitted) {
+            throw new NghiepVuException('Giao dịch gửi hàng chưa được xác nhận trên blockchain. Vui lòng chờ submitTransfer hoàn tất.');
+        }
     }
 
     private function taoGiaoDichBlockchain(

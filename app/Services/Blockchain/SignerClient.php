@@ -47,9 +47,8 @@ class SignerClient
     {
         $this->assertConfigured();
 
-        // Các event chuyển giao đang ký bằng ví Admin Master. Không gọi gas/ensure
-        // cho chính ví Admin vì Signer Service có thể tự chuyển ETH về cùng một ví,
-        // gây tốn gas vô ích. Ví Admin phải được nạp Sepolia ETH trước.
+        // Các thao tác nghiệp vụ được ký bằng ví tổ chức; Admin/Treasury chỉ nạp gas.
+        // Không tự nạp cho chính ví Admin để tránh giao dịch chuyển ETH về cùng một ví.
         $adminKeyId = (string) config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
         if ($keyIdOrAddress === $adminKeyId || $keyIdOrAddress === 'ADMIN_MASTER_KEY') {
             return;
@@ -150,7 +149,10 @@ class SignerClient
             'eventType'  => $eventType,
         ]);
 
-        return $response->successful() && $response->json('isRecorded') === true;
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể đối soát event trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json('isRecorded') === true;
     }
 
     /** Trả về txHash thật của event đã ghi để job retry không sinh hash giả. */
@@ -176,15 +178,10 @@ class SignerClient
             'maChuyenGiao' => $maChuyenGiao,
             'eventName' => $eventName,
         ]);
-        // RPC range / network lỗi: trả isRecorded=false để Job vẫn gửi tx, không chặn luồng
+        // Không được gửi giao dịch mới khi không thể đối soát, vì có thể tx trước
+        // đã mined nhưng phản hồi bị timeout. Dừng để retry an toàn.
         if ($response->failed() || ! $response->json('ok')) {
-            return [
-                'ok' => true,
-                'isRecorded' => false,
-                'txHash' => null,
-                'blockNumber' => null,
-                'reason' => $response->json('reason') ?? $response->body(),
-            ];
+            throw new Exception('Không thể đối soát giao dịch chuyển giao trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
     }
