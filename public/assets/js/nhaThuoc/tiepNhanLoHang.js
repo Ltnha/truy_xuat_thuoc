@@ -94,7 +94,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td class="py-3.5 px-3 text-center">
                         ${isRecalled
                             ? '<span class="text-[11px] text-red-500 font-medium">Lô đã thu hồi</span>'
-                            : `<div class="flex flex-wrap justify-center gap-1.5">
+                            : item.dangXuLyBlockchain
+                                ? '<span class="text-[11px] text-amber-700 font-semibold">Đang chờ xác nhận giao dịch</span>'
+                                : `<div class="flex flex-wrap justify-center gap-1.5">
                                 <button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">
                                     Xác nhận
                                 </button>
