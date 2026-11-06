@@ -147,7 +147,7 @@ class ChuyenGiaoController extends Controller
             return response()->json(['success' => false, 'message' => 'Tài khoản chưa gắn tổ chức.'], 403);
         }
 
-        $chuyenGiao = \App\\Models\\ChuyenGiao::query()->find($id);
+        $chuyenGiao = \App\Models\ChuyenGiao::query()->find($id);
         if (!$chuyenGiao) {
             return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch.'], 404);
         }
@@ -155,7 +155,7 @@ class ChuyenGiaoController extends Controller
         try {
             $this->chuyenGiaoService->huy($chuyenGiao, $toChuc, $user, $request->ip(), $request->input('lyDo'));
             return response()->json(['success' => true, 'message' => 'Đã gửi yêu cầu hủy. Trạng thái chỉ đổi sau khi blockchain xác nhận.']);
-        } catch (\App\\Exceptions\\NghiepVuException $e) {
+        } catch (\App\Exceptions\NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
             report($e);
