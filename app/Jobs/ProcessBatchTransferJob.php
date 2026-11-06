@@ -82,9 +82,12 @@ class ProcessBatchTransferJob implements ShouldQueue
             ->where('toChucId', $actorOrgId)
             ->where('trangThai', 'ACTIVE')
             ->first();
-        if (! $identity || ! is_string($identity->signerKeyId) || $identity->signerKeyId === ''
-            || ! is_string($identity->diaChiVi) || $identity->diaChiVi === '') {
-            throw new Exception("Tổ chức #{$actorOrgId} chưa có ví Blockchain ACTIVE. Không thể ký {$action}.");
+        if (! $identity || ! is_string($identity->signerKeyId) || trim($identity->signerKeyId) === ''
+            || ! is_string($identity->diaChiVi) || ! preg_match('/^0x[a-fA-F0-9]{40}$/', $identity->diaChiVi)) {
+            throw new Exception("Tổ chức #{$actorOrgId} chưa có ví Blockchain ACTIVE hợp lệ. Không thể ký {$action}.");
+        }
+        if (str_starts_with($identity->signerKeyId, 'KEY-DEMO-')) {
+            throw new Exception("Ví của tổ chức #{$actorOrgId} vẫn là key DEMO không có khóa ký thực tế. Hãy chạy: php artisan blockchain:repair-demo-identities --to-chuc={$actorOrgId}");
         }
 
         // Phải dùng CÙNG thuật toán hash khi submit và khi đối soát
@@ -95,8 +98,12 @@ class ProcessBatchTransferJob implements ShouldQueue
                 ->where('toChucId', $cg->benNhanId)
                 ->where('trangThai', 'ACTIVE')
                 ->first();
-            if (! $identityNhan || ! is_string($identityNhan->diaChiVi) || $identityNhan->diaChiVi === '') {
-                throw new Exception('Tổ chức nhận chưa có ví Blockchain ACTIVE.');
+            if (! $identityNhan || ! is_string($identityNhan->diaChiVi)
+                || ! preg_match('/^0x[a-fA-F0-9]{40}$/', $identityNhan->diaChiVi)) {
+                throw new Exception('Tổ chức nhận chưa có ví Blockchain ACTIVE hợp lệ.');
+            }
+            if (! is_string($identityNhan->signerKeyId) || str_starts_with($identityNhan->signerKeyId, 'KEY-DEMO-')) {
+                throw new Exception("Ví của tổ chức nhận #{$cg->benNhanId} vẫn là key DEMO. Hãy chạy: php artisan blockchain:repair-demo-identities --to-chuc={$cg->benNhanId}");
             }
             $params['benNhan'] = $identityNhan->diaChiVi;
         } elseif (in_array($action, ['rejectTransfer', 'cancelTransfer'], true)) {
@@ -117,7 +124,8 @@ class ProcessBatchTransferJob implements ShouldQueue
         }
 
         if (empty($eventCheck['isRecorded'])) {
-            $signer->ensureGas((string) $identity->signerKeyId);
+            // /gas/ensure nhận địa chỉ Ethereum; /tx mới nhận signerKeyId.
+            $signer->ensureGas((string) $identity->diaChiVi);
             $result = $signer->tx((string) $identity->signerKeyId, $action, $params);
             if (empty($result['ok']) || empty($result['txHash'])) {
                 throw new Exception('Signer không gửi được ' . $action . ': ' . ($result['reason'] ?? 'Không có txHash.'));
