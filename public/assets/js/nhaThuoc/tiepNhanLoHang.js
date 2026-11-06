@@ -3,14 +3,7 @@
  * Kết nối CSDL thật qua API (thay thế hoàn toàn dữ liệu giả)
  */
 document.addEventListener('DOMContentLoaded', function () {
-    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content
-        || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-        || '';
-
-    function getCookie(name) {
-        const m = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/([.$?*|{}()[\]\\/+^])/g, '\\$1') + '=([^;]*)'));
-        return m ? decodeURIComponent(m[1]) : '';
-    }
+    const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 
     const tabCho = document.getElementById('tabChoXacNhan');
     const tabDa = document.getElementById('tabDaTiepNhan');
@@ -31,46 +24,18 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function fetchJSON(url, options = {}) {
-        const xsrf = getCookie('XSRF-TOKEN');
-        const headers = {
-            'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': CSRF,
-            ...(xsrf ? { 'X-XSRF-TOKEN': xsrf } : {}),
-            ...(options.headers || {}),
-        };
-
-        // Đảm bảo POST/PUT có body JSON tối thiểu để Laravel đọc được session/CSRF ổn định
-        let body = options.body;
-        if ((options.method || 'GET').toUpperCase() !== 'GET' && body === undefined) {
-            body = JSON.stringify({ _token: CSRF });
-            headers['Content-Type'] = headers['Content-Type'] || 'application/json';
-        }
-
         const res = await fetch(url, {
-            credentials: 'same-origin',
             ...options,
-            headers,
-            body,
+            headers: {
+                'Accept': 'application/json',
+                'X-CSRF-TOKEN': CSRF,
+                'X-Requested-With': 'XMLHttpRequest',
+                ...(options.headers || {}),
+            },
         });
-        const text = await res.text();
-        let data;
-        try {
-            data = JSON.parse(text);
-        } catch (e) {
-            if (res.status === 419) {
-                throw new Error('Phiên làm việc hết hạn (CSRF 419). Bấm F5 tải lại trang rồi thử lại.');
-            }
-            if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
-                throw new Error('API trả về HTML (HTTP ' + res.status + '). Kiểm tra route/đăng nhập hoặc cột DB lyDoTuChoi: ' + url);
-            }
-            throw new Error('Phản hồi không phải JSON (HTTP ' + res.status + ') từ: ' + url);
-        }
+        const data = await res.json();
         if (!res.ok || data.success === false) {
-            if (res.status === 419) {
-                throw new Error('Phiên làm việc hết hạn (CSRF 419). Bấm F5 tải lại trang rồi thử lại.');
-            }
-            throw new Error(data.message || ('Có lỗi xảy ra (HTTP ' + res.status + ')'));
+            throw new Error(data.message || 'Có lỗi xảy ra');
         }
         return data;
     }
@@ -126,13 +91,17 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${badgeText}</span>
                     </td>
                     <td class="py-3.5 px-3 text-center">
-                        <div class="flex items-center justify-center gap-1.5">
-                            ${isRecalled || isExpired
-                                ? '<span class="text-[11px] text-amber-600 font-medium">Không thể nhận</span>'
-                                : `<button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Xác nhận nhận hàng</button>`
-                            }
-                            <button type="button" data-id="${item.id}" class="btn-tu-choi px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Từ chối</button>
-                        </div>
+                        ${isRecalled
+                            ? '<span class="text-[11px] text-red-500 font-medium">Lô đã thu hồi</span>'
+                            : `<div class="flex flex-wrap justify-center gap-1.5">
+                                <button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">
+                                    Xác nhận
+                                </button>
+                                <button type="button" data-id="${item.id}" class="btn-tu-choi px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">
+                                    Từ chối
+                                </button>
+                               </div>`
+                        }
                     </td>
                 </tr>`;
             }).join('');
@@ -147,7 +116,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
-                        toast('Tiếp nhận thành công!');
+                        toast('Đã gửi yêu cầu tiếp nhận. Kho sẽ cập nhật sau khi blockchain xác nhận.');
                         loadChoXacNhan(currentPageCho);
                         // Cập nhật badge lịch sử nếu đang mở
                     } catch (err) {
@@ -160,23 +129,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
             tbody.querySelectorAll('.btn-tu-choi').forEach(btn => {
                 btn.addEventListener('click', async function () {
-                    if (!confirm('Bạn có chắc muốn từ chối tiếp nhận lô hàng này?')) return;
-                    const lyDo = prompt('Lý do từ chối (có thể bỏ trống):', 'Nhà thuốc từ chối tiếp nhận lô hàng') || 'Nhà thuốc từ chối tiếp nhận lô hàng';
+                    const lyDo = prompt('Nhập lý do từ chối tiếp nhận (ít nhất 5 ký tự):');
+                    if (lyDo === null) return;
+                    if (lyDo.trim().length < 5) {
+                        toast('Lý do từ chối phải có ít nhất 5 ký tự.', 'error');
+                        return;
+                    }
+
                     btn.disabled = true;
-                    const oldText = btn.textContent;
                     btn.textContent = 'Đang xử lý...';
                     try {
                         await fetchJSON(`/nha-thuoc/api/tu-choi/${btn.dataset.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ lyDo }),
+                            body: JSON.stringify({ lyDo: lyDo.trim() }),
                         });
-                        toast('Đã từ chối lô hàng. Số lượng được giải phóng về bên gửi.');
+                        toast('Đã gửi yêu cầu từ chối. Trạng thái sẽ cập nhật sau khi blockchain xác nhận.');
                         loadChoXacNhan(currentPageCho);
                     } catch (err) {
                         toast(err.message, 'error');
                         btn.disabled = false;
-                        btn.textContent = oldText;
+                        btn.textContent = 'Từ chối';
                     }
                 });
             });
