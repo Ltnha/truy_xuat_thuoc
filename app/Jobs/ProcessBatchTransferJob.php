@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\BlockchainIdentity;
+use App\Services\ChuoiCungUng\TonKhoService;
 use App\Models\BlockchainTransaction;
 use App\Models\ChuyenGiao;
 use App\Models\NhatKyHeThong;
@@ -67,13 +68,16 @@ class ProcessBatchTransferJob implements ShouldQueue
             'TransferSubmitted' => 'submitTransfer',
             'TransferReceived' => 'receiveTransfer',
             'TransferRejected' => 'rejectTransfer',
+            'TransferCancelled' => 'cancelTransfer',
         ];
         $action = $actionMap[$this->eventName] ?? null;
         if (! $action) {
             throw new Exception('Sự kiện chuyển giao không được hỗ trợ: ' . $this->eventName);
         }
 
-        $actorOrgId = $action === 'submitTransfer' ? (int) $cg->benGuiId : (int) $cg->benNhanId;
+        $actorOrgId = in_array($action, ['submitTransfer', 'cancelTransfer'], true)
+            ? (int) $cg->benGuiId
+            : (int) $cg->benNhanId;
         $identity = BlockchainIdentity::query()
             ->where('toChucId', $actorOrgId)
             ->where('trangThai', 'ACTIVE')
@@ -95,25 +99,24 @@ class ProcessBatchTransferJob implements ShouldQueue
                 throw new Exception('Tổ chức nhận chưa có ví Blockchain ACTIVE.');
             }
             $params['benNhan'] = $identityNhan->diaChiVi;
-        } elseif ($action === 'rejectTransfer') {
-            $params['lyDo'] = (string) ($cg->lyDoTuChoi ?? 'Từ chối tiếp nhận');
+        } elseif (in_array($action, ['rejectTransfer', 'cancelTransfer'], true)) {
+            $params['lyDo'] = (string) ($cg->lyDoTuChoi ?? ($action === 'cancelTransfer' ? 'Bên gửi hủy chuyển giao' : 'Từ chối tiếp nhận'));
         }
 
-        // Đối soát: truyền bytes32 (không truyền UUID thô — tránh lệch keccak vs sha256)
-        // Lỗi RPC range → bỏ qua, tiếp tục gửi tx
+        // Đối soát là bắt buộc trước retry. Nếu RPC lỗi, throw để retry sau;
+        // tuyệt đối không gửi transaction mới khi chưa biết transaction cũ đã mined chưa.
+        $eventCheck = $signer->findTransferEvent($maChuyenGiaoBytes32, $this->eventName);
         $txHash = null;
         $blockNumber = null;
-        try {
-            $eventCheck = $signer->findTransferEvent($maChuyenGiaoBytes32, $this->eventName);
-            if (! empty($eventCheck['isRecorded'])) {
-                $txHash = $eventCheck['txHash'] ?? null;
-                $blockNumber = $eventCheck['blockNumber'] ?? null;
+        if (! empty($eventCheck['isRecorded'])) {
+            $txHash = $eventCheck['txHash'] ?? null;
+            $blockNumber = $eventCheck['blockNumber'] ?? null;
+            if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+                throw new Exception('Event đã có trên chain nhưng không truy xuất được transaction hash thật.');
             }
-        } catch (\Throwable $e) {
-            Log::warning('[ProcessBatchTransferJob] findTransferEvent bỏ qua: ' . $e->getMessage());
         }
 
-        if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+        if (empty($eventCheck['isRecorded'])) {
             $signer->ensureGas((string) $identity->signerKeyId);
             $result = $signer->tx((string) $identity->signerKeyId, $action, $params);
             if (empty($result['ok']) || empty($result['txHash'])) {
@@ -134,6 +137,20 @@ class ProcessBatchTransferJob implements ShouldQueue
                 'trangThai' => 'CONFIRMED',
                 'thoiGian' => now(),
             ]);
+
+            // Chỉ cập nhật nghiệp vụ và tồn kho sau khi receipt on-chain đã xác nhận.
+            $lockedCg = ChuyenGiao::query()->whereKey($cg->id)->lockForUpdate()->firstOrFail();
+            if ($this->eventName === 'TransferReceived' && $lockedCg->trangThai === \\App\\Enums\\TransferStatus::pending) {
+                $tonKho = app(TonKhoService::class);
+                $tonKho->tru((int) $cg->loThuoc->id, (int) $cg->benGuiId, (int) $cg->soLuong);
+                $tonKho->cong((int) $cg->loThuoc->id, (int) $cg->benNhanId, (int) $cg->soLuong);
+                $lockedCg->update(['trangThai' => \\App\\Enums\\TransferStatus::received, 'thoiGianXacNhan' => now()]);
+            } elseif ($this->eventName === 'TransferRejected' && $lockedCg->trangThai === \\App\\Enums\\TransferStatus::pending) {
+                $lockedCg->update(['trangThai' => \\App\\Enums\\TransferStatus::rejected, 'thoiGianXacNhan' => now()]);
+            } elseif ($this->eventName === 'TransferCancelled' && $lockedCg->trangThai === \\App\\Enums\\TransferStatus::pending) {
+                $lockedCg->update(['trangThai' => \\App\\Enums\\TransferStatus::cancelled, 'thoiGianXacNhan' => now()]);
+            }
+
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $this->userId,
                 'doiTuongId' => $cg->id,
