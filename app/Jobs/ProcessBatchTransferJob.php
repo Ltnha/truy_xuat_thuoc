@@ -140,15 +140,15 @@ class ProcessBatchTransferJob implements ShouldQueue
 
             // Chỉ cập nhật nghiệp vụ và tồn kho sau khi receipt on-chain đã xác nhận.
             $lockedCg = ChuyenGiao::query()->whereKey($cg->id)->lockForUpdate()->firstOrFail();
-            if ($this->eventName === 'TransferReceived' && $lockedCg->trangThai === \\App\\Enums\\TransferStatus::pending) {
+            if ($this->eventName === 'TransferReceived' && $lockedCg->trangThai === \App\Enums\TransferStatus::pending) {
                 $tonKho = app(TonKhoService::class);
                 $tonKho->tru((int) $cg->loThuoc->id, (int) $cg->benGuiId, (int) $cg->soLuong);
                 $tonKho->cong((int) $cg->loThuoc->id, (int) $cg->benNhanId, (int) $cg->soLuong);
-                $lockedCg->update(['trangThai' => \\App\\Enums\\TransferStatus::received, 'thoiGianXacNhan' => now()]);
-            } elseif ($this->eventName === 'TransferRejected' && $lockedCg->trangThai === \\App\\Enums\\TransferStatus::pending) {
-                $lockedCg->update(['trangThai' => \\App\\Enums\\TransferStatus::rejected, 'thoiGianXacNhan' => now()]);
-            } elseif ($this->eventName === 'TransferCancelled' && $lockedCg->trangThai === \\App\\Enums\\TransferStatus::pending) {
-                $lockedCg->update(['trangThai' => \\App\\Enums\\TransferStatus::cancelled, 'thoiGianXacNhan' => now()]);
+                $lockedCg->update(['trangThai' => \App\Enums\TransferStatus::received, 'thoiGianXacNhan' => now()]);
+            } elseif ($this->eventName === 'TransferRejected' && $lockedCg->trangThai === \App\Enums\TransferStatus::pending) {
+                $lockedCg->update(['trangThai' => \App\Enums\TransferStatus::rejected, 'thoiGianXacNhan' => now()]);
+            } elseif ($this->eventName === 'TransferCancelled' && $lockedCg->trangThai === \App\Enums\TransferStatus::pending) {
+                $lockedCg->update(['trangThai' => \App\Enums\TransferStatus::cancelled, 'thoiGianXacNhan' => now()]);
             }
 
             NhatKyHeThong::query()->create([
