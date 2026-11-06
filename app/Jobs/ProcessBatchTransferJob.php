@@ -140,6 +140,12 @@ class ProcessBatchTransferJob implements ShouldQueue
 
             // Chỉ cập nhật nghiệp vụ và tồn kho sau khi receipt on-chain đã xác nhận.
             $lockedCg = ChuyenGiao::query()->whereKey($cg->id)->lockForUpdate()->firstOrFail();
+            if ($this->eventName === 'TransferSubmitted'
+                && (int) $cg->loThuoc->toChucId === (int) $cg->benGuiId
+                && (string) ($cg->loThuoc->trangThai?->value ?? $cg->loThuoc->trangThai) === 'CREATED') {
+                $cg->loThuoc->update(['trangThai' => \App\Enums\BatchStatus::inTransit->value]);
+            }
+
             if ($this->eventName === 'TransferReceived' && $lockedCg->trangThai === \App\Enums\TransferStatus::pending) {
                 $tonKho = app(TonKhoService::class);
                 $tonKho->tru((int) $cg->loThuoc->id, (int) $cg->benGuiId, (int) $cg->soLuong);
