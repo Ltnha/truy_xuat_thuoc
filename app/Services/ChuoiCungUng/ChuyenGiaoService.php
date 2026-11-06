@@ -140,12 +140,7 @@ class ChuyenGiaoService
                 'thoiGian' => now(),
             ]);
 
-            $trangThaiLoHienTai = $loThuoc->trangThai instanceof BatchStatus
-                ? $loThuoc->trangThai
-                : BatchStatus::tryFrom((string) $loThuoc->trangThai);
-            if ($loaiGui === OrganizationType::nhaSanXuat && $trangThaiLoHienTai === BatchStatus::created) {
-                $loThuoc->update(['trangThai' => BatchStatus::inTransit->value]);
-            }
+            // Không đổi trạng thái lô trước khi submitTransfer được xác nhận on-chain.
 
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
@@ -188,6 +183,7 @@ class ChuyenGiaoService
                 throw new NghiepVuException('Yêu cầu tiếp nhận đang được xử lý trên blockchain.');
             }
 
+            $this->assertSubmitConfirmed($chuyenGiao);
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus ? $loThuoc->trangThai : BatchStatus::tryFrom((string) $loThuoc->trangThai);
             if ($trangThaiLo === BatchStatus::recalled || ($loThuoc->hanSuDung && Carbon::parse($loThuoc->hanSuDung)->startOfDay()->lt(today()))) {
@@ -229,6 +225,7 @@ class ChuyenGiaoService
                 throw new NghiepVuException('Yêu cầu từ chối đang được xử lý trên blockchain.');
             }
 
+            $this->assertSubmitConfirmed($chuyenGiao);
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $lyDoTuChoi = trim((string) $lyDo) ?: 'Đơn vị nhận từ chối tiếp nhận lô hàng';
             // Chỉ lưu lý do và tạo yêu cầu. Giải phóng reservation khi job
@@ -271,6 +268,7 @@ class ChuyenGiaoService
                 throw new NghiepVuException('Yêu cầu hủy đang được xử lý trên blockchain.');
             }
 
+            $this->assertSubmitConfirmed($chuyenGiao);
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $lyDoHuy = trim((string) $lyDo) ?: 'Bên gửi chủ động hủy chuyển giao';
 
@@ -289,6 +287,20 @@ class ChuyenGiaoService
         });
 
         ProcessBatchTransferJob::dispatch($chuyenGiao->id, $taiKhoan->id, $blockchainTransaction->id, 'TransferCancelled', 'TRANSFER_CANCELLED')->afterCommit();
+    }
+
+    private function assertSubmitConfirmed(ChuyenGiao $chuyenGiao): void
+    {
+        $submitted = BlockchainTransaction::query()
+            ->where('chuyenGiaoId', $chuyenGiao->id)
+            ->where('eventName', 'TransferSubmitted')
+            ->where('trangThai', 'CONFIRMED')
+            ->whereNotNull('txHash')
+            ->exists();
+
+        if (! $submitted) {
+            throw new NghiepVuException('Giao dịch gửi hàng chưa được xác nhận trên blockchain. Vui lòng chờ submitTransfer hoàn tất.');
+        }
     }
 
     private function taoGiaoDichBlockchain(
