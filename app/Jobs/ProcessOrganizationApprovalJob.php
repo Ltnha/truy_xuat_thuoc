@@ -58,7 +58,7 @@ class ProcessOrganizationApprovalJob implements ShouldQueue
 
         // 2. Nạp Gas tự động cho Ví Admin và Ví Tổ chức
         $signer->ensureGas($adminKeyId);
-        $signer->ensureGas($identity->signerKeyId);
+        $signer->ensureGas((string) $identity->diaChiVi);
         $identity->update(['trangThai' => 'DA_NAP_GAS']);
 
         // 3. Kiểm tra Idempotent: Nếu CHƯA có quyền On-chain mới gọi grantRole
