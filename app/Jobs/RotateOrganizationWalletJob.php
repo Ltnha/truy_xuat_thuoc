@@ -76,7 +76,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
 
         // 3. Nạp Gas và cấp quyền On-chain cho ví mới
         $signer->ensureGas($adminKeyId);
-        $signer->ensureGas($viMoi->signerKeyId);
+        $signer->ensureGas((string) $viMoi->diaChiVi);
         $viMoi->update(['trangThai' => 'DA_NAP_GAS']);
 
         $kqGrant = $signer->tx($adminKeyId, 'grantRole', [
