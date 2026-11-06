@@ -69,7 +69,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 const isRecalled = item.trangThaiLo === 'RECALLED';
                 const isExpired = item.hanDung && item.hanDung < new Date().toISOString().slice(0, 10);
                 let badgeClass = 'bg-cyan-100 text-cyan-800';
-                let badgeText = 'CHỜ XÁC NHẬN';
+                let badgeText = item.dangXuLyBlockchain ? 'ĐANG ĐỒNG BỘ BLOCKCHAIN' : 'CHỜ XÁC NHẬN';
+                if (item.dangXuLyBlockchain) badgeClass = 'bg-amber-100 text-amber-800';
                 if (isRecalled) {
                     badgeClass = 'bg-red-100 text-red-700';
                     badgeText = 'THU HỒI';
@@ -247,6 +248,12 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('oTimKiemDaNhan')?.addEventListener('input', debounce(() => loadDaTiepNhan(1), 400));
 
     showTab('cho');
+
+    // Tự làm mới để cập nhật trạng thái sau khi Job xác nhận giao dịch on-chain.
+    setInterval(() => {
+        if (khungCho && !khungCho.classList.contains('hidden')) loadChoXacNhan(currentPageCho);
+        if (khungDa && !khungDa.classList.contains('hidden')) loadDaTiepNhan(currentPageDa);
+    }, 10000);
 
     function debounce(fn, delay) {
         let t;
