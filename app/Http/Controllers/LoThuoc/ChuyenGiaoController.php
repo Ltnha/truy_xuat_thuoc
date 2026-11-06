@@ -138,4 +138,29 @@ class ChuyenGiaoController extends Controller
             ],
         ]);
     }
+    /** API: Nhà sản xuất hủy yêu cầu chuyển giao đang chờ. */
+    public function huy(Request $request, int $id)
+    {
+        $user = Auth::user();
+        $toChuc = $user?->toChuc;
+        if (!$toChuc) {
+            return response()->json(['success' => false, 'message' => 'Tài khoản chưa gắn tổ chức.'], 403);
+        }
+
+        $chuyenGiao = \\App\\Models\\ChuyenGiao::query()->find($id);
+        if (!$chuyenGiao) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch.'], 404);
+        }
+
+        try {
+            $this->chuyenGiaoService->huy($chuyenGiao, $toChuc, $user, $request->ip(), $request->input('lyDo'));
+            return response()->json(['success' => true, 'message' => 'Đã gửi yêu cầu hủy. Trạng thái chỉ đổi sau khi blockchain xác nhận.']);
+        } catch (\\App\\Exceptions\\NghiepVuException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\\Throwable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => 'Không thể gửi yêu cầu hủy.'], 500);
+        }
+    }
+
 }
