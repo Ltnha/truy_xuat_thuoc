@@ -382,7 +382,7 @@
                 <span class="font-bold text-cyan-950 uppercase tracking-wide flex items-center gap-1.5">
                     <i class="fa-solid fa-boxes-stacked text-cyan-800"></i> Tình trạng của lô này tại nhà thuốc (tính cho tất cả các lần nhận):
                 </span>
-                <a id="linkSangQuanLyBanHang" href="quanLyBanHang.php" class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-[11px] shadow-2xs transition-all">
+                <a id="linkSangQuanLyBanHang" href="{{ route('nha-thuoc.ban-hang') }}" class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-[11px] shadow-2xs transition-all">
                     Xem trong Quản lý bán hàng <i class="fa-solid fa-arrow-right text-[10px]"></i>
                 </a>
             </div>
