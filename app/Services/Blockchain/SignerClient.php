@@ -47,9 +47,8 @@ class SignerClient
     {
         $this->assertConfigured();
 
-        // Các event chuyển giao đang ký bằng ví Admin Master. Không gọi gas/ensure
-        // cho chính ví Admin vì Signer Service có thể tự chuyển ETH về cùng một ví,
-        // gây tốn gas vô ích. Ví Admin phải được nạp Sepolia ETH trước.
+        // Các thao tác nghiệp vụ được ký bằng ví tổ chức; Admin/Treasury chỉ nạp gas.
+        // Không tự nạp cho chính ví Admin để tránh giao dịch chuyển ETH về cùng một ví.
         $adminKeyId = (string) config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
         if ($keyIdOrAddress === $adminKeyId || $keyIdOrAddress === 'ADMIN_MASTER_KEY') {
             return;
