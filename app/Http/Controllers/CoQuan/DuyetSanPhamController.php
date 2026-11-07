@@ -94,7 +94,7 @@ class DuyetSanPhamController extends Controller
             $signerClient->ensureGas($identity->diaChiVi);
 
             // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên ProductApproval.
-        // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
+                    // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
         if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
             $signerClient->sendTransaction([
                 'keyId' => $adminKeyId,
@@ -106,8 +106,8 @@ class DuyetSanPhamController extends Controller
             ]);
         }
 
-        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi)) {
-            throw new \RuntimeException('Không thể xác nhận ROLE_CO_QUAN cho ví CQQL trên Smart Contract.');
+        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
+            throw new \RuntimeException('Không thể xác nhận ROLE_CO_QUAN cho ví CQQL trên ProductApproval.');
         }
 
         // BƯỚC 4: Chuẩn hóa ID sản phẩm, nhà sản xuất và dữ liệu sản phẩm thành bytes32.
