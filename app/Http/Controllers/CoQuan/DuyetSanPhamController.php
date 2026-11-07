@@ -89,7 +89,8 @@ class DuyetSanPhamController extends Controller
         $keyId = $identity->signerKeyId;
         $adminKeyId = env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY');
 
-        // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên contract hiện tại.
+        try {
+            // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên contract hiện tại.
         // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
         if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi)) {
             $signerClient->sendTransaction([
@@ -103,7 +104,7 @@ class DuyetSanPhamController extends Controller
         }
 
         if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi)) {
-            throw new \\RuntimeException('Không thể xác nhận ROLE_CO_QUAN cho ví CQQL trên Smart Contract.');
+            throw new \RuntimeException('Không thể xác nhận ROLE_CO_QUAN cho ví CQQL trên Smart Contract.');
         }
 
         // BƯỚC 4: Chuẩn hóa ID sản phẩm, nhà sản xuất và dữ liệu sản phẩm thành bytes32.
@@ -118,7 +119,6 @@ class DuyetSanPhamController extends Controller
             'nhaSanXuatId' => $sanPham->nhaSanXuatId,
         ]));
 
-        try {
             $response = $signerClient->sendTransaction([
                 'keyId' => $keyId,
                 'action' => 'approveProduct',
@@ -184,7 +184,7 @@ class DuyetSanPhamController extends Controller
 
             return back()->with('thanhCong', "Đã phê duyệt sản phẩm [{$sanPham->tenSanPham}] thành công lên Blockchain. TxHash: {$txHash}");
         } catch (\Throwable $e) {
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Lỗi ghi Blockchain: ' . $e->getMessage(),
