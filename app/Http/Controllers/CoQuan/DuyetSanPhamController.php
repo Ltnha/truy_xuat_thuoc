@@ -90,7 +90,10 @@ class DuyetSanPhamController extends Controller
         $adminKeyId = env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY');
 
         try {
-            // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên contract hiện tại.
+            // Nạp gas tự động từ ví Treasury/Admin nếu ví CQQL chưa đủ phí Sepolia.
+            $signerClient->ensureGas($identity->diaChiVi);
+
+            // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên ProductApproval.
         // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
         if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
             $signerClient->sendTransaction([
