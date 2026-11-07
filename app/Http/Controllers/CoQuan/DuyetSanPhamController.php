@@ -10,6 +10,7 @@ use App\Models\SanPham;
 use App\Models\ToChuc;
 use App\Models\YeuCauDangKySanPham;
 use App\Services\Blockchain\SignerClient;
+use App\Services\Blockchain\RoleMap;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -30,7 +31,7 @@ class DuyetSanPhamController extends Controller
             ->get();
 
         // TAB 2: Danh mục sản phẩm ĐÃ DUYỆT (Lưu hành & On-Chain)
-        $sanPhamDaDuyets = SanPham::with(['nhaSanXuat', 'blockchainTransactions' => fn($q) => $q->where('eventName', 'ProductRegistered')])
+        $sanPhamDaDuyets = SanPham::with(['nhaSanXuat', 'blockchainTransactions' => fn($q) => $q->whereIn('eventName', ['ProductApproved', 'ProductRegistered'])])
             ->where('trangThaiDuyet', 'DA_DUYET')
             ->latest('id')
             ->get();
@@ -39,7 +40,7 @@ class DuyetSanPhamController extends Controller
     }
 
     /**
-     * Phê duyệt hồ sơ sản phẩm: Ghi Blockchain trước -> Mới lưu CSDL
+     * Phê duyệt hồ sơ sản phẩm: Ghi nhận phê duyệt trên Blockchain trước -> Mới lưu CSDL
      */
     public function pheDuyet(Request $request, YeuCauDangKySanPham $yeuCau, SignerClient $signerClient)
     {
@@ -67,17 +68,47 @@ class DuyetSanPhamController extends Controller
         }
 
         // BƯỚC 2: XÁC ĐỊNH KEY ID KÝ GIAO DỊCH BLOCKCHAIN
-        $identity = BlockchainIdentity::where('toChucId', $toChucCoQuan->id)->first();
+        $identity = BlockchainIdentity::where('toChucId', $toChucCoQuan->id)->latest('id')->first();
 
-        $keyId = env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY');
-        if ($identity && !empty($identity->signerKeyId) && !str_starts_with($identity->signerKeyId, 'KEY-DEMO-')) {
-            $keyId = $identity->signerKeyId;
+        if (! $identity || empty($identity->signerKeyId) || str_starts_with($identity->signerKeyId, 'KEY-DEMO-')) {
+            $thongBaoLoi = 'Tổ chức CQQL chưa có ví Signer hợp lệ. Vui lòng cấp/tạo ví cho tổ chức trước khi duyệt sản phẩm.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $thongBaoLoi], 422);
+            }
+            return back()->with('loi', $thongBaoLoi);
         }
 
-        // BƯỚC 3: ĐỊNH DẠNG DỮ LIỆU VÀ GỬI GIAO DỊCH LÊN ETHEREUM SEPOLIA BLOCKCHAIN
-        $batchIdBytes32 = '0x' . hash('sha256', $sanPham->maSanPham);
-        $businessIdBytes32 = '0x' . hash('sha256', $sanPham->soDangKy);
-        $eventTypeBytes32 = '0x' . hash('sha256', 'PRODUCT_REGISTERED');
+        if (empty($identity->diaChiVi) || ! preg_match('/^0x[a-fA-F0-9]{40}$/', $identity->diaChiVi)) {
+            $thongBaoLoi = 'Địa chỉ ví CQQL trong blockchainIdentity không hợp lệ.';
+            if ($request->ajax() || $request->wantsJson()) {
+                return response()->json(['success' => false, 'message' => $thongBaoLoi], 422);
+            }
+            return back()->with('loi', $thongBaoLoi);
+        }
+
+        $keyId = $identity->signerKeyId;
+        $adminKeyId = env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY');
+
+        // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên contract hiện tại.
+        // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
+        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi)) {
+            $signerClient->sendTransaction([
+                'keyId' => $adminKeyId,
+                'action' => 'grantRole',
+                'params' => [
+                    'account' => $identity->diaChiVi,
+                    'role' => RoleMap::ROLE_CO_QUAN,
+                ],
+            ]);
+        }
+
+        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi)) {
+            throw new \\RuntimeException('Không thể xác nhận ROLE_CO_QUAN cho ví CQQL trên Smart Contract.');
+        }
+
+        // BƯỚC 4: Chuẩn hóa ID sản phẩm, nhà sản xuất và dữ liệu sản phẩm thành bytes32.
+        $productIdBytes32 = '0x' . hash('sha256', (string) $sanPham->maSanPham);
+        $manufacturerIdBytes32 = '0x' . hash('sha256', (string) $sanPham->nhaSanXuatId);
         $payloadHashBytes32 = '0x' . hash('sha256', json_encode([
             'tenSanPham' => $sanPham->tenSanPham,
             'soDangKy' => $sanPham->soDangKy,
@@ -89,12 +120,11 @@ class DuyetSanPhamController extends Controller
 
         try {
             $response = $signerClient->sendTransaction([
-                'keyId'  => $keyId,
-                'action' => 'recordBatchEvent',
+                'keyId' => $keyId,
+                'action' => 'approveProduct',
                 'params' => [
-                    'batchId' => $batchIdBytes32,
-                    'businessId' => $businessIdBytes32,
-                    'eventType' => $eventTypeBytes32,
+                    'productId' => $productIdBytes32,
+                    'manufacturerId' => $manufacturerIdBytes32,
                     'payloadHash' => $payloadHashBytes32,
                 ],
             ]);
@@ -122,7 +152,7 @@ class DuyetSanPhamController extends Controller
                 BlockchainTransaction::updateOrCreate(
                     [
                         'sanPhamId' => $sanPham->id,
-                        'eventName' => 'ProductRegistered',
+                        'eventName' => 'ProductApproved',
                     ],
                     [
                         'txHash' => $txHash,
@@ -139,7 +169,7 @@ class DuyetSanPhamController extends Controller
                     'doiTuongId' => $user->id,
                     'hanhDong' => 'PHE_DUYET_SAN_PHAM',
                     'ketQua' => 'THANH_CONG',
-                    'chiTiet' => "Đã phê duyệt & ghi Blockchain thành công cho thuốc [{$sanPham->tenSanPham}] - TxHash: {$txHash}",
+                    'chiTiet' => "Đã phê duyệt sản phẩm và ghi nhận on-chain thành công cho thuốc [{$sanPham->tenSanPham}] - TxHash: {$txHash}",
                 ]);
             });
 
