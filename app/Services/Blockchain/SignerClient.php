@@ -120,7 +120,14 @@ class SignerClient
             'account' => $accountAddress,
         ]);
 
-        return $response->successful() && $response->json('hasRole') === true;
+        if ($response->failed() || $response->json('ok') !== true) {
+            throw new Exception(
+                'Không thể kiểm tra quyền On-chain: ' .
+                ($response->json('reason') ?? $response->body())
+            );
+        }
+
+        return $response->json('hasRole') === true;
     }
 
     /**
