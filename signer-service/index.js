@@ -169,6 +169,12 @@ app.post('/tx', authMiddleware, async (req, res) => {
             tx = await contract.grantRole(params.account, params.role);
         } else if (action === 'revokeRole') {
             tx = await contract.revokeRole(params.account, params.role);
+        } else if (action === 'approveProduct') {
+            tx = await contract.approveProduct(
+                params.productId,
+                params.manufacturerId,
+                params.payloadHash
+            );
         } else if (action === 'recordBatchEvent') {
             tx = await contract.recordBatchEvent(
                 params.batchId,
