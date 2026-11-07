@@ -53,7 +53,6 @@ contract BatchTraceability {
     mapping(bytes32 => BatchInfo) public batches;
     mapping(bytes32 => bytes32[]) public batchTransfers;
     mapping(bytes32 => bool) public recordedEventKeys;
-    mapping(bytes32 => bool) public approvedProducts;
 
     bytes32 public constant EVENT_PRODUCTION   = keccak256("PRODUCTION");
     bytes32 public constant EVENT_RECALL_BATCH = keccak256("RECALL_BATCH");
@@ -102,7 +101,6 @@ contract BatchTraceability {
     error NotTransferReceiver();
     error RoleAlreadyGranted();
     error RoleNotGranted();
-    error ProductAlreadyApproved();
 
     // =====================================================
     // 6. EVENTS
@@ -115,7 +113,6 @@ contract BatchTraceability {
     event BatchOwnerChanged(bytes32 indexed batchId, address indexed oldOwner, address indexed newOwner, uint256 timestamp);
     event BatchRecalled(bytes32 indexed batchId, address indexed actor, bytes32 payloadHash, uint256 timestamp);
     event BatchEventRecorded(bytes32 indexed batchId, bytes32 indexed businessId, address indexed actor, bytes32 eventType, bytes32 payloadHash, uint256 timestamp);
-    event ProductApproved(bytes32 indexed productId, bytes32 indexed manufacturerId, address indexed approver, bytes32 payloadHash, uint256 timestamp);
     event TransferSubmitted(bytes32 indexed transferId, bytes32 indexed batchId, address indexed sender, address receiver, uint256 timestamp);
     event TransferReceived(bytes32 indexed transferId, bytes32 indexed batchId, address indexed receiver, uint256 timestamp);
     event TransferRejected(bytes32 indexed transferId, bytes32 indexed batchId, address indexed receiver, bytes32 reasonHash, uint256 timestamp);
@@ -156,26 +153,7 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 9. PRODUCT APPROVAL (REGULATOR)
-    // =====================================================
-
-    function approveProduct(
-        bytes32 productId,
-        bytes32 manufacturerId,
-        bytes32 payloadHash
-    ) external {
-        if (!hasRole(msg.sender, ROLE_CO_QUAN)) revert Unauthorized();
-        if (productId == bytes32(0) || manufacturerId == bytes32(0) || payloadHash == bytes32(0)) {
-            revert InvalidData();
-        }
-        if (approvedProducts[productId]) revert ProductAlreadyApproved();
-
-        approvedProducts[productId] = true;
-        emit ProductApproved(productId, manufacturerId, msg.sender, payloadHash, block.timestamp);
-    }
-
-    // =====================================================
-    // 10. BATCH REGISTRATION & EVENTS
+    // 9. BATCH REGISTRATION & EVENTS
     // =====================================================
 
     function registerBatch(bytes32 batchId) external onlyManufacturer {
@@ -224,7 +202,7 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 11. TRANSFER MANAGEMENT
+    // 10. TRANSFER MANAGEMENT
     // =====================================================
 
     function submitTransfer(bytes32 transferId, bytes32 batchId, address receiver) external {
@@ -299,7 +277,7 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 12. VIEW FUNCTIONS
+    // 11. VIEW FUNCTIONS
     // =====================================================
 
     function getBatchOwner(bytes32 batchId) external view returns (address) {
