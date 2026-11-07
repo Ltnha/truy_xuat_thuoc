@@ -92,10 +92,10 @@ class DuyetSanPhamController extends Controller
         try {
             // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên contract hiện tại.
         // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
-        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi)) {
+        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
             $signerClient->sendTransaction([
                 'keyId' => $adminKeyId,
-                'action' => 'grantRole',
+                'action' => 'grantProductApprovalRole',
                 'params' => [
                     'account' => $identity->diaChiVi,
                     'role' => RoleMap::ROLE_CO_QUAN,
