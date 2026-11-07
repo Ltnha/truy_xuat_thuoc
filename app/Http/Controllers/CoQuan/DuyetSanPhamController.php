@@ -94,33 +94,33 @@ class DuyetSanPhamController extends Controller
             $signerClient->ensureGas($identity->diaChiVi);
 
             // BƯỚC 3: Đảm bảo ví CQQL có ROLE_CO_QUAN trên ProductApproval.
-                    // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
-        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
-            $signerClient->sendTransaction([
-                'keyId' => $adminKeyId,
-                'action' => 'grantProductApprovalRole',
-                'params' => [
-                    'account' => $identity->diaChiVi,
-                    'role' => RoleMap::ROLE_CO_QUAN,
-                ],
-            ]);
-        }
+            // Chỉ ví Owner/Admin được grantRole; việc duyệt sản phẩm vẫn do ví CQQL ký.
+            if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
+                $signerClient->sendTransaction([
+                    'keyId' => $adminKeyId,
+                    'action' => 'grantProductApprovalRole',
+                    'params' => [
+                        'account' => $identity->diaChiVi,
+                        'role' => RoleMap::ROLE_CO_QUAN,
+                    ],
+                ]);
+            }
 
-        if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
-            throw new \RuntimeException('Không thể xác nhận ROLE_CO_QUAN cho ví CQQL trên ProductApproval.');
-        }
+            if (! $signerClient->hasRole(RoleMap::ROLE_CO_QUAN, $identity->diaChiVi, 'productApproval')) {
+                throw new \RuntimeException('Không thể xác nhận ROLE_CO_QUAN cho ví CQQL trên ProductApproval.');
+            }
 
-        // BƯỚC 4: Chuẩn hóa ID sản phẩm, nhà sản xuất và dữ liệu sản phẩm thành bytes32.
-        $productIdBytes32 = '0x' . hash('sha256', (string) $sanPham->maSanPham);
-        $manufacturerIdBytes32 = '0x' . hash('sha256', (string) $sanPham->nhaSanXuatId);
-        $payloadHashBytes32 = '0x' . hash('sha256', json_encode([
-            'tenSanPham' => $sanPham->tenSanPham,
-            'soDangKy' => $sanPham->soDangKy,
-            'thanhPhan' => $sanPham->thanhPhan,
-            'hamLuong' => $sanPham->hamLuong,
-            'dangBaoChe' => $sanPham->dangBaoChe,
-            'nhaSanXuatId' => $sanPham->nhaSanXuatId,
-        ]));
+            // BƯỚC 4: Chuẩn hóa ID sản phẩm, nhà sản xuất và dữ liệu sản phẩm thành bytes32.
+            $productIdBytes32 = '0x' . hash('sha256', (string) $sanPham->maSanPham);
+            $manufacturerIdBytes32 = '0x' . hash('sha256', (string) $sanPham->nhaSanXuatId);
+            $payloadHashBytes32 = '0x' . hash('sha256', json_encode([
+                'tenSanPham' => $sanPham->tenSanPham,
+                'soDangKy' => $sanPham->soDangKy,
+                'thanhPhan' => $sanPham->thanhPhan,
+                'hamLuong' => $sanPham->hamLuong,
+                'dangBaoChe' => $sanPham->dangBaoChe,
+                'nhaSanXuatId' => $sanPham->nhaSanXuatId,
+            ]));
 
             $response = $signerClient->sendTransaction([
                 'keyId' => $keyId,
