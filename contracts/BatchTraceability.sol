@@ -3,45 +3,176 @@ pragma solidity ^0.8.24;
 
 contract BatchTraceability {
 
-    // --- 1. QUẢN TỰ VÀ PHÂN QUYỀN TRỰC TIẾP (LEGACY WRITERS) ---
+    // =====================================================
+    // OWNER
+    // =====================================================
+
     address public owner;
-    mapping(address => bool) public writers;
 
-    // --- 2. VAI TRÒ DOANH NGHIỆP ON-CHAIN (ROLE MANAGEMENT) ---
-    bytes32 public constant ROLE_CO_QUAN   = keccak256("CO_QUAN_QUAN_LY");
-    bytes32 public constant ROLE_NSX       = keccak256("NHA_SAN_XUAT");
-    bytes32 public constant ROLE_NPP       = keccak256("NHA_PHAN_PHOI");
-    bytes32 public constant ROLE_NHA_THUOC = keccak256("NHA_THUOC");
-
-    // Bảng lưu trữ vai trò: địa chỉ ví => (mã vai trò => true/false)
-    mapping(address => mapping(bytes32 => bool)) private _roles;
-
-    // --- 3. QUẢN LÝ SỰ KIỆN LÔ THUỐC ON-CHAIN ---
-    // Đánh dấu event key đã ghi để tránh ghi trùng lặp (Idempotency)
-    mapping(bytes32 => bool) public recordedEventKeys;
-
-    // Mã băm định danh loại sự kiện Thu hồi lô
-    bytes32 public constant EVENT_RECALL_BATCH = keccak256("RECALL_BATCH");
-
-    // --- 4. CẤU TRÚC & SỰ KIỆN CHUYỂN GIAO LÔ HÀNG (TRANSFER MANAGEMENT) ---
-    enum TransferStatus { PENDING, RECEIVED, REJECTED }
-
-    struct TransferRecord {
-        bytes32 maChuyenGiao;
-        address benGui;
-        address benNhan;
-        TransferStatus status;
-        uint256 thoiGian;
-        string lyDo;
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert Unauthorized();
+        _;
     }
 
-    mapping(bytes32 => TransferRecord) public transfers;
+    constructor() {
+        owner = msg.sender;
 
-    // --- 5. SỰ KIỆN (EVENTS) ---
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
-    event WriterPermissionChanged(address indexed writer, bool enabled);
-    event RoleGranted(address indexed account, bytes32 indexed role, address indexed sender);
-    event RoleRevoked(address indexed account, bytes32 indexed role, address indexed sender);
+        _grantRole(
+            msg.sender,
+            ROLE_CO_QUAN
+        );
+
+        emit OwnershipTransferred(
+            address(0),
+            msg.sender
+        );
+    }
+
+    // =====================================================
+    // ROLES
+    // =====================================================
+
+    bytes32 public constant ROLE_CO_QUAN =
+        keccak256("CO_QUAN_QUAN_LY");
+
+    bytes32 public constant ROLE_NSX =
+        keccak256("NHA_SAN_XUAT");
+
+    bytes32 public constant ROLE_NPP =
+        keccak256("NHA_PHAN_PHOI");
+
+    bytes32 public constant ROLE_NHA_THUOC =
+        keccak256("NHA_THUOC");
+
+    mapping(address => mapping(bytes32 => bool))
+        private roles;
+
+    // =====================================================
+    // BATCH
+    // =====================================================
+
+    struct BatchInfo {
+        bool exists;
+        bool recalled;
+        address currentOwner;
+        uint256 createdAt;
+    }
+
+    mapping(bytes32 => BatchInfo)
+        public batches;
+
+    // batch => transfer ids
+    mapping(bytes32 => bytes32[])
+        public batchTransfers;
+
+    // =====================================================
+    // EVENTS STORAGE
+    // =====================================================
+
+    mapping(bytes32 => bool)
+        public recordedEventKeys;
+
+    bytes32 public constant EVENT_PRODUCTION =
+        keccak256("PRODUCTION");
+
+    bytes32 public constant EVENT_RECALL_BATCH =
+        keccak256("RECALL_BATCH");
+
+    // =====================================================
+    // TRANSFERS
+    // =====================================================
+
+    enum TransferStatus {
+        NONE,
+        PENDING,
+        RECEIVED,
+        REJECTED,
+        CANCELLED
+    }
+
+    struct TransferRecord {
+        bytes32 transferId;
+        bytes32 batchId;
+
+        address sender;
+        address receiver;
+
+        TransferStatus status;
+
+        uint256 createdAt;
+        uint256 completedAt;
+
+        bytes32 reasonHash;
+    }
+
+    mapping(bytes32 => TransferRecord)
+        public transfers;
+
+    // =====================================================
+    // ERRORS
+    // =====================================================
+
+    error Unauthorized();
+    error InvalidAddress();
+    error InvalidData();
+
+    error BatchAlreadyExists();
+    error BatchNotFound();
+    error BatchRecalled();
+
+    error DuplicateEvent();
+
+    error TransferAlreadyExists();
+    error TransferNotFound();
+    error InvalidTransferStatus();
+
+    error NotCurrentOwner();
+    error NotTransferSender();
+    error NotTransferReceiver();
+
+    error RoleAlreadyGranted();
+    error RoleNotGranted();
+
+    // =====================================================
+    // EVENTS
+    // =====================================================
+
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
+
+    event RoleGranted(
+        address indexed account,
+        bytes32 indexed role,
+        address indexed sender
+    );
+
+    event RoleRevoked(
+        address indexed account,
+        bytes32 indexed role,
+        address indexed sender
+    );
+
+    event BatchRegistered(
+        bytes32 indexed batchId,
+        address indexed manufacturer,
+        uint256 timestamp
+    );
+
+    event BatchOwnerChanged(
+        bytes32 indexed batchId,
+        address indexed oldOwner,
+        address indexed newOwner,
+        uint256 timestamp
+    );
+
+    event BatchRecalled(
+        bytes32 indexed batchId,
+        address indexed actor,
+        bytes32 payloadHash,
+        uint256 timestamp
+    );
 
     event BatchEventRecorded(
         bytes32 indexed batchId,
@@ -53,118 +184,186 @@ contract BatchTraceability {
     );
 
     event TransferSubmitted(
-        bytes32 indexed maChuyenGiao,
-        address indexed benGui,
-        address indexed benNhan,
-        uint256 thoiGian
+        bytes32 indexed transferId,
+        bytes32 indexed batchId,
+        address indexed sender,
+        address receiver,
+        uint256 timestamp
     );
 
     event TransferReceived(
-        bytes32 indexed maChuyenGiao,
-        address indexed benNhan,
-        uint256 thoiGian
+        bytes32 indexed transferId,
+        bytes32 indexed batchId,
+        address indexed receiver,
+        uint256 timestamp
     );
 
     event TransferRejected(
-        bytes32 indexed maChuyenGiao,
-        address indexed benNhan,
-        uint256 thoiGian,
-        string lyDo
+        bytes32 indexed transferId,
+        bytes32 indexed batchId,
+        address indexed receiver,
+        bytes32 reasonHash,
+        uint256 timestamp
     );
 
-    // --- 6. LỖI TỰ ĐỊNH NGHĨA (CUSTOM ERRORS - TỐI ƯU GAS) ---
-    error Unauthorized();
-    error InvalidAddress();
-    error InvalidEventData();
-    error DuplicateEvent();
-    error RoleAlreadyGranted();
-    error RoleNotGranted();
+    event TransferCancelled(
+        bytes32 indexed transferId,
+        bytes32 indexed batchId,
+        address indexed sender,
+        uint256 timestamp
+    );
 
-    // --- 7. MODIFIERS ---
-    modifier onlyOwner() {
-        if (msg.sender != owner) revert Unauthorized();
+    // =====================================================
+    // MODIFIERS
+    // =====================================================
+
+    modifier onlyManufacturer() {
+        if (
+            !hasRole(
+                msg.sender,
+                ROLE_NSX
+            )
+        ) revert Unauthorized();
+
         _;
     }
 
-    // Cho phép gọi nếu là Writer trực tiếp HOẶC có Vai trò doanh nghiệp hợp lệ
-    modifier onlyWriter() {
-        if (!writers[msg.sender] && !isAuthorizedRole(msg.sender)) revert Unauthorized();
-        _;
+    // =====================================================
+    // ROLE MANAGEMENT
+    // =====================================================
+
+    function hasRole(
+        address account,
+        bytes32 role
+    )
+        public
+        view
+        returns(bool)
+    {
+        return roles[account][role];
     }
 
-    // --- 8. CONSTRUCTOR ---
-    constructor() {
-        owner = msg.sender;
-        writers[msg.sender] = true; // Thiết lập người deploy là writer
+    function grantRole(
+        address account,
+        bytes32 role
+    )
+        external
+        onlyOwner
+    {
+        if (
+            account == address(0)
+        ) revert InvalidAddress();
 
-        emit OwnershipTransferred(address(0), msg.sender);
-        emit WriterPermissionChanged(msg.sender, true);
+        if (
+            roles[account][role]
+        ) revert RoleAlreadyGranted();
 
-        // Tự động cấp vai trò Cơ quan quản lý cho tài khoản Owner
-        _grantRole(msg.sender, ROLE_CO_QUAN);
+        _grantRole(
+            account,
+            role
+        );
     }
 
-    // --- 9. QUẢN LÝ WRITER TRỰC TIẾP & OWNER ---
-    function setWriter(address writer, bool enabled) external onlyOwner {
-        if (writer == address(0)) revert InvalidAddress();
-        writers[writer] = enabled;
-        emit WriterPermissionChanged(writer, enabled);
+    function revokeRole(
+        address account,
+        bytes32 role
+    )
+        external
+        onlyOwner
+    {
+        if (
+            !roles[account][role]
+        ) revert RoleNotGranted();
+
+        roles[account][role] = false;
+
+        emit RoleRevoked(
+            account,
+            role,
+            msg.sender
+        );
     }
 
-    function transferOwnership(address newOwner) external onlyOwner {
-        if (newOwner == address(0)) revert InvalidAddress();
-        address previousOwner = owner;
-        owner = newOwner;
-        emit OwnershipTransferred(previousOwner, newOwner);
+    function _grantRole(
+        address account,
+        bytes32 role
+    )
+        internal
+    {
+        roles[account][role] = true;
+
+        emit RoleGranted(
+            account,
+            role,
+            msg.sender
+        );
     }
 
-    // --- 10. QUẢN LÝ VAI TRÒ ON-CHAIN (ROLE MANAGEMENT) ---
-    function hasRole(address account, bytes32 role) public view returns (bool) {
-        return _roles[account][role];
+    // =====================================================
+    // BATCH REGISTRATION
+    // =====================================================
+
+    function registerBatch(
+        bytes32 batchId
+    )
+        external
+        onlyManufacturer
+    {
+        if (
+            batchId == bytes32(0)
+        ) revert InvalidData();
+
+        if (
+            batches[batchId].exists
+        ) revert BatchAlreadyExists();
+
+        batches[batchId] =
+            BatchInfo({
+                exists: true,
+                recalled: false,
+                currentOwner: msg.sender,
+                createdAt: block.timestamp
+            });
+
+        emit BatchRegistered(
+            batchId,
+            msg.sender,
+            block.timestamp
+        );
     }
 
-    function isAuthorizedRole(address account) public view returns (bool) {
-        return _roles[account][ROLE_NSX] || 
-               _roles[account][ROLE_NPP] || 
-               _roles[account][ROLE_NHA_THUOC] || 
-               _roles[account][ROLE_CO_QUAN];
-    }
+    // =====================================================
+    // RECORD EVENT
+    // =====================================================
 
-    function grantRole(address account, bytes32 role) external onlyOwner {
-        if (account == address(0)) revert InvalidAddress();
-        if (_roles[account][role]) revert RoleAlreadyGranted();
-
-        _grantRole(account, role);
-    }
-
-    function revokeRole(address account, bytes32 role) external onlyOwner {
-        if (account == address(0)) revert InvalidAddress();
-        if (!_roles[account][role]) revert RoleNotGranted();
-
-        _roles[account][role] = false;
-        emit RoleRevoked(account, role, msg.sender);
-    }
-
-    function _grantRole(address account, bytes32 role) internal {
-        _roles[account][role] = true;
-        emit RoleGranted(account, role, msg.sender);
-    }
-
-    // --- 11. GHI NHẬN SỰ KIỆN LÔ THUỐC (RECORD BATCH EVENT) ---
     function recordBatchEvent(
         bytes32 batchId,
         bytes32 businessId,
         bytes32 eventType,
         bytes32 payloadHash
-    ) external onlyWriter {
-        if (batchId == bytes32(0) || businessId == bytes32(0) || eventType == bytes32(0) || payloadHash == bytes32(0)) {
-            revert InvalidEventData();
-        }
+    )
+        external
+        onlyManufacturer
+    {
+        if (
+            !batches[batchId].exists
+        ) revert BatchNotFound();
 
-        bytes32 eventKey = keccak256(abi.encodePacked(batchId, businessId, eventType));
-        if (recordedEventKeys[eventKey]) revert DuplicateEvent();
+        bytes32 eventKey =
+            keccak256(
+                abi.encodePacked(
+                    batchId,
+                    businessId,
+                    eventType
+                )
+            );
 
-        recordedEventKeys[eventKey] = true;
+        if (
+            recordedEventKeys[eventKey]
+        ) revert DuplicateEvent();
+
+        recordedEventKeys[eventKey] =
+            true;
 
         emit BatchEventRecorded(
             batchId,
@@ -176,69 +375,319 @@ contract BatchTraceability {
         );
     }
 
-    // --- 12. QUẢN LÝ CHUYỂN GIAO LÔ HÀNG ON-CHAIN ---
-    function submitTransfer(bytes32 maChuyenGiao, address benNhan) external onlyWriter {
-        if (maChuyenGiao == bytes32(0) || benNhan == address(0)) revert InvalidEventData();
+    // =====================================================
+    // RECALL
+    // =====================================================
 
-        TransferRecord storage record = transfers[maChuyenGiao];
-        record.maChuyenGiao = maChuyenGiao;
-        record.benGui = msg.sender;
-        record.benNhan = benNhan;
-        record.status = TransferStatus.PENDING;
-        record.thoiGian = block.timestamp;
-
-        emit TransferSubmitted(maChuyenGiao, msg.sender, benNhan, block.timestamp);
-    }
-
-    function receiveTransfer(bytes32 maChuyenGiao) external onlyWriter {
-        if (maChuyenGiao == bytes32(0)) revert InvalidEventData();
-
-        TransferRecord storage record = transfers[maChuyenGiao];
-        record.maChuyenGiao = maChuyenGiao;
-        record.benNhan = msg.sender;
-        record.status = TransferStatus.RECEIVED;
-        record.thoiGian = block.timestamp;
-
-        emit TransferReceived(maChuyenGiao, msg.sender, block.timestamp);
-    }
-
-    function rejectTransfer(bytes32 maChuyenGiao, string calldata lyDo) public onlyWriter {
-        if (maChuyenGiao == bytes32(0)) revert InvalidEventData();
-
-        TransferRecord storage record = transfers[maChuyenGiao];
-        record.maChuyenGiao = maChuyenGiao;
-        record.benNhan = msg.sender;
-        record.status = TransferStatus.REJECTED;
-        record.thoiGian = block.timestamp;
-        record.lyDo = lyDo;
-
-        emit TransferRejected(maChuyenGiao, msg.sender, block.timestamp, lyDo);
-    }
-
-    function cancelTransfer(bytes32 maChuyenGiao, string calldata lyDo) external onlyWriter {
-        rejectTransfer(maChuyenGiao, lyDo);
-    }
-
-    // --- 13. HÀM ĐỌC HỖ TRỢ ĐỒNG BỘ BACKEND & SIGNER SERVICE (VIEW FUNCTIONS) ---
-
-    /**
-     * @dev Kiểm tra xem một sự kiện cụ thể của Lô thuốc đã được ghi nhận On-chain chưa
-     * Phục vụ API GET /events/check-batch từ Signer Service
-     */
-    function isBatchEventRecorded(
+    function recallBatch(
         bytes32 batchId,
-        bytes32 businessId,
-        bytes32 eventType
-    ) external view returns (bool) {
-        bytes32 eventKey = keccak256(abi.encodePacked(batchId, businessId, eventType));
-        return recordedEventKeys[eventKey];
+        bytes32 payloadHash
+    )
+        external
+        onlyManufacturer
+    {
+        if (
+            !batches[batchId].exists
+        ) revert BatchNotFound();
+
+        batches[batchId].recalled = true;
+
+        emit BatchRecalled(
+            batchId,
+            msg.sender,
+            payloadHash,
+            block.timestamp
+        );
     }
 
-    /**
-     * @dev Kiểm tra nhanh xem Lô thuốc đã có quyết định thu hồi trên Blockchain chưa
-     */
-    function isBatchRecalled(bytes32 batchId, bytes32 businessId) external view returns (bool) {
-        bytes32 eventKey = keccak256(abi.encodePacked(batchId, businessId, EVENT_RECALL_BATCH));
-        return recordedEventKeys[eventKey];
+    // =====================================================
+    // TRANSFER
+    // =====================================================
+
+    function submitTransfer(
+        bytes32 transferId,
+        bytes32 batchId,
+        address receiver
+    )
+        external
+    {
+        if (
+            receiver == address(0)
+        ) revert InvalidAddress();
+
+        if (
+            !batches[batchId].exists
+        ) revert BatchNotFound();
+
+        if (
+            batches[batchId].recalled
+        ) revert BatchRecalled();
+
+        if (
+            batches[batchId]
+                .currentOwner
+            != msg.sender
+        ) {
+            revert NotCurrentOwner();
+        }
+
+        if (
+            transfers[transferId]
+                .transferId
+            != bytes32(0)
+        ) {
+            revert TransferAlreadyExists();
+        }
+
+        // NSX -> NPP
+        if (
+            hasRole(
+                msg.sender,
+                ROLE_NSX
+            )
+        ) {
+            if (
+                !hasRole(
+                    receiver,
+                    ROLE_NPP
+                )
+            ) revert Unauthorized();
+        }
+
+        // NPP -> NHA THUOC
+        else if (
+            hasRole(
+                msg.sender,
+                ROLE_NPP
+            )
+        ) {
+            if (
+                !hasRole(
+                    receiver,
+                    ROLE_NHA_THUOC
+                )
+            ) revert Unauthorized();
+        }
+        else {
+            revert Unauthorized();
+        }
+
+        transfers[transferId] =
+            TransferRecord({
+                transferId: transferId,
+                batchId: batchId,
+                sender: msg.sender,
+                receiver: receiver,
+                status: TransferStatus.PENDING,
+                createdAt: block.timestamp,
+                completedAt: 0,
+                reasonHash: bytes32(0)
+            });
+
+        batchTransfers[
+            batchId
+        ].push(
+            transferId
+        );
+
+        emit TransferSubmitted(
+            transferId,
+            batchId,
+            msg.sender,
+            receiver,
+            block.timestamp
+        );
+    }
+
+    function receiveTransfer(
+        bytes32 transferId
+    )
+        external
+    {
+        TransferRecord storage tr =
+            transfers[transferId];
+
+        if (
+            tr.transferId ==
+            bytes32(0)
+        ) {
+            revert TransferNotFound();
+        }
+
+        if (
+            tr.receiver
+            != msg.sender
+        ) {
+            revert NotTransferReceiver();
+        }
+
+        if (
+            tr.status
+            != TransferStatus.PENDING
+        ) {
+            revert InvalidTransferStatus();
+        }
+
+        address oldOwner =
+            batches[
+                tr.batchId
+            ].currentOwner;
+
+        batches[
+            tr.batchId
+        ].currentOwner =
+            msg.sender;
+
+        tr.status =
+            TransferStatus.RECEIVED;
+
+        tr.completedAt =
+            block.timestamp;
+
+        emit BatchOwnerChanged(
+            tr.batchId,
+            oldOwner,
+            msg.sender,
+            block.timestamp
+        );
+
+        emit TransferReceived(
+            transferId,
+            tr.batchId,
+            msg.sender,
+            block.timestamp
+        );
+    }
+
+    function rejectTransfer(
+        bytes32 transferId,
+        bytes32 reasonHash
+    )
+        external
+    {
+        TransferRecord storage tr =
+            transfers[transferId];
+
+        if (
+            tr.transferId ==
+            bytes32(0)
+        ) {
+            revert TransferNotFound();
+        }
+
+        if (
+            tr.receiver
+            != msg.sender
+        ) {
+            revert NotTransferReceiver();
+        }
+
+        if (
+            tr.status
+            != TransferStatus.PENDING
+        ) {
+            revert InvalidTransferStatus();
+        }
+
+        tr.status =
+            TransferStatus.REJECTED;
+
+        tr.reasonHash =
+            reasonHash;
+
+        tr.completedAt =
+            block.timestamp;
+
+        emit TransferRejected(
+            transferId,
+            tr.batchId,
+            msg.sender,
+            reasonHash,
+            block.timestamp
+        );
+    }
+
+    function cancelTransfer(
+        bytes32 transferId
+    )
+        external
+    {
+        TransferRecord storage tr =
+            transfers[transferId];
+
+        if (
+            tr.transferId ==
+            bytes32(0)
+        ) {
+            revert TransferNotFound();
+        }
+
+        if (
+            tr.sender != msg.sender
+        ) {
+            revert NotTransferSender();
+        }
+
+        if (
+            tr.status
+            != TransferStatus.PENDING
+        ) {
+            revert InvalidTransferStatus();
+        }
+
+        tr.status =
+            TransferStatus.CANCELLED;
+
+        tr.completedAt =
+            block.timestamp;
+
+        emit TransferCancelled(
+            transferId,
+            tr.batchId,
+            msg.sender,
+            block.timestamp
+        );
+    }
+
+    // =====================================================
+    // VIEW
+    // =====================================================
+
+    function getBatchOwner(
+        bytes32 batchId
+    )
+        external
+        view
+        returns(address)
+    {
+        return batches[
+            batchId
+        ].currentOwner;
+    }
+
+    function getBatchTransferCount(
+        bytes32 batchId
+    )
+        external
+        view
+        returns(uint256)
+    {
+        return
+            batchTransfers[
+                batchId
+            ].length;
+    }
+
+    function isBatchRecalled(
+        bytes32 batchId
+    )
+        external
+        view
+        returns(bool)
+    {
+        return
+            batches[
+                batchId
+            ].recalled;
     }
 }
