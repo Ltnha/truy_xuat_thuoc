@@ -112,12 +112,13 @@ class SignerClient
     /**
      * Kiểm tra trạng thái vai trò On-chain
      */
-    public function hasRole(string $roleHash, string $accountAddress): bool
+    public function hasRole(string $roleHash, string $accountAddress, string $scope = 'traceability'): bool
     {
         $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/roles/check", [
             'role'    => $roleHash,
             'account' => $accountAddress,
+            'scope' => $scope,
         ]);
 
         if ($response->failed() || $response->json('ok') !== true) {
