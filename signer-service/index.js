@@ -15,6 +15,7 @@ const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
 const adminWallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
 
 const CONTRACT_ABI = require('../API.json');
+const PRODUCT_APPROVAL_ABI = require('../ProductApprovalABI.json');
 
 const ALGORITHM = 'aes-256-cbc';
 const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '12345678901234567890123456789012');
@@ -169,8 +170,26 @@ app.post('/tx', authMiddleware, async (req, res) => {
             tx = await contract.grantRole(params.account, params.role);
         } else if (action === 'revokeRole') {
             tx = await contract.revokeRole(params.account, params.role);
+        } else if (action === 'grantProductApprovalRole') {
+            if (!process.env.PRODUCT_APPROVAL_CONTRACT_ADDRESS) {
+                throw new Error('Thiếu PRODUCT_APPROVAL_CONTRACT_ADDRESS trong signer-service/.env');
+            }
+            const approvalContract = new ethers.Contract(
+                process.env.PRODUCT_APPROVAL_CONTRACT_ADDRESS,
+                PRODUCT_APPROVAL_ABI,
+                adminWallet
+            );
+            tx = await approvalContract.grantRole(params.account, params.role);
         } else if (action === 'approveProduct') {
-            tx = await contract.approveProduct(
+            if (!process.env.PRODUCT_APPROVAL_CONTRACT_ADDRESS) {
+                throw new Error('Thiếu PRODUCT_APPROVAL_CONTRACT_ADDRESS trong signer-service/.env');
+            }
+            const approvalContract = new ethers.Contract(
+                process.env.PRODUCT_APPROVAL_CONTRACT_ADDRESS,
+                PRODUCT_APPROVAL_ABI,
+                walletToUse
+            );
+            tx = await approvalContract.approveProduct(
                 params.productId,
                 params.manufacturerId,
                 params.payloadHash
@@ -232,8 +251,18 @@ app.post('/tx', authMiddleware, async (req, res) => {
 // 4. Kiểm tra vai trò On-chain (Thứ tự tham số chuẩn theo BatchTraceability.sol: account, role)
 app.get('/roles/check', authMiddleware, async (req, res) => {
     try {
-        const { role, account } = req.query;
-        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+        const { role, account, scope } = req.query;
+        const isProductApproval = scope === 'productApproval';
+        const contractAddress = isProductApproval
+            ? process.env.PRODUCT_APPROVAL_CONTRACT_ADDRESS
+            : process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
+        const contractAbi = isProductApproval ? PRODUCT_APPROVAL_ABI : CONTRACT_ABI;
+        if (!contractAddress) {
+            throw new Error(isProductApproval
+                ? 'Thiếu PRODUCT_APPROVAL_CONTRACT_ADDRESS trong signer-service/.env'
+                : 'Thiếu BLOCKCHAIN_CONTRACT_ADDRESS trong signer-service/.env');
+        }
+        const contract = new ethers.Contract(contractAddress, contractAbi, provider);
         const hasRole = await contract.hasRole(account, role);
 
         return res.json({ ok: true, hasRole: hasRole });
