@@ -76,7 +76,7 @@ class BatchRegistrationFlowTest extends TestCase
 
         Schema::create('blockchainTransaction', function (Blueprint $table): void {
             $table->id();
-            $table->string('txHash')->unique();
+            $table->string('txHash')->nullable()->unique();
             $table->unsignedBigInteger('blockNumber')->nullable();
             $table->string('eventName');
             $table->unsignedBigInteger('doiTuongToChucId')->nullable();
@@ -266,8 +266,8 @@ class BatchRegistrationFlowTest extends TestCase
         ]);
 
         BlockchainTransaction::create([
-            'txHash' => 'PENDING_' . str_replace('-', '', $maLo),
-            'eventName' => 'BatchEventRecorded',
+            'txHash' => null,
+            'eventName' => 'BatchRegistered',
             'businessId' => $maLo,
             'network' => 'Ethereum Sepolia Testnet',
             'trangThai' => 'PENDING',
@@ -278,7 +278,8 @@ class BatchRegistrationFlowTest extends TestCase
 
         // Mock SignerClient
         $mockSigner = Mockery::mock(SignerClient::class);
-        $mockSigner->shouldReceive('isBatchEventRecorded')->once()->andReturn(false);
+        $mockSigner->shouldReceive('isProductApproved')->once()->andReturn(['ok' => true, 'isApproved' => true]);
+        $mockSigner->shouldReceive('getBatchState')->once()->andReturn(['ok' => true, 'batch' => ['exists' => false]]);
         $mockSigner->shouldReceive('ensureGas')->once()->andReturnNull();
         $mockSigner->shouldReceive('tx')->once()->andReturn([
             'ok' => true,
@@ -313,7 +314,13 @@ class BatchRegistrationFlowTest extends TestCase
         // Giả sử Job chạy lại lần 2
         $mockSignerRetry = Mockery::mock(SignerClient::class);
         // On-chain đã ghi nhận
-        $mockSignerRetry->shouldReceive('isBatchEventRecorded')->once()->andReturn(true);
+        $mockSignerRetry->shouldReceive('isProductApproved')->once()->andReturn(['ok' => true, 'isApproved' => true]);
+        $mockSignerRetry->shouldReceive('getBatchState')->once()->andReturn([
+            'ok' => true,
+            'batch' => ['exists' => true],
+            'registerTxHash' => $bctx->txHash,
+            'registerBlockNumber' => 1234567,
+        ]);
         // Không được gọi tx nữa
         $mockSignerRetry->shouldNotReceive('tx');
 
