@@ -235,14 +235,16 @@ class ProcessBatchTransferJob implements ShouldQueue
 
     public function failed(?\Throwable $exception): void
     {
+        $reason = (string) ($exception?->getMessage() ?? '');
+        $isDefinitiveRevert = (bool) preg_match('/revert|unauthorized|notcurrentowner|nottransfer|batchnotfound|invalidtransferstatus|pendingtransferexists|transferalreadyexists|batchalreadyrecalled|invaliddata|invalidaddress/i', $reason);
         $txId = $this->blockchainTransactionId;
-        if ($txId) {
+        if ($txId && $isDefinitiveRevert) {
             $transaction = BlockchainTransaction::query()->find($txId);
             if ($transaction && strtoupper((string) $transaction->trangThai) === 'PENDING') {
                 $transaction->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
             }
         }
 
-        Log::error('[ProcessBatchTransferJob] FAILED CG #' . $this->chuyenGiaoId . ' / ' . $this->eventName . ': ' . ($exception?->getMessage() ?? ''));
+        Log::error('[ProcessBatchTransferJob] FAILED CG #' . $this->chuyenGiaoId . ' / ' . $this->eventName . ': ' . $reason . ($isDefinitiveRevert ? '' : ' (giữ PENDING để đối soát/retry, chưa kết luận tx thất bại)'));
     }
 }
