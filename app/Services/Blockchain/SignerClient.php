@@ -83,9 +83,11 @@ class SignerClient
         ]);
 
         if ($response->failed()) {
+            $rawReason = (string) ($response->json('reason') ?? 'Signer Service không phản hồi');
             return [
                 'ok' => false,
-                'reason' => $response->json('reason') ?? 'Signer Service không phản hồi',
+                'reason' => $rawReason,
+                'reasonVi' => $this->mapContractError($rawReason),
             ];
         }
 
@@ -104,7 +106,7 @@ class SignerClient
         $result = $this->tx($keyId, $action, $params);
 
         if (isset($result['ok']) && $result['ok'] === false) {
-            throw new Exception("Lỗi Signer [sendTransaction]: " . ($result['reason'] ?? 'Giao dịch thất bại'));
+            throw new Exception("Lỗi Signer [sendTransaction]: " . ($result['reasonVi'] ?? $result['reason'] ?? 'Giao dịch thất bại'));
         }
 
         return $result;
@@ -235,6 +237,37 @@ class SignerClient
             throw new Exception('Không thể đọc trạng thái batch on-chain: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
+    }
+
+    private function mapContractError(string $reason): string
+    {
+        $messages = [
+            'Unauthorized' => 'Không có quyền thực hiện thao tác hoặc sai tuyến chuyển giao.',
+            'InvalidAddress' => 'Địa chỉ ví không hợp lệ.',
+            'InvalidData' => 'Dữ liệu hoặc mã định danh không hợp lệ.',
+            'BatchAlreadyExists' => 'Lô thuốc đã tồn tại trên blockchain.',
+            'BatchNotFound' => 'Không tìm thấy lô thuốc trên blockchain.',
+            'BatchAlreadyRecalled' => 'Lô thuốc đã bị thu hồi.',
+            'DuplicateEvent' => 'Sự kiện này đã được ghi nhận trước đó.',
+            'TransferAlreadyExists' => 'Mã chuyển giao đã tồn tại.',
+            'TransferNotFound' => 'Không tìm thấy lệnh chuyển giao.',
+            'PendingTransferExists' => 'Lô thuốc đang có một lệnh chuyển giao chờ xử lý.',
+            'InvalidTransferStatus' => 'Lệnh chuyển giao đã được xử lý hoặc không còn hợp lệ.',
+            'NotCurrentOwner' => 'Ví hiện tại không phải chủ sở hữu lô thuốc.',
+            'NotTransferSender' => 'Ví hiện tại không phải bên gửi của lệnh chuyển giao.',
+            'NotTransferReceiver' => 'Ví hiện tại không phải bên nhận của lệnh chuyển giao.',
+            'RoleAlreadyGranted' => 'Ví đã được cấp role này.',
+            'RoleNotGranted' => 'Ví chưa có role này để thu hồi.',
+            'ProductAlreadyApproved' => 'Sản phẩm đã được duyệt trên blockchain.',
+        ];
+
+        foreach ($messages as $error => $message) {
+            if (stripos($reason, $error) !== false) {
+                return $message . ' (' . $error . ')';
+            }
+        }
+
+        return $reason;
     }
 
     private function assertConfigured(): void
