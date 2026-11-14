@@ -1,4 +1,4 @@
-# Kiến trúc hệ thống — BatchTraceability v2
+# Kiến trúc hệ thống — BatchTraceability v3 (contract gốc + ABI sau deploy)
 
 ## 1. Nền tảng
 - Backend: Laravel (MVC + Service Layer + Queue Jobs).
@@ -63,3 +63,13 @@ Signer .env:
 - ADMIN_PRIVATE_KEY (phải là private key owner/admin của contract)
 - SIGNER_API_TOKEN (phải trùng với Laravel)
 - ENCRYPTION_MASTER_KEY (đúng 32 byte UTF-8; sao lưu an toàn, không thay tùy tiện)
+
+
+## 7. Chuẩn nguồn v3 và trạng thái triển khai
+- contracts/BatchTraceability.sol phải giữ nguyên văn bản Solidity 401 dòng do chủ dự án cung cấp; không tự tái cấu trúc hoặc thay đổi logic.
+- API.json là ABI sau deploy do chủ dự án cung cấp, đã đối chiếu cấu trúc JSON: 61 entries, gồm 31 function, 12 event và 17 custom error.
+- Signer nạp ABI trực tiếp từ API.json; không duy trì ABI viết tay thứ hai trong Node.js.
+- Nhánh làm việc hiện tại: v3, tách từ main; không sửa main.
+- Checklist chi tiết nằm tại docs/BATCHTRACEABILITY_V3_ALIGNMENT.md.
+- Public traceability API đọc batch state, owner, recall state, transfer records và event history từ Sepolia; lịch sử hiện giới hạn 40.000 block gần nhất, chưa thay thế indexer bền vững.
+- Không còn lưu signer-service/wallets.json trong working tree. Các wallet cũ từng được commit và dùng AES-CBC với fallback key mặc định đã biết: cần xem là có nguy cơ lộ khóa, backup ngoài repo và rotate ví tổ chức trước khi dùng lại môi trường thật.
