@@ -104,6 +104,7 @@ class ProcessBatchTransferJob implements ShouldQueue
         // Idempotency: chỉ nhận txHash thật từ log event đã mined.
         $txHash = null;
         $blockNumber = null;
+        $blockTimestamp = null;
         try {
             $eventCheck = $signer->findTransferEvent($transferId, $this->eventName);
             if (! empty($eventCheck['isRecorded'])) {
@@ -111,6 +112,7 @@ class ProcessBatchTransferJob implements ShouldQueue
                 if (is_string($candidate) && preg_match('/^0x[a-fA-F0-9]{64}$/', $candidate)) {
                     $txHash = $candidate;
                     $blockNumber = isset($eventCheck['blockNumber']) ? (int) $eventCheck['blockNumber'] : null;
+                    $blockTimestamp = isset($eventCheck['blockTimestamp']) ? (int) $eventCheck['blockTimestamp'] : null;
                 }
             }
         } catch (\Throwable $e) {
@@ -128,18 +130,20 @@ class ProcessBatchTransferJob implements ShouldQueue
 
             $txHash = (string) $result['txHash'];
             $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
+            $blockTimestamp = isset($result['blockTimestamp']) ? (int) $result['blockTimestamp'] : null;
         }
 
         if (! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
             throw new Exception('Signer không trả về Ethereum transaction hash hợp lệ.');
         }
 
-        DB::transaction(function () use ($transaction, $txHash, $blockNumber, $cg, $tonKhoService): void {
+        DB::transaction(function () use ($transaction, $txHash, $blockNumber, $blockTimestamp, $cg, $tonKhoService): void {
+            $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
             $transaction->update([
                 'txHash' => $txHash,
                 'blockNumber' => $blockNumber,
                 'trangThai' => 'CONFIRMED',
-                'thoiGian' => now(),
+                'thoiGian' => $blockTime,
             ]);
 
             // Chỉ đồng bộ trạng thái nghiệp vụ/tồn kho sau khi event tương ứng đã mined.
@@ -158,12 +162,12 @@ class ProcessBatchTransferJob implements ShouldQueue
                 $tonKhoService->cong((int) $loThuoc->id, (int) $lockedCg->benNhanId, (int) $lockedCg->soLuong);
                 $lockedCg->update([
                     'trangThai' => TransferStatus::received,
-                    'thoiGianXacNhan' => now(),
+                    'thoiGianXacNhan' => $blockTime,
                 ]);
             } elseif ($this->eventName === 'TransferRejected' && $lockedCg->trangThai === TransferStatus::pending) {
                 $lockedCg->update([
                     'trangThai' => TransferStatus::rejected,
-                    'thoiGianXacNhan' => now(),
+                    'thoiGianXacNhan' => $blockTime,
                 ]);
                 $conPending = ChuyenGiao::query()
                     ->where('loThuocId', $loThuoc->id)
@@ -184,7 +188,7 @@ class ProcessBatchTransferJob implements ShouldQueue
             } elseif ($this->eventName === 'TransferCancelled' && $lockedCg->trangThai === TransferStatus::pending) {
                 $lockedCg->update([
                     'trangThai' => TransferStatus::cancelled,
-                    'thoiGianXacNhan' => now(),
+                    'thoiGianXacNhan' => $blockTime,
                 ]);
                 $daNhanTruocDo = ChuyenGiao::query()
                     ->where('loThuocId', $loThuoc->id)
