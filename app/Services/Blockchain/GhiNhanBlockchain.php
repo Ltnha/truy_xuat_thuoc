@@ -22,12 +22,15 @@ class GhiNhanBlockchain
         array $thamChieu = [],
     ): string
     {
+        $loThuoc->loadMissing('sanPham');
         $ketQua = $this->gateway->ghiNhan($tenNghiepVu, [
             'businessId' => $businessId,
             'maGiaoDich' => $businessId,
             'toChucId' => $toChuc->id,
             'loThuocId' => $loThuoc->id,
             'maLo' => $loThuoc->maLoNghiepVu ?? $loThuoc->maLo,
+            'maLoId' => (string) $loThuoc->maLo,
+            'maSanPham' => (string) ($loThuoc->sanPham?->maSanPham ?? ''),
             ...$thamChieu,
         ]);
         $txHash = $ketQua['txHash'] ?? null;
