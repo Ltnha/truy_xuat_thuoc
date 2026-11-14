@@ -153,9 +153,9 @@ document.addEventListener('DOMContentLoaded', function () {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
-                        toast('Tiếp nhận thành công!');
+                        toast('Đã gửi yêu cầu tiếp nhận. Đang chờ xác nhận giao dịch trên blockchain.');
                         loadPending(currentPagePending);
-                        loadKho();
+                        // Tồn kho chỉ thay đổi sau khi TransferReceived được xác nhận.
                     } catch (err) {
                         toast(err.message, 'error');
                         btn.disabled = false;
@@ -167,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
             // Bind nút từ chối
             tbody.querySelectorAll('.btn-tu-choi').forEach(btn => {
                 btn.addEventListener('click', async function () {
-                    if (!confirm('Bạn có chắc muốn TỪ CHỐI nhận lô này? Số lượng sẽ được hoàn về kho nhà sản xuất.')) return;
+                    if (!confirm('Bạn có chắc muốn gửi yêu cầu TỪ CHỐI? Số lượng chỉ được giải phóng sau khi blockchain xác nhận.')) return;
                     const lyDo = prompt('Lý do từ chối (có thể bỏ trống):', 'Nhà phân phối từ chối nhận hàng') || 'Nhà phân phối từ chối nhận hàng';
                     btn.disabled = true;
                     const oldText = btn.textContent;
@@ -178,7 +178,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ lyDo }),
                         });
-                        toast('Đã từ chối nhận hàng. Số lượng đã hoàn về NSX.');
+                        toast('Đã gửi yêu cầu từ chối. Đang chờ xác nhận giao dịch trên blockchain.');
                         loadPending(currentPagePending);
                         loadKho();
                     } catch (err) {
