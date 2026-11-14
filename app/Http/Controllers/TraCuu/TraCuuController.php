@@ -172,14 +172,24 @@ class TraCuuController extends Controller
         $batchIdBytes32 = '0x' . hash('sha256', 'BATCH_' . (string) $lo->maLo);
         $productIdBytes32 = '0x' . hash('sha256', 'PRODUCT_' . (string) $lo->maSanPham);
         $chainReadStatus = 'UNAVAILABLE';
+        $chainTransferReadStatus = 'UNAVAILABLE';
         $chainBatch = null;
         $chainHistory = [];
+        $chainTransfers = [];
         $productIntegrity = 'UNVERIFIED';
 
         try {
             $chainBatch = $this->signer->getBatchState($batchIdBytes32);
             $historyResponse = $this->signer->getBatchHistory($batchIdBytes32);
             $chainHistory = $historyResponse['events'] ?? [];
+
+            $chainTransferReadStatus = 'AVAILABLE';
+            foreach (($chainBatch['transferIds'] ?? []) as $transferId) {
+                $transferResponse = $this->signer->getTransferState((string) $transferId);
+                if (! empty($transferResponse['transfer'])) {
+                    $chainTransfers[] = $transferResponse['transfer'];
+                }
+            }
 
             $approval = $this->signer->isProductApproved($productIdBytes32);
             $productPayload = [
@@ -265,6 +275,8 @@ class TraCuuController extends Controller
             'chainOwner' => $chainBatch['batch']['currentOwner'] ?? null,
             'chainRecalled' => $chainRecalled,
             'chainTransferIds' => $chainBatch['transferIds'] ?? [],
+            'chainTransfers' => $chainTransfers,
+            'chainTransferReadStatus' => $chainTransferReadStatus,
             'chainHistory' => $chainHistory,
             'isDispensed' => ! $unit ? 'N/A (cấp lô)' : ($unit->trangThaiDonVi === 'DISPENSED' ? 'ĐÃ BÁN' : 'CHƯA BÁN'),
             'lyDoThuHoi' => $thuHoi?->lyDo,
