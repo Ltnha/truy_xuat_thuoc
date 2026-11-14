@@ -103,7 +103,7 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             ]);
 
             if (empty($result['ok']) || empty($result['txHash'])) {
-                throw new Exception('Lỗi registerBatch: ' . ($result['reason'] ?? 'Signer không trả về txHash.'));
+                throw new Exception('Lỗi registerBatch: ' . ($result['reasonVi'] ?? $result['reason'] ?? 'Signer không trả về txHash.'));
             }
             $txHash = (string) $result['txHash'];
             $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
