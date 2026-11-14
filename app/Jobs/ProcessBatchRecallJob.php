@@ -2,7 +2,11 @@
 
 namespace App\Jobs;
 
+use App\Enums\TransferStatus;
+use App\Jobs\ProcessBatchTransferJob;
 use App\Models\BlockchainTransaction;
+use App\Models\ChuyenGiao;
+use App\Models\LoThuoc;
 use App\Models\NhatKyHeThong;
 use App\Models\ThuHoiLoHang;
 use App\Services\Blockchain\SignerClient;
@@ -98,6 +102,9 @@ class ProcessBatchRecallJob implements ShouldQueue
     protected function capNhatThanhCong(ThuHoiLoHang $thuHoi, string $businessIdStr, string $txHash, ?int $blockNumber = null): void
     {
         DB::transaction(function () use ($thuHoi, $businessIdStr, $txHash, $blockNumber) {
+            $loThuoc = LoThuoc::query()->whereKey($thuHoi->loThuocId)->lockForUpdate()->firstOrFail();
+            $loThuoc->update(['trangThai' => 'RECALLED']);
+
             BlockchainTransaction::where(function ($q) use ($thuHoi, $businessIdStr) {
                 $q->where('businessId', $businessIdStr)
                   ->orWhere('loThuocId', $thuHoi->loThuocId);
@@ -109,6 +116,47 @@ class ProcessBatchRecallJob implements ShouldQueue
                 'blockNumber' => $blockNumber,
                 'thoiGian' => now(),
             ]);
+
+            // Contract không tự xóa pendingTransferOf khi recall. Sau khi BatchRecalled
+            // mined, yêu cầu đúng ví bên gửi ký cancelTransfer để đồng bộ trạng thái transfer.
+            $pendingTransfers = ChuyenGiao::query()
+                ->where('loThuocId', $thuHoi->loThuocId)
+                ->where('trangThai', TransferStatus::pending->value)
+                ->get();
+
+            foreach ($pendingTransfers as $pendingTransfer) {
+                $hasCancelRequest = BlockchainTransaction::query()
+                    ->where('chuyenGiaoId', $pendingTransfer->id)
+                    ->where('eventName', 'TransferCancelled')
+                    ->where('trangThai', 'PENDING')
+                    ->exists();
+                if ($hasCancelRequest) {
+                    continue;
+                }
+
+                $cancelTx = BlockchainTransaction::query()->create([
+                    'txHash' => null,
+                    'blockNumber' => null,
+                    'eventName' => 'TransferCancelled',
+                    'doiTuongToChucId' => $pendingTransfer->benGuiId,
+                    'businessId' => $pendingTransfer->maChuyenGiao,
+                    'network' => config('truyXuat.blockchain.mang', 'Ethereum Sepolia'),
+                    'trangThai' => 'PENDING',
+                    'toChucId' => $pendingTransfer->benGuiId,
+                    'sanPhamId' => $loThuoc->sanPhamId,
+                    'loThuocId' => $loThuoc->id,
+                    'chuyenGiaoId' => $pendingTransfer->id,
+                    'thoiGian' => now(),
+                ]);
+
+                ProcessBatchTransferJob::dispatch(
+                    $pendingTransfer->id,
+                    $thuHoi->coQuanQuyetDinhId,
+                    $cancelTx->id,
+                    'TransferCancelled',
+                    'TRANSFER_CANCELLED'
+                )->afterCommit();
+            }
 
             NhatKyHeThong::create([
                 'taiKhoanId' => $thuHoi->coQuanQuyetDinhId,
