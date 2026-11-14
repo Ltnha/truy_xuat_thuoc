@@ -47,11 +47,12 @@ class SignerClient
     {
         $this->assertConfigured();
 
-        // Kiểm tra địa chỉ ví Ethereum
-        if (! preg_match('/^0x[a-fA-F0-9]{40}$/', $targetAddress)) {
-            throw new Exception(
-                'Địa chỉ ví Ethereum không hợp lệ: ' . $targetAddress
-            );
+        // Signer nhận được địa chỉ ví thật hoặc keyId đã đăng ký (ADMIN_MASTER_KEY / KEY_TOCHUC_*).
+        if (
+            ! preg_match('/^0x[a-fA-F0-9]{40}$/', $targetAddress)
+            && ! preg_match('/^[A-Za-z0-9_-]{3,120}$/', $targetAddress)
+        ) {
+            throw new Exception('Địa chỉ ví hoặc Signer keyId không hợp lệ: ' . $targetAddress);
         }
 
         $response = Http::withToken($this->apiToken)->post(
