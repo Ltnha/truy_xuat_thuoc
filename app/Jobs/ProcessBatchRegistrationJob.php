@@ -152,10 +152,16 @@ class ProcessBatchRegistrationJob implements ShouldQueue
     public function failed(?\Throwable $exception): void
     {
         Log::error('[ProcessBatchRegistrationJob] FAILED batch #' . $this->loThuocId . ': ' . ($exception?->getMessage() ?? ''));
-        BlockchainTransaction::query()
-            ->where('loThuocId', $this->loThuocId)
-            ->whereIn('eventName', ['BatchRegistered', 'BatchEventRecorded'])
-            ->where('trangThai', 'PENDING')
-            ->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
+        $reason = (string) ($exception?->getMessage() ?? '');
+        $isDefinitiveRevert = (bool) preg_match('/revert|unauthorized|batchalreadyexists|invaliddata|productalreadyapproved/i', $reason);
+        if ($isDefinitiveRevert) {
+            BlockchainTransaction::query()
+                ->where('loThuocId', $this->loThuocId)
+                ->whereIn('eventName', ['BatchRegistered', 'BatchEventRecorded'])
+                ->where('trangThai', 'PENDING')
+                ->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
+        } else {
+            Log::warning('[ProcessBatchRegistrationJob] Giữ PENDING để đối soát/retry vì chưa có bằng chứng tx revert.');
+        }
     }
 }
