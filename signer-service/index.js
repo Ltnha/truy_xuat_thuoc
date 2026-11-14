@@ -128,6 +128,12 @@ app.post('/gas/ensure', authMiddleware, async (req, res) => {
         if (!ethers.isAddress(targetAddress)) throw new Error('Địa chỉ ví cần nạp gas không hợp lệ.');
         const balance = await provider.getBalance(targetAddress);
         const minBalance = ethers.parseEther(process.env.MIN_WALLET_BALANCE_ETH || '0.001');
+        if (isAdminKey(target)) {
+            if (balance < minBalance) {
+                throw new Error('Ví owner/admin là nguồn gas treasury và đang thiếu SepoliaETH; cần nạp test ETH vào chính ví owner trước khi ký.');
+            }
+            return res.json({ ok: true, toppedUp: false, adminWallet: true, balance: ethers.formatEther(balance) });
+        }
         if (balance < minBalance) {
             const amount = ethers.parseEther(process.env.GAS_TOPUP_AMOUNT_ETH || '0.003');
             const tx = await adminWallet.sendTransaction({ to: targetAddress, value: amount });
