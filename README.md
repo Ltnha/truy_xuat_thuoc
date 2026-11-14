@@ -26,8 +26,6 @@ truy_xuat_thuoc
 │  │  │  │  └─ DashboardDataController.php
 │  │  │  ├─ BaoCao
 │  │  │  │  └─ BaoCaoNghiVanController.php
-│  │  │  ├─ Blockchain
-│  │  │  │  └─ SepoliaTransactionController.php
 │  │  │  ├─ ChuoiCungUng
 │  │  │  │  ├─ BanLeController.php
 │  │  │  │  └─ ChuyenGiaoController.php
@@ -113,9 +111,7 @@ truy_xuat_thuoc
 │     │  ├─ FakeBlockchainGateway.php
 │     │  ├─ GhiNhanBlockchain.php
 │     │  ├─ RoleMap.php
-│     │  ├─ SepoliaBatchEvent.php
 │     │  ├─ SepoliaBlockchainGateway.php
-│     │  ├─ SepoliaTransactionSynchronizer.php
 │     │  └─ SignerClient.php
 │     ├─ ChuoiCungUng
 │     │  ├─ BanLeService.php
