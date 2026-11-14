@@ -60,8 +60,17 @@ class ProcessBatchRegistrationJob implements ShouldQueue
 
         $batchId = '0x' . hash('sha256', 'BATCH_' . (string) $loThuoc->maLo);
         $batchState = $signer->getBatchState($batchId);
-        $txHash = $batchState['registerTxHash'] ?? null;
-        $blockNumber = isset($batchState['registerBlockNumber']) ? (int) $batchState['registerBlockNumber'] : null;
+        $existingConfirmedTx = BlockchainTransaction::query()
+            ->where('loThuocId', $loThuoc->id)
+            ->where('eventName', 'BatchRegistered')
+            ->where('trangThai', 'CONFIRMED')
+            ->whereNotNull('txHash')
+            ->latest('id')
+            ->first();
+        $txHash = $batchState['registerTxHash'] ?? $existingConfirmedTx?->txHash;
+        $blockNumber = isset($batchState['registerBlockNumber'])
+            ? (int) $batchState['registerBlockNumber']
+            : ($existingConfirmedTx?->blockNumber ? (int) $existingConfirmedTx->blockNumber : null);
 
         if (empty($batchState['batch']['exists'])) {
             // Phí gas do treasury/admin nạp, nhưng transaction do ví NSX ký.
