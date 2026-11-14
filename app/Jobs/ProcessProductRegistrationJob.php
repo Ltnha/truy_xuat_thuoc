@@ -104,10 +104,16 @@ class ProcessProductRegistrationJob implements ShouldQueue
     public function failed(?\Throwable $exception): void
     {
         Log::error('[ProcessProductRegistrationJob] FAILED product #' . $this->sanPhamId . ': ' . ($exception?->getMessage() ?? ''));
-        BlockchainTransaction::query()
-            ->where('sanPhamId', $this->sanPhamId)
-            ->where('eventName', 'ProductApproved')
-            ->where('trangThai', 'PENDING')
-            ->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
+        $reason = (string) ($exception?->getMessage() ?? '');
+        $isDefinitiveRevert = (bool) preg_match('/revert|unauthorized|productalreadyapproved|invaliddata/i', $reason);
+        if ($isDefinitiveRevert) {
+            BlockchainTransaction::query()
+                ->where('sanPhamId', $this->sanPhamId)
+                ->where('eventName', 'ProductApproved')
+                ->where('trangThai', 'PENDING')
+                ->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
+        } else {
+            Log::warning('[ProcessProductRegistrationJob] Giữ PENDING để đối soát/retry vì chưa có bằng chứng tx revert.');
+        }
     }
 }
