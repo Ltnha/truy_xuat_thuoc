@@ -50,7 +50,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                 ]);
 
                 if (empty($kqRevoke['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) ($kqRevoke['txHash'] ?? ''))) {
-                    throw new Exception("Không thể thu hồi role ví cũ; dừng đổi ví để tránh hai ví cùng có quyền. " . ($kqRevoke['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
+                    throw new Exception("Không thể thu hồi role ví cũ; dừng đổi ví để tránh hai ví cùng có quyền. " . ($kqRevoke['reasonVi'] ?? $kqRevoke['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
                 }
 
                 $revokeBlockTimestamp = isset($kqRevoke['blockTimestamp']) ? (int) $kqRevoke['blockTimestamp'] : null;
@@ -90,7 +90,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
         ]);
 
         if (empty($kqGrant['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) ($kqGrant['txHash'] ?? ''))) {
-            throw new Exception("Lỗi cấp quyền ví mới On-chain: " . ($kqGrant['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
+            throw new Exception("Lỗi cấp quyền ví mới On-chain: " . ($kqGrant['reasonVi'] ?? $kqGrant['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
         }
         $grantBlockTimestamp = isset($kqGrant['blockTimestamp']) ? (int) $kqGrant['blockTimestamp'] : null;
 
