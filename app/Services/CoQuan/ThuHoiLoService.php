@@ -35,9 +35,8 @@ class ThuHoiLoService
                 throw new NghiepVuException("Lô thuốc [{$maLo}] đã được ban hành quyết định thu hồi trước đó.");
             }
 
-            // 2. Chuyển trạng thái lô sang RECALLED
-            $loThuoc->trangThai = BatchStatus::recalled;
-            $loThuoc->save();
+            // Chưa chuyển lô sang RECALLED tại đây.
+            // Chỉ cập nhật trạng thái nghiệp vụ sau khi BatchRecalled được xác nhận trên chain.
 
             // 3. Nếu xuất phát từ Báo cáo nghi vấn -> Ghi nhận kết quả báo cáo
             $ketQuaXuLyId = null;
@@ -55,14 +54,8 @@ class ThuHoiLoService
                 'ngayThuHoi' => now(),
             ]);
 
-            // 5. Tự động hủy các đơn ChuyenGiao PENDING của lô này
-            ChuyenGiao::where('loThuocId', $loThuoc->id)
-                ->where('trangThai', TransferStatus::pending)
-                ->update([
-                    'trangThai' => TransferStatus::cancelled,
-                    'lyDoTuChoi' => "Giao dịch bị hủy tự động do Lô thuốc bị Cơ quan quản lý thu hồi (Mã QĐ: #{$thuHoi->id})",
-                    'thoiGianXacNhan' => now(),
-                ]);
+            // Không tự hủy transfer off-chain trước khi có event TransferCancelled.
+            // ProcessBatchRecallJob sẽ yêu cầu bên gửi ký cancelTransfer sau khi BatchRecalled mined.
 
             // 6. Xử lý gộp các báo cáo nghi vấn cùng lô nếu có
             if ($baoCaoNghiVanId && $gopCungLo) {
