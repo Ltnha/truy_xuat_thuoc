@@ -140,7 +140,7 @@ class LoThuocController extends Controller
         }
 
         // 2b. Kiểm tra ví blockchain của tổ chức đang ACTIVE
-        $identity = BlockchainIdentity::where('toChucId', $toChuc->id)->first();
+        $identity = BlockchainIdentity::where('toChucId', $toChuc->id)->where('trangThai', 'ACTIVE')->first();
         if (!$identity || $identity->trangThai !== 'ACTIVE') {
             return response()->json([
                 'success' => false,
@@ -177,12 +177,12 @@ class LoThuocController extends Controller
             ]);
 
             BlockchainTransaction::create([
-                'txHash'           => 'PENDING_' . str_replace('-', '', $maBusinessId),
+                'txHash'           => null,
                 'blockNumber'      => null,
-                'eventName'        => 'BatchEventRecorded',
+                'eventName'        => 'BatchRegistered',
                 'doiTuongToChucId' => $toChuc->id,
                 'businessId'       => $maBusinessId,
-                'network'          => config('truyXuat.blockchain.network', 'Ethereum Sepolia Testnet'),
+                'network'          => config('truyXuat.blockchain.mang', 'Ethereum Sepolia Testnet'),
                 'trangThai'        => 'PENDING',
                 'toChucId'         => $toChuc->id,
                 'sanPhamId'        => $sanPham->id,

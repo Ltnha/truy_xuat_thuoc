@@ -47,11 +47,12 @@ class SignerClient
     {
         $this->assertConfigured();
 
-        // Kiểm tra địa chỉ ví Ethereum
-        if (! preg_match('/^0x[a-fA-F0-9]{40}$/', $targetAddress)) {
-            throw new Exception(
-                'Địa chỉ ví Ethereum không hợp lệ: ' . $targetAddress
-            );
+        // Signer nhận được địa chỉ ví thật hoặc keyId đã đăng ký (ADMIN_MASTER_KEY / KEY_TOCHUC_*).
+        if (
+            ! preg_match('/^0x[a-fA-F0-9]{40}$/', $targetAddress)
+            && ! preg_match('/^[A-Za-z0-9_-]{3,120}$/', $targetAddress)
+        ) {
+            throw new Exception('Địa chỉ ví hoặc Signer keyId không hợp lệ: ' . $targetAddress);
         }
 
         $response = Http::withToken($this->apiToken)->post(
@@ -178,18 +179,38 @@ class SignerClient
     {
         $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/transfers/check", [
-            'maChuyenGiao' => $maChuyenGiao,
+            'transferId' => $maChuyenGiao,
             'eventName' => $eventName,
         ]);
-        // RPC range / network lỗi: trả isRecorded=false để Job vẫn gửi tx, không chặn luồng
+        // Không gửi lại giao dịch nếu chưa đối soát được event: tránh duplicate/revert khi RPC lỗi.
         if ($response->failed() || ! $response->json('ok')) {
-            return [
-                'ok' => true,
-                'isRecorded' => false,
-                'txHash' => null,
-                'blockNumber' => null,
-                'reason' => $response->json('reason') ?? $response->body(),
-            ];
+            throw new Exception('Không thể đối soát transfer event trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json();
+    }
+
+
+    /** Kiểm tra sản phẩm đã được Cơ quan quản lý duyệt trực tiếp trên contract. */
+    public function isProductApproved(string $productId): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/products/check", [
+            'productId' => $productId,
+        ]);
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể kiểm tra trạng thái duyệt sản phẩm on-chain: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json();
+    }
+
+
+    /** Đọc trạng thái lô và txHash BatchRegistered đã mined để phục hồi job retry. */
+    public function getBatchState(string $batchId): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/batches/{$batchId}");
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể đọc trạng thái batch on-chain: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
     }

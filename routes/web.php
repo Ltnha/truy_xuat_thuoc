@@ -91,7 +91,6 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::get('/phe-duyet-tai-khoan', [DuyetHoSoController::class, 'index'])->name('co-quan.phe-duyet-tai-khoan');
         Route::post('/phe-duyet-to-chuc/{toChuc}', [DuyetHoSoController::class, 'approveOrganization'])->name('co-quan.approve-organization');
         Route::get('/to-chuc/{toChuc}/trang-thai-duyet', [DuyetHoSoController::class, 'checkApprovalStatus'])->name('co-quan.check-approval-status');
-        Route::post('/phe-duyet-san-pham/{sanPham}', [DuyetHoSoController::class, 'approveProduct'])->name('co-quan.approve-product');
 
         // Quản lý quyền hạn & Ví On-chain (Thu hồi, Khôi phục, Đổi ví)
         Route::get('/quan-ly-quyen-han', [DuyetHoSoController::class, 'quanLyQuyenHan'])->name('co-quan.quan-ly-quyen-han');
@@ -141,11 +140,11 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::get('/quan-ly-lo-thuoc', [LoThuocController::class, 'index'])->name('lo-thuoc.index');
             Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
             Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
-            Route::post('/api/lo-thuoc/{id}/luu-txhash', [LoThuocController::class, 'saveTxHash'])->name('lo-thuoc.luu-txhash');
 
             // Chuyển giao lô thuốc
             Route::get('/api/nha-phan-phoi', [ChuyenGiaoController::class, 'danhSachNhaPhanPhoi'])->name('lo-thuoc.api.npp');
             Route::post('/api/chuyen-giao', [ChuyenGiaoController::class, 'store'])->name('lo-thuoc.chuyen-giao.store');
+            Route::post('/api/chuyen-giao/{id}/huy', [ChuyenGiaoController::class, 'huy'])->name('lo-thuoc.chuyen-giao.huy');
 
             // Chi Tiết Lô Thuốc & APIs On-chain
             Route::get('/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'show'])->name('lo-thuoc.chi-tiet');
@@ -179,6 +178,8 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
                 ->name('nha-phan-phoi.api.nha-thuoc');
             Route::post('/api/chuyen-giao', [QuanLyLoHangController::class, 'taoChuyenGiao'])
                 ->name('nha-phan-phoi.api.chuyen-giao');
+            Route::post('/api/chuyen-giao/{id}/huy', [ChuyenGiaoController::class, 'huy'])
+                ->name('nha-phan-phoi.api.chuyen-giao.huy');
             Route::post('/api/tiep-nhan/{id}', [QuanLyLoHangController::class, 'tiepNhan'])
                 ->name('nha-phan-phoi.api.tiep-nhan');
             Route::post('/api/tu-choi/{id}', [QuanLyLoHangController::class, 'tuChoi'])

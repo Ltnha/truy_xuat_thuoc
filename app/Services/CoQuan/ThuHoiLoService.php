@@ -77,9 +77,8 @@ class ThuHoiLoService
             }
 
             // 7. Tạo bản ghi BlockchainTransaction (PENDING)
-            $placeholderTx = 'PENDING_RECALL_' . $thuHoi->id . '_' . Str::random(8);
             BlockchainTransaction::create([
-                'txHash' => $placeholderTx,
+                'txHash' => null,
                 'eventName' => 'BatchRecalled',
                 'businessId' => (string) $thuHoi->id,
                 'doiTuongToChucId' => $loThuoc->toChucId,

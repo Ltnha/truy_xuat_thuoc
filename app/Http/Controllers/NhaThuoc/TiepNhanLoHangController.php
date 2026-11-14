@@ -166,7 +166,7 @@ class TiepNhanLoHangController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã tiếp nhận lô hàng và cập nhật tồn kho thành công.',
+                'message' => 'Đã gửi yêu cầu tiếp nhận. Hệ thống đang chờ giao dịch TransferReceived được xác nhận trên blockchain.',
             ]);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
@@ -200,7 +200,7 @@ class TiepNhanLoHangController extends Controller
 
         try {
             $this->chuyenGiaoService->tuChoi($chuyenGiao, $toChuc, $user, $request->ip(), $lyDo);
-            return response()->json(['success' => true, 'message' => 'Đã từ chối lô hàng. Số lượng được giải phóng về kho bên gửi.']);
+            return response()->json(['success' => true, 'message' => 'Đã gửi yêu cầu từ chối. Hệ thống đang chờ giao dịch TransferRejected được xác nhận trên blockchain.']);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {

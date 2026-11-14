@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const st = String(tx.trangThai || '').toUpperCase();
         const hash = String(tx.txHash || '');
 
-        if (st === 'PENDING' || hash.startsWith('PENDING_')) {
+        if (st === 'PENDING') {
             return {
                 key: 'PENDING',
                 badgeHtml: `<span class="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-[11px] font-bold"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang xử lý Queue</span>`
@@ -72,7 +72,7 @@ document.addEventListener('DOMContentLoaded', function () {
             };
         }
         // CONFIRMED / SUCCESS hoặc có txHash thật
-        if (st === 'CONFIRMED' || st === 'SUCCESS' || (hash && !hash.startsWith('PENDING_'))) {
+        if ((st === 'CONFIRMED' || st === 'SUCCESS') && /^0x[a-fA-F0-9]{64}$/.test(hash)) {
             return {
                 key: 'CONFIRMED',
                 badgeHtml: `<span class="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[11px] font-bold"><i class="fa-solid fa-circle-check mr-1"></i>Đã ghi nhận On-chain</span>`
@@ -115,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         Đang chờ Queue / Signer Service xử lý...
                     </div>
                     <p class="text-amber-700">Hệ thống đang ký và gửi giao dịch lên Ethereum Sepolia. Trang sẽ tự cập nhật khi có kết quả.</p>
-                    <p class="font-mono text-[11px] text-slate-500">Mã tạm: ${escapeHtml(tx.txHash || '—')}</p>
+                    <p class="font-mono text-[11px] text-slate-500">TxHash: ${escapeHtml(tx.txHash || 'Chưa có — chờ Signer gửi giao dịch')}</p>
                 </div>`;
             return;
         }

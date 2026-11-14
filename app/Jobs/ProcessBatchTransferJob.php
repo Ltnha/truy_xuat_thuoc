@@ -2,11 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Enums\BatchStatus;
+use App\Enums\TransferStatus;
 use App\Models\BlockchainIdentity;
 use App\Models\BlockchainTransaction;
 use App\Models\ChuyenGiao;
 use App\Models\NhatKyHeThong;
 use App\Services\Blockchain\SignerClient;
+use App\Services\ChuoiCungUng\TonKhoService;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -16,13 +19,12 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-/** Gửi transaction transfer lên Sepolia; txHash chỉ nhận từ receipt Signer. */
 class ProcessBatchTransferJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $tries = 5;
-    public $backoff = [10, 30, 60, 120];
+    public int $tries = 5;
+    public array $backoff = [10, 30, 60, 120, 300];
 
     public function __construct(
         public int $chuyenGiaoId,
@@ -30,36 +32,21 @@ class ProcessBatchTransferJob implements ShouldQueue
         public ?int $blockchainTransactionId = null,
         public string $eventName = 'TransferSubmitted',
         public string $eventType = 'TRANSFER_BATCH'
-    ) {
-    }
+    ) {}
 
-    public function handle(SignerClient $signer): void
+    public function handle(SignerClient $signer, TonKhoService $tonKhoService): void
     {
         $cg = ChuyenGiao::with(['loThuoc', 'benGui', 'benNhan'])->findOrFail($this->chuyenGiaoId);
         if (! $cg->loThuoc || ! $cg->benGui || ! $cg->benNhan) {
-            throw new Exception("Chuyển giao #{$this->chuyenGiaoId} thiếu thông tin lô hoặc tổ chức.");
+            throw new Exception("Chuyển giao #{$cg->id} thiếu lô thuốc hoặc tổ chức gửi/nhận.");
         }
 
-        // Tương thích job cũ trong queue (thiếu blockchainTransactionId)
-        $txId = $this->blockchainTransactionId;
-        if (! $txId) {
-            $txId = BlockchainTransaction::query()
-                ->where('chuyenGiaoId', $cg->id)
-                ->where('eventName', $this->eventName)
-                ->orderByDesc('id')
-                ->value('id');
-        }
-        if (! $txId) {
-            throw new Exception("Không tìm thấy blockchainTransaction cho CG #{$cg->id} / {$this->eventName}.");
-        }
-
-        $transaction = BlockchainTransaction::query()
-            ->whereKey($txId)
-            ->where('chuyenGiaoId', $cg->id)
-            ->firstOrFail();
-
-        if (is_string($transaction->txHash) && preg_match('/^0x[a-fA-F0-9]{64}$/', $transaction->txHash)
-            && strtoupper((string) $transaction->trangThai) === 'CONFIRMED') {
+        $transaction = $this->findTransaction($cg);
+        if (
+            is_string($transaction->txHash)
+            && preg_match('/^0x[a-fA-F0-9]{64}$/', $transaction->txHash)
+            && strtoupper((string) $transaction->trangThai) === 'CONFIRMED'
+        ) {
             return;
         }
 
@@ -67,106 +54,197 @@ class ProcessBatchTransferJob implements ShouldQueue
             'TransferSubmitted' => 'submitTransfer',
             'TransferReceived' => 'receiveTransfer',
             'TransferRejected' => 'rejectTransfer',
+            'TransferCancelled' => 'cancelTransfer',
         ];
         $action = $actionMap[$this->eventName] ?? null;
         if (! $action) {
             throw new Exception('Sự kiện chuyển giao không được hỗ trợ: ' . $this->eventName);
         }
 
-        $actorOrgId = $action === 'submitTransfer' ? (int) $cg->benGuiId : (int) $cg->benNhanId;
-        $identity = BlockchainIdentity::query()
+        // Contract v2 xác thực msg.sender là chủ thể gửi/nhận thực tế.
+        // Không được dùng admin wallet thay cho ví của tổ chức trong các action transfer.
+        $actorOrgId = in_array($action, ['submitTransfer', 'cancelTransfer'], true)
+            ? (int) $cg->benGuiId
+            : (int) $cg->benNhanId;
+
+        $actor = BlockchainIdentity::query()
             ->where('toChucId', $actorOrgId)
             ->where('trangThai', 'ACTIVE')
+            ->whereNotNull('signerKeyId')
+            ->whereNotNull('diaChiVi')
             ->first();
-        if (! $identity || ! is_string($identity->signerKeyId) || $identity->signerKeyId === ''
-            || ! is_string($identity->diaChiVi) || $identity->diaChiVi === '') {
-            throw new Exception("Tổ chức #{$actorOrgId} chưa có ví Blockchain ACTIVE. Không thể ký {$action}.");
+
+        if (! $actor || trim((string) $actor->signerKeyId) === '' || ! preg_match('/^0x[a-fA-F0-9]{40}$/', (string) $actor->diaChiVi)) {
+            throw new Exception("Tổ chức #{$actorOrgId} chưa có ví Blockchain ACTIVE hợp lệ để ký {$action}.");
         }
 
-        // Phải dùng CÙNG thuật toán hash khi submit và khi đối soát
-        $maChuyenGiaoBytes32 = '0x' . hash('sha256', (string) $cg->maChuyenGiao);
-        $params = ['maChuyenGiao' => $maChuyenGiaoBytes32];
+        // ID phải khớp tuyệt đối với quy ước tạo batchId lúc registerBatch.
+        $transferId = '0x' . hash('sha256', (string) $cg->maChuyenGiao);
+        $batchId = '0x' . hash('sha256', 'BATCH_' . (string) $cg->loThuoc->maLo);
+
+        $params = ['transferId' => $transferId];
         if ($action === 'submitTransfer') {
-            $identityNhan = BlockchainIdentity::query()
+            $receiver = BlockchainIdentity::query()
                 ->where('toChucId', $cg->benNhanId)
                 ->where('trangThai', 'ACTIVE')
+                ->whereNotNull('diaChiVi')
                 ->first();
-            if (! $identityNhan || ! is_string($identityNhan->diaChiVi) || $identityNhan->diaChiVi === '') {
-                throw new Exception('Tổ chức nhận chưa có ví Blockchain ACTIVE.');
+
+            if (! $receiver || ! preg_match('/^0x[a-fA-F0-9]{40}$/', (string) $receiver->diaChiVi)) {
+                throw new Exception('Tổ chức nhận chưa có ví Blockchain ACTIVE hợp lệ.');
             }
-            $params['benNhan'] = $identityNhan->diaChiVi;
+
+            $params['batchId'] = $batchId;
+            $params['receiver'] = $receiver->diaChiVi;
         } elseif ($action === 'rejectTransfer') {
-            $params['lyDo'] = (string) ($cg->lyDoTuChoi ?? 'Từ chối tiếp nhận');
+            $reason = trim((string) ($cg->lyDoTuChoi ?? 'Từ chối tiếp nhận'));
+            $params['reasonHash'] = '0x' . hash('sha256', $reason);
         }
 
-        // Đối soát: truyền bytes32 (không truyền UUID thô — tránh lệch keccak vs sha256)
-        // Lỗi RPC range → bỏ qua, tiếp tục gửi tx
+        // Idempotency: chỉ nhận txHash thật từ log event đã mined.
         $txHash = null;
         $blockNumber = null;
         try {
-            $eventCheck = $signer->findTransferEvent($maChuyenGiaoBytes32, $this->eventName);
+            $eventCheck = $signer->findTransferEvent($transferId, $this->eventName);
             if (! empty($eventCheck['isRecorded'])) {
-                $txHash = $eventCheck['txHash'] ?? null;
-                $blockNumber = $eventCheck['blockNumber'] ?? null;
+                $candidate = $eventCheck['txHash'] ?? null;
+                if (is_string($candidate) && preg_match('/^0x[a-fA-F0-9]{64}$/', $candidate)) {
+                    $txHash = $candidate;
+                    $blockNumber = isset($eventCheck['blockNumber']) ? (int) $eventCheck['blockNumber'] : null;
+                }
             }
         } catch (\Throwable $e) {
-            Log::warning('[ProcessBatchTransferJob] findTransferEvent bỏ qua: ' . $e->getMessage());
+            Log::warning('[ProcessBatchTransferJob] Chưa đối soát được event; hoãn retry để tránh gửi giao dịch trùng: ' . $e->getMessage());
+            throw $e;
         }
 
-        if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+        if (! $txHash) {
+            $signer->ensureGas((string) $actor->diaChiVi);
+            $result = $signer->tx((string) $actor->signerKeyId, $action, $params);
 
-            // Nạp Gas bằng địa chỉ ví Ethereum thực tế
-            $signer->ensureGas((string) $identity->diaChiVi);
-
-            // Ký giao dịch bằng signerKeyId
-            $result = $signer->tx(
-                (string) $identity->signerKeyId,
-                $action,
-                $params
-            );
             if (empty($result['ok']) || empty($result['txHash'])) {
                 throw new Exception('Signer không gửi được ' . $action . ': ' . ($result['reason'] ?? 'Không có txHash.'));
             }
-            $txHash = $result['txHash'];
-            $blockNumber = $result['blockNumber'] ?? null;
+
+            $txHash = (string) $result['txHash'];
+            $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
         }
 
-        if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+        if (! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
             throw new Exception('Signer không trả về Ethereum transaction hash hợp lệ.');
         }
 
-        DB::transaction(function () use ($transaction, $txHash, $blockNumber, $cg): void {
+        DB::transaction(function () use ($transaction, $txHash, $blockNumber, $cg, $tonKhoService): void {
             $transaction->update([
                 'txHash' => $txHash,
                 'blockNumber' => $blockNumber,
                 'trangThai' => 'CONFIRMED',
                 'thoiGian' => now(),
             ]);
+
+            // Chỉ đồng bộ trạng thái nghiệp vụ/tồn kho sau khi event tương ứng đã mined.
+            $lockedCg = ChuyenGiao::query()->whereKey($cg->id)->lockForUpdate()->firstOrFail();
+            $loThuoc = $lockedCg->loThuoc()->lockForUpdate()->firstOrFail();
+
+            if ($this->eventName === 'TransferSubmitted') {
+                $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus
+                    ? $loThuoc->trangThai
+                    : BatchStatus::tryFrom((string) $loThuoc->trangThai);
+                if ($trangThaiLo === BatchStatus::created) {
+                    $loThuoc->update(['trangThai' => BatchStatus::inTransit->value]);
+                }
+            } elseif ($this->eventName === 'TransferReceived' && $lockedCg->trangThai === TransferStatus::pending) {
+                $tonKhoService->tru((int) $loThuoc->id, (int) $lockedCg->benGuiId, (int) $lockedCg->soLuong);
+                $tonKhoService->cong((int) $loThuoc->id, (int) $lockedCg->benNhanId, (int) $lockedCg->soLuong);
+                $lockedCg->update([
+                    'trangThai' => TransferStatus::received,
+                    'thoiGianXacNhan' => now(),
+                ]);
+            } elseif ($this->eventName === 'TransferRejected' && $lockedCg->trangThai === TransferStatus::pending) {
+                $lockedCg->update([
+                    'trangThai' => TransferStatus::rejected,
+                    'thoiGianXacNhan' => now(),
+                ]);
+                $conPending = ChuyenGiao::query()
+                    ->where('loThuocId', $loThuoc->id)
+                    ->where('benGuiId', $lockedCg->benGuiId)
+                    ->where('trangThai', TransferStatus::pending->value)
+                    ->exists();
+                $daNhan = ChuyenGiao::query()
+                    ->where('loThuocId', $loThuoc->id)
+                    ->where('benGuiId', $lockedCg->benGuiId)
+                    ->where('trangThai', TransferStatus::received->value)
+                    ->exists();
+                $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus
+                    ? $loThuoc->trangThai
+                    : BatchStatus::tryFrom((string) $loThuoc->trangThai);
+                if (! $conPending && ! $daNhan && (int) $loThuoc->toChucId === (int) $lockedCg->benGuiId && $trangThaiLo === BatchStatus::inTransit) {
+                    $loThuoc->update(['trangThai' => BatchStatus::created->value]);
+                }
+            } elseif ($this->eventName === 'TransferCancelled' && $lockedCg->trangThai === TransferStatus::pending) {
+                $lockedCg->update([
+                    'trangThai' => TransferStatus::cancelled,
+                    'thoiGianXacNhan' => now(),
+                ]);
+                $daNhanTruocDo = ChuyenGiao::query()
+                    ->where('loThuocId', $loThuoc->id)
+                    ->where('benGuiId', $lockedCg->benGuiId)
+                    ->where('trangThai', TransferStatus::received->value)
+                    ->exists();
+                $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus
+                    ? $loThuoc->trangThai
+                    : BatchStatus::tryFrom((string) $loThuoc->trangThai);
+                if (! $daNhanTruocDo && (int) $loThuoc->toChucId === (int) $lockedCg->benGuiId && $trangThaiLo === BatchStatus::inTransit) {
+                    $loThuoc->update(['trangThai' => BatchStatus::created->value]);
+                }
+            }
+
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $this->userId,
                 'doiTuongId' => $cg->id,
-                'hanhDong' => 'CHUYEN_GIAO_ONCHAIN',
+                'hanhDong' => 'CHUYEN_GIAO_ONCHAIN_' . strtoupper($this->eventName),
                 'ketQua' => 'THANH_CONG',
                 'thoiGian' => now(),
-                'chiTiet' => "{$this->eventName} CONFIRMED. TxHash: {$txHash}",
+                'chiTiet' => "{$this->eventName} đã xác nhận trên Ethereum Sepolia. TxHash: {$txHash}",
             ]);
         });
 
         Log::info("[ProcessBatchTransferJob] {$this->eventName} CG #{$cg->id} confirmed: {$txHash}");
     }
 
-    public function failed(?\Throwable $exception): void
+    private function findTransaction(ChuyenGiao $cg): BlockchainTransaction
     {
         $txId = $this->blockchainTransactionId;
-        if ($txId) {
+        if (! $txId) {
+            $txId = BlockchainTransaction::query()
+                ->where('chuyenGiaoId', $cg->id)
+                ->where('eventName', $this->eventName)
+                ->latest('id')
+                ->value('id');
+        }
+
+        if (! $txId) {
+            throw new Exception("Không tìm thấy blockchainTransaction cho CG #{$cg->id} / {$this->eventName}.");
+        }
+
+        return BlockchainTransaction::query()
+            ->whereKey($txId)
+            ->where('chuyenGiaoId', $cg->id)
+            ->firstOrFail();
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        $reason = (string) ($exception?->getMessage() ?? '');
+        $isDefinitiveRevert = (bool) preg_match('/revert|unauthorized|notcurrentowner|nottransfer|batchnotfound|invalidtransferstatus|pendingtransferexists|transferalreadyexists|batchalreadyrecalled|invaliddata|invalidaddress/i', $reason);
+        $txId = $this->blockchainTransactionId;
+        if ($txId && $isDefinitiveRevert) {
             $transaction = BlockchainTransaction::query()->find($txId);
             if ($transaction && strtoupper((string) $transaction->trangThai) === 'PENDING') {
-                $hash = (string) ($transaction->txHash ?? '');
-                if (! preg_match('/^0x[a-fA-F0-9]{64}$/', $hash)) {
-                    $transaction->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
-                }
+                $transaction->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
             }
         }
-        Log::error('[ProcessBatchTransferJob] FAILED CG #' . $this->chuyenGiaoId . ' / ' . $this->eventName . ': ' . ($exception?->getMessage() ?? ''));
+
+        Log::error('[ProcessBatchTransferJob] FAILED CG #' . $this->chuyenGiaoId . ' / ' . $this->eventName . ': ' . $reason . ($isDefinitiveRevert ? '' : ' (giữ PENDING để đối soát/retry, chưa kết luận tx thất bại)'));
     }
 }

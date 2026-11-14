@@ -212,7 +212,7 @@ CREATE TABLE chuyenGiao (
     thoiGianKhoiTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     thoiGianXacNhan DATETIME NULL,
     trangThai ENUM('PENDING','RECEIVED','CANCELLED','REJECTED') NOT NULL DEFAULT 'PENDING', -- v7
-    lyDoTuChoi VARCHAR(500) NULL AFTER trangThai;  -- v8
+    lyDoTuChoi VARCHAR(500) NULL, -- v8
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (benGuiId) REFERENCES toChuc(id),
     FOREIGN KEY (benNhanId) REFERENCES toChuc(id),
@@ -288,7 +288,7 @@ CREATE TABLE blockchainIdentity (
 -- 20. Bảng blockchainTransaction
 CREATE TABLE blockchainTransaction (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    txHash VARCHAR(66) NOT NULL UNIQUE,
+    txHash VARCHAR(66) NULL UNIQUE,
     blockNumber BIGINT NULL,
     eventName VARCHAR(100) NOT NULL,
     doiTuongToChucId BIGINT NULL,
