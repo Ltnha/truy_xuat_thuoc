@@ -32,7 +32,6 @@ use App\Http\Controllers\NhaThuoc\TiepNhanLoHangController;
 
 // --- CONTROLLERS BÁO CÁO & BLOCKCHAIN ---
 use App\Http\Controllers\BaoCao\BaoCaoNghiVanController;
-use App\Http\Controllers\Blockchain\SepoliaTransactionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -152,10 +151,6 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::get('/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'show'])->name('lo-thuoc.chi-tiet');
             Route::get('/api/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'getChiTietAPI'])->name('lo-thuoc.api.chi-tiet');
             Route::post('/api/lo-thuoc/{id}/gui-blockchain', [ChiTietLoThuocController::class, 'guiBlockchain'])->name('lo-thuoc.api.gui-blockchain');
-
-            // Đồng bộ giao dịch Sepolia
-            Route::get('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'showSyncPage'])->name('lo-thuoc.dong-bo');
-            Route::post('/lo-thuoc/{id}/dong-bo-sepolia', [SepoliaTransactionController::class, 'verifyAndSave'])->name('lo-thuoc.dong-bo.luu');
 
             // Báo cáo nghi vấn của Nhà sản xuất
             Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])->name('bao-cao');
