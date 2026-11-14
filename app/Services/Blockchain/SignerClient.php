@@ -182,15 +182,9 @@ class SignerClient
             'transferId' => $maChuyenGiao,
             'eventName' => $eventName,
         ]);
-        // RPC range / network lỗi: trả isRecorded=false để Job vẫn gửi tx, không chặn luồng
+        // Không gửi lại giao dịch nếu chưa đối soát được event: tránh duplicate/revert khi RPC lỗi.
         if ($response->failed() || ! $response->json('ok')) {
-            return [
-                'ok' => true,
-                'isRecorded' => false,
-                'txHash' => null,
-                'blockNumber' => null,
-                'reason' => $response->json('reason') ?? $response->body(),
-            ];
+            throw new Exception('Không thể đối soát transfer event trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
     }
