@@ -16,6 +16,7 @@ const CONTRACT_ABI = require('../API.json');
 const CONTRACT_ADDRESS = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
 const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '', 'utf8');
 const ALGORITHM = 'aes-256-gcm';
+const LEGACY_MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '12345678901234567890123456789012', 'utf8');
 
 if (!CONTRACT_ADDRESS || !ethers.isAddress(CONTRACT_ADDRESS)) {
     throw new Error('BLOCKCHAIN_CONTRACT_ADDRESS không hợp lệ.');
@@ -32,14 +33,18 @@ function encrypt(plainText) {
 }
 
 function decrypt(value) {
-    const [ivHex, tagHex, encryptedHex] = String(value).split(':');
+    const parts = String(value).split(':');
+    // Tương thích wallet records cũ được mã hóa bằng aes-256-cbc.
+    if (parts.length === 2) {
+        const [ivHex, encryptedHex] = parts;
+        const decipher = crypto.createDecipheriv('aes-256-cbc', LEGACY_MASTER_KEY, Buffer.from(ivHex, 'hex'));
+        return decipher.update(encryptedHex, 'hex', 'utf8') + decipher.final('utf8');
+    }
+    const [ivHex, tagHex, encryptedHex] = parts;
     if (!ivHex || !tagHex || !encryptedHex) throw new Error('Dữ liệu khóa ví đã mã hóa không hợp lệ.');
     const decipher = crypto.createDecipheriv(ALGORITHM, MASTER_KEY, Buffer.from(ivHex, 'hex'));
     decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
-    return Buffer.concat([
-        decipher.update(Buffer.from(encryptedHex, 'hex')),
-        decipher.final()
-    ]).toString('utf8');
+    return Buffer.concat([decipher.update(Buffer.from(encryptedHex, 'hex')), decipher.final()]).toString('utf8');
 }
 
 function loadWallets() {
@@ -282,6 +287,13 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
             contract.getBatchTransfers(batchId),
             contract.isBatchRecalled(batchId)
         ]);
+        let registerTxHash = null, registerBlockNumber = null;
+        if (batch.exists) {
+            const latest = await provider.getBlockNumber();
+            const logs = await contract.queryFilter(contract.filters.BatchRegistered(batchId), Math.max(0, latest - 40000), latest);
+            const found = logs.length ? logs[logs.length - 1] : null;
+            if (found) { registerTxHash = found.transactionHash; registerBlockNumber = Number(found.blockNumber); }
+        }
         return res.json({
             ok: true,
             batch: {
@@ -291,7 +303,9 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
             },
             pendingTransferId,
             transferIds: transfers,
-            isRecalled: recalled
+            isRecalled: recalled,
+            registerTxHash,
+            registerBlockNumber
         });
     } catch (err) {
         return res.status(400).json({ ok: false, reason: err.message });
