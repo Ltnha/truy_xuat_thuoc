@@ -17,6 +17,8 @@ Phạm vi đối chiếu: contract v2 do chủ dự án cung cấp và mã ngu�
 - [x] Chỉ cập nhật tồn kho/trạng thái nhận hoặc từ chối sau khi transaction/event được xác nhận.
 - [x] Thu hồi lô gọi recallBatch, không dùng recordBatchEvent để thay thế.
 - [x] txHash mới được để NULL trước khi có receipt; cập nhật SQL schema và thêm migration nullable.
+- [x] Sửa khai báo SQL của chuyenGiao.lyDoTuChoi và thêm migration an toàn nếu cột chưa tồn tại.
+- [x] Loại bỏ route lưu txHash thủ công không còn method xử lý.
 - [x] Cấu hình mặc định BLOCKCHAIN_DRIVER=sepolia; thêm signer-service/.env.example.
 - [x] Cập nhật giao diện quản lý lô để không còn phụ thuộc vào chuỗi PENDING_ giả.
 - [x] Thêm API hủy chuyển giao cho bên gửi ở luồng NSX và NPP.
