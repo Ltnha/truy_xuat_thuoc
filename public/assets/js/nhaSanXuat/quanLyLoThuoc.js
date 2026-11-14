@@ -50,11 +50,11 @@ document.addEventListener('DOMContentLoaded', function () {
             return [...reg].sort((a, b) => (b.id || 0) - (a.id || 0))[0];
         }
 
-        // Fallback: lấy tx CONFIRMED cũ nhất không phải PENDING_
+        // Fallback: lấy tx CONFIRMED có transaction hash thật
         const confirmed = list.filter(tx => {
             const st = String(tx.trangThai || '').toUpperCase();
             const hash = String(tx.txHash || '');
-            return (st === 'CONFIRMED' || st === 'SUCCESS') && hash && !hash.startsWith('PENDING_');
+            return (st === 'CONFIRMED' || st === 'SUCCESS') && /^0x[a-fA-F0-9]{64}$/.test(hash);
         });
         if (confirmed.length > 0) {
             return [...confirmed].sort((a, b) => (a.id || 0) - (b.id || 0))[0];
@@ -82,13 +82,11 @@ document.addEventListener('DOMContentLoaded', function () {
     function isTxPending(tx) {
         if (!tx) return false;
         const st = String(tx.trangThai || '').toUpperCase();
-        // Đã kết thúc (thành công / thất bại / hủy) thì KHÔNG còn pending,
-        // kể cả khi txHash vẫn mang prefix PENDING_...
+        // Chỉ trạng thái PENDING mới được xem là đang chờ; txHash có thể NULL.
         if (['FAILED', 'REJECTED', 'CANCELLED', 'CONFIRMED', 'SUCCESS'].includes(st)) {
             return false;
         }
-        const hash = String(tx.txHash || '');
-        return st === 'PENDING' || hash.startsWith('PENDING_');
+        return st === 'PENDING';
     }
 
     function isTxConfirmed(tx) {
@@ -96,8 +94,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const st = String(tx.trangThai || '').toUpperCase();
         const hash = String(tx.txHash || '');
         if (st === 'FAILED' || st === 'REJECTED' || st === 'CANCELLED') return false;
-        if (st === 'CONFIRMED' || st === 'SUCCESS') return true;
-        return !!(hash && !hash.startsWith('PENDING_'));
+        return (st === 'CONFIRMED' || st === 'SUCCESS') && /^0x[a-fA-F0-9]{64}$/.test(hash);
     }
 
     function isTxFailedOrRejected(tx) {
@@ -243,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </span>`;
             } else if (batchTx && isTxFailedOrRejected(batchTx)) {
                 txHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-red-50 text-red-700 border border-red-200 rounded text-[11px] font-semibold">Ghi lô thất bại</span>`;
-            } else if (batchConfirmed && displayHash && !String(displayHash).startsWith('PENDING_')) {
+            } else if (batchConfirmed && displayHash && /^0x[a-fA-F0-9]{64}$/.test(String(displayHash))) {
                 const short = displayHash.length > 14
                     ? `${displayHash.substring(0, 8)}...${displayHash.substring(displayHash.length - 6)}`
                     : displayHash;
