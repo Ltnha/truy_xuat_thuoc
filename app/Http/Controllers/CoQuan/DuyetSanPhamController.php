@@ -90,6 +90,7 @@ class DuyetSanPhamController extends Controller
         try {
             // Idempotent recovery: nếu ProductApproved đã mined thì không gửi approveProduct lần hai.
             $approvalState = $signerClient->isProductApproved($productIdBytes32);
+            $blockTimestamp = isset($approvalState['blockTimestamp']) ? (int) $approvalState['blockTimestamp'] : null;
             if (! empty($approvalState['isApproved'])) {
                 if (strtolower((string) ($approvalState['payloadHash'] ?? '')) !== strtolower($payloadHashBytes32)) {
                     throw new \RuntimeException('Sản phẩm đã được duyệt với payloadHash khác; contract không hỗ trợ duyệt lại.');
@@ -112,6 +113,7 @@ class DuyetSanPhamController extends Controller
                     ],
                 ]);
                 $txHash = $response['txHash'] ?? null;
+                $blockTimestamp = isset($response['blockTimestamp']) ? (int) $response['blockTimestamp'] : $blockTimestamp;
             }
 
             if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
@@ -119,8 +121,8 @@ class DuyetSanPhamController extends Controller
             }
 
             // BƯỚC 4: BLOCKCHAIN THÀNH CÔNG -> TIẾN HÀNH LƯU VÀO CSDL
-            DB::transaction(function () use ($yeuCau, $sanPham, $user, $txHash, $toChucCoQuan): void {
-                $now = now();
+            DB::transaction(function () use ($yeuCau, $sanPham, $user, $txHash, $toChucCoQuan, $blockTimestamp): void {
+                $now = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
 
                 $yeuCau->update([
                     'trangThai' => 'DA_DUYET',
