@@ -6,346 +6,321 @@ const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT || 3000);
 const WALLETS_FILE = path.join(__dirname, 'wallets.json');
-
 const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
 const adminWallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
-
 const CONTRACT_ABI = require('../API.json');
+const CONTRACT_ADDRESS = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
+const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '', 'utf8');
+const ALGORITHM = 'aes-256-gcm';
 
-const ALGORITHM = 'aes-256-cbc';
-const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '12345678901234567890123456789012');
-
-function encrypt(text) {
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipheriv(ALGORITHM, MASTER_KEY, iv);
-    let encrypted = cipher.update(text, 'utf8', 'hex');
-    encrypted += cipher.final('hex');
-    return `${iv.toString('hex')}:${encrypted}`;
+if (!CONTRACT_ADDRESS || !ethers.isAddress(CONTRACT_ADDRESS)) {
+    throw new Error('BLOCKCHAIN_CONTRACT_ADDRESS không hợp lệ.');
+}
+if (MASTER_KEY.length !== 32) {
+    throw new Error('ENCRYPTION_MASTER_KEY phải có đúng 32 byte UTF-8.');
 }
 
-function decrypt(text) {
-    const [ivHex, encryptedHex] = text.split(':');
-    const iv = Buffer.from(ivHex, 'hex');
-    const decipher = crypto.createDecipheriv(ALGORITHM, MASTER_KEY, iv);
-    let decrypted = decipher.update(encryptedHex, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    return decrypted;
+function encrypt(plainText) {
+    const iv = crypto.randomBytes(12);
+    const cipher = crypto.createCipheriv(ALGORITHM, MASTER_KEY, iv);
+    const encrypted = Buffer.concat([cipher.update(plainText, 'utf8'), cipher.final()]);
+    return [iv.toString('hex'), cipher.getAuthTag().toString('hex'), encrypted.toString('hex')].join(':');
+}
+
+function decrypt(value) {
+    const [ivHex, tagHex, encryptedHex] = String(value).split(':');
+    if (!ivHex || !tagHex || !encryptedHex) throw new Error('Dữ liệu khóa ví đã mã hóa không hợp lệ.');
+    const decipher = crypto.createDecipheriv(ALGORITHM, MASTER_KEY, Buffer.from(ivHex, 'hex'));
+    decipher.setAuthTag(Buffer.from(tagHex, 'hex'));
+    return Buffer.concat([
+        decipher.update(Buffer.from(encryptedHex, 'hex')),
+        decipher.final()
+    ]).toString('utf8');
 }
 
 function loadWallets() {
-    if (!fs.existsSync(WALLETS_FILE)) {
-        fs.writeFileSync(WALLETS_FILE, JSON.stringify({}));
-    }
+    if (!fs.existsSync(WALLETS_FILE)) fs.writeFileSync(WALLETS_FILE, '{}', { mode: 0o600 });
     return JSON.parse(fs.readFileSync(WALLETS_FILE, 'utf8'));
 }
 
-function saveWallets(data) {
-    fs.writeFileSync(WALLETS_FILE, JSON.stringify(data, null, 2));
+function saveWallets(wallets) {
+    fs.writeFileSync(WALLETS_FILE, JSON.stringify(wallets, null, 2), { mode: 0o600 });
 }
 
-const authMiddleware = (req, res, next) => {
-    const authHeader = req.headers.authorization;
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token || token !== process.env.SIGNER_API_TOKEN) {
-        return res.status(401).json({ ok: false, reason: 'Unauthorized: Sai hoặc thiếu API Token' });
+function authMiddleware(req, res, next) {
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+    if (!process.env.SIGNER_API_TOKEN || token !== process.env.SIGNER_API_TOKEN) {
+        return res.status(401).json({ ok: false, reason: 'Thiếu hoặc sai Signer API token.' });
     }
     next();
-};
+}
 
-// 1. Sinh ví Custodial
+function isAdminKey(keyId) {
+    return keyId === (process.env.ADMIN_MASTER_KEY_ID || 'ADMIN_MASTER_KEY')
+        || keyId === 'ADMIN_MASTER_KEY'
+        || (typeof keyId === 'string' && keyId.toLowerCase() === adminWallet.address.toLowerCase());
+}
+
+function getWallet(keyId) {
+    if (isAdminKey(keyId)) return adminWallet;
+    const record = loadWallets()[keyId];
+    if (!record || record.status !== 'ACTIVE') throw new Error('Không tìm thấy ví ACTIVE cho keyId: ' + keyId);
+    return new ethers.Wallet(decrypt(record.encryptedPk), provider);
+}
+
+function contractFor(signerOrProvider) {
+    return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signerOrProvider);
+}
+
+function requireBytes32(value, name) {
+    if (typeof value !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(value)) {
+        throw new Error(name + ' phải là bytes32 dạng 0x + 64 ký tự hex.');
+    }
+    return value;
+}
+
 app.post('/wallets', authMiddleware, async (req, res) => {
     try {
-        const { toChucId } = req.body;
+        const toChucId = Number(req.body.toChucId);
+        if (!Number.isInteger(toChucId) || toChucId < 1) throw new Error('toChucId không hợp lệ.');
         const wallets = loadWallets();
+        const existing = Object.values(wallets).find(w => Number(w.toChucId) === toChucId && w.status === 'ACTIVE');
+        if (existing) return res.json({ ok: true, keyId: existing.keyId, diaChiVi: existing.diaChiVi });
 
-        const existing = Object.values(wallets).find(w => w.toChucId === toChucId && w.status !== 'REVOKED');
-        if (existing) {
-            return res.json({ ok: true, keyId: existing.keyId, diaChiVi: existing.diaChiVi });
-        }
-
-        const randomWallet = ethers.Wallet.createRandom();
-        const keyId = `KEY_TOCHUC_${toChucId}_${Date.now()}`;
-
+        const wallet = ethers.Wallet.createRandom();
+        const keyId = 'KEY_TOCHUC_' + toChucId + '_' + Date.now();
         wallets[keyId] = {
-            keyId,
-            toChucId,
-            diaChiVi: randomWallet.address,
-            encryptedPk: encrypt(randomWallet.privateKey),
-            status: 'ACTIVE',
+            keyId, toChucId, diaChiVi: wallet.address,
+            encryptedPk: encrypt(wallet.privateKey), status: 'ACTIVE',
             createdAt: new Date().toISOString()
         };
-
         saveWallets(wallets);
-
-        return res.json({ ok: true, keyId: keyId, diaChiVi: randomWallet.address });
+        return res.json({ ok: true, keyId, diaChiVi: wallet.address });
     } catch (err) {
-        return res.status(500).json({ ok: false, reason: err.message });
+        return res.status(400).json({ ok: false, reason: err.shortMessage || err.message });
     }
 });
 
-// 2. Tự động nạp Gas
 app.post('/gas/ensure', authMiddleware, async (req, res) => {
     try {
-        const { target } = req.body;
+        const target = String(req.body.target || '');
         let targetAddress = target;
-
-        const isAdminKey = (
-            target === process.env.ADMIN_MASTER_KEY_ID ||
-            target === 'ADMIN_MASTER_KEY' ||
-            target === 'KEY-DEMO-CQ-001' ||
-            target === 'KEY-DEMO-CQQL-001' ||
-            (typeof target === 'string' && target.startsWith('KEY-DEMO-CQ')) ||
-            (typeof target === 'string' && target.toLowerCase() === adminWallet.address.toLowerCase())
-        );
-
-        if (isAdminKey) {
-            targetAddress = adminWallet.address;
-        } else if (target.startsWith('KEY_')) {
-            const wallets = loadWallets();
-            if (wallets[target]) targetAddress = wallets[target].diaChiVi;
+        if (!ethers.isAddress(target)) {
+            if (isAdminKey(target)) targetAddress = adminWallet.address;
+            else {
+                const record = loadWallets()[target];
+                if (!record || record.status !== 'ACTIVE') throw new Error('Không tìm thấy ví ACTIVE cần nạp gas.');
+                targetAddress = record.diaChiVi;
+            }
         }
-
-        if (!ethers.isAddress(targetAddress)) {
-            return res.status(400).json({ ok: false, reason: 'Địa chỉ ví không hợp lệ' });
-        }
-
+        if (!ethers.isAddress(targetAddress)) throw new Error('Địa chỉ ví cần nạp gas không hợp lệ.');
         const balance = await provider.getBalance(targetAddress);
-        const minBalance = ethers.parseEther("0.001");
-
+        const minBalance = ethers.parseEther(process.env.MIN_WALLET_BALANCE_ETH || '0.001');
         if (balance < minBalance) {
-            console.log(`[GAS] Số dư ví ${targetAddress} thấp (${ethers.formatEther(balance)} ETH). Đang nạp Gas...`);
-            const tx = await adminWallet.sendTransaction({
-                to: targetAddress,
-                value: ethers.parseEther("0.003")
-            });
-            await tx.wait();
-            console.log(`[GAS] Nạp Gas thành công cho ${targetAddress}. TxHash: ${tx.hash}`);
+            const amount = ethers.parseEther(process.env.GAS_TOPUP_AMOUNT_ETH || '0.003');
+            const tx = await adminWallet.sendTransaction({ to: targetAddress, value: amount });
+            const receipt = await tx.wait();
+            if (!receipt || receipt.status !== 1) throw new Error('Giao dịch nạp gas không thành công.');
+            return res.json({ ok: true, txHash: receipt.hash, blockNumber: Number(receipt.blockNumber) });
         }
-
-        return res.json({ ok: true });
+        return res.json({ ok: true, toppedUp: false, balance: ethers.formatEther(balance) });
     } catch (err) {
-        console.error("[GAS ERROR]", err.message);
-        return res.status(500).json({ ok: false, reason: err.message });
+        return res.status(400).json({ ok: false, reason: err.shortMessage || err.message });
     }
 });
 
-// 3. Ký và Gửi Giao dịch On-chain (Đã sửa thứ tự tham số chuẩn: role, account)
 app.post('/tx', authMiddleware, async (req, res) => {
     try {
-        const { keyId, action, params } = req.body;
-
-        console.log(`[DEBUG /tx] Action: ${action} | Contract: ${process.env.BLOCKCHAIN_CONTRACT_ADDRESS}`);
-        console.log(`[DEBUG Params]`, params);
-
-        let walletToUse = adminWallet;
-
-        const isAdminKey = (
-            keyId === process.env.ADMIN_MASTER_KEY_ID ||
-            keyId === 'ADMIN_MASTER_KEY' ||
-            keyId === 'KEY-DEMO-CQ-001' ||
-            keyId === 'KEY-DEMO-CQQL-001' ||
-            (typeof keyId === 'string' && keyId.startsWith('KEY-DEMO-CQ')) ||
-            (typeof keyId === 'string' && keyId.toLowerCase() === adminWallet.address.toLowerCase())
-        );
-
-        if (!isAdminKey) {
-            const wallets = loadWallets();
-            const wData = wallets[keyId];
-            if (!wData) {
-                return res.status(400).json({ ok: false, reason: `Không tìm thấy keyId [${keyId}]` });
-            }
-            const plainPk = decrypt(wData.encryptedPk);
-            walletToUse = new ethers.Wallet(plainPk, provider);
-        }
-
-        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, walletToUse);
+        const { keyId, action, params = {} } = req.body || {};
+        if (!keyId || !action || !params || typeof params !== 'object') throw new Error('Thiếu keyId, action hoặc params.');
+        const wallet = getWallet(String(keyId));
+        const contract = contractFor(wallet);
         let tx;
 
-        if (action === 'grantRole') {
-            tx = await contract.grantRole(params.account, params.role);
-        } else if (action === 'revokeRole') {
-            tx = await contract.revokeRole(params.account, params.role);
-        } else if (action === 'recordBatchEvent') {
-            tx = await contract.recordBatchEvent(
-                params.batchId,
-                params.businessId,
-                params.eventType,
-                params.payloadHash
-            );
-        } else if (action === 'submitTransfer') {
-            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
-                ? params.maChuyenGiao
-                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
-            if (!ethers.isAddress(params.benNhan)) throw new Error('Địa chỉ ví bên nhận không hợp lệ');
-            tx = await contract.submitTransfer(mgdBytes32, params.benNhan);
-        } else if (action === 'receiveTransfer') {
-            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
-                ? params.maChuyenGiao
-                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
-            tx = await contract.receiveTransfer(mgdBytes32);
-        } else if (action === 'rejectTransfer') {
-            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
-                ? params.maChuyenGiao
-                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
-            tx = await contract.rejectTransfer(mgdBytes32, params.lyDo || '');
-        } else if (action === 'cancelTransfer') {
-            const mgdBytes32 = typeof params.maChuyenGiao === 'string' && /^0x[a-fA-F0-9]{64}$/.test(params.maChuyenGiao)
-                ? params.maChuyenGiao
-                : ethers.keccak256(ethers.toUtf8Bytes(params.maChuyenGiao || ''));
-            tx = await contract.cancelTransfer(mgdBytes32, params.lyDo || '');
-        } else {
-            return res.status(400).json({ ok: false, reason: `Action [${action}] chưa được hỗ trợ` });
+        switch (action) {
+            case 'grantRole':
+                tx = await contract.grantRole(params.account, requireBytes32(params.role, 'role'));
+                break;
+            case 'revokeRole':
+                tx = await contract.revokeRole(params.account, requireBytes32(params.role, 'role'));
+                break;
+            case 'transferOwnership':
+                tx = await contract.transferOwnership(params.newOwner);
+                break;
+            case 'approveProduct':
+                tx = await contract.approveProduct(
+                    requireBytes32(params.productId, 'productId'),
+                    requireBytes32(params.payloadHash, 'payloadHash')
+                );
+                break;
+            case 'registerBatch':
+                tx = await contract.registerBatch(requireBytes32(params.batchId, 'batchId'));
+                break;
+            case 'recordBatchEvent':
+                tx = await contract.recordBatchEvent(
+                    requireBytes32(params.batchId, 'batchId'),
+                    requireBytes32(params.businessId, 'businessId'),
+                    requireBytes32(params.eventType, 'eventType'),
+                    requireBytes32(params.payloadHash, 'payloadHash')
+                );
+                break;
+            case 'recallBatch':
+                tx = await contract.recallBatch(
+                    requireBytes32(params.batchId, 'batchId'),
+                    requireBytes32(params.payloadHash, 'payloadHash')
+                );
+                break;
+            case 'submitTransfer':
+                if (!ethers.isAddress(params.receiver)) throw new Error('receiver không phải địa chỉ Ethereum hợp lệ.');
+                tx = await contract.submitTransfer(
+                    requireBytes32(params.transferId, 'transferId'),
+                    requireBytes32(params.batchId, 'batchId'),
+                    params.receiver
+                );
+                break;
+            case 'receiveTransfer':
+                tx = await contract.receiveTransfer(requireBytes32(params.transferId, 'transferId'));
+                break;
+            case 'rejectTransfer':
+                tx = await contract.rejectTransfer(
+                    requireBytes32(params.transferId, 'transferId'),
+                    requireBytes32(params.reasonHash, 'reasonHash')
+                );
+                break;
+            case 'cancelTransfer':
+                tx = await contract.cancelTransfer(requireBytes32(params.transferId, 'transferId'));
+                break;
+            default:
+                throw new Error('Action không được hỗ trợ: ' + action);
         }
 
-        console.log(`[TX] Đã gửi giao dịch [${action}]. Chờ xác nhận Block...`);
         const receipt = await tx.wait();
         if (!receipt || receipt.status !== 1) {
-            return res.status(500).json({
-                ok: false,
-                reason: `Giao dịch [${action}] on-chain thất bại (status=${receipt ? receipt.status : 'null'})`,
-                txHash: receipt && receipt.hash ? receipt.hash : null,
-            });
+            return res.status(502).json({ ok: false, reason: 'Transaction reverted hoặc không có receipt.', txHash: tx.hash });
         }
-        console.log(`[TX SUCCESS] TxHash: ${receipt.hash}`);
-
-        return res.json({
-            ok: true,
-            txHash: receipt.hash,
-            blockNumber: receipt.blockNumber ? Number(receipt.blockNumber) : null,
-        });
+        return res.json({ ok: true, txHash: receipt.hash, blockNumber: Number(receipt.blockNumber) });
     } catch (err) {
-        console.error("[TX ERROR]", err.reason || err.message);
-        return res.status(500).json({ ok: false, reason: err.reason || err.message });
+        const reason = err.revert?.name || err.shortMessage || err.reason || err.message || 'Signer transaction failed';
+        return res.status(400).json({ ok: false, reason });
     }
 });
 
-// 4. Kiểm tra vai trò On-chain (Thứ tự tham số chuẩn theo BatchTraceability.sol: account, role)
 app.get('/roles/check', authMiddleware, async (req, res) => {
     try {
-        const { role, account } = req.query;
-        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-        const hasRole = await contract.hasRole(account, role);
-
-        return res.json({ ok: true, hasRole: hasRole });
+        if (!ethers.isAddress(String(req.query.account || ''))) throw new Error('account không hợp lệ.');
+        const role = requireBytes32(String(req.query.role || ''), 'role');
+        const hasRole = await contractFor(provider).hasRole(req.query.account, role);
+        return res.json({ ok: true, hasRole });
     } catch (err) {
-        return res.status(500).json({ ok: false, hasRole: false, reason: err.message });
+        return res.status(400).json({ ok: false, hasRole: false, reason: err.message });
     }
 });
 
-// 4b. Kiểm tra xem sự kiện Lô đã được ghi nhận On-chain chưa (Idempotency Check)
+app.get('/products/check', authMiddleware, async (req, res) => {
+    try {
+        const productId = requireBytes32(String(req.query.productId || ''), 'productId');
+        const contract = contractFor(provider);
+        const payloadHash = await contract.approvedProducts(productId);
+        return res.json({ ok: true, isApproved: payloadHash !== ethers.ZeroHash, payloadHash });
+    } catch (err) {
+        return res.status(400).json({ ok: false, isApproved: false, reason: err.message });
+    }
+});
+
 app.get('/events/check-batch', authMiddleware, async (req, res) => {
     try {
-        const { batchId, businessId, eventType } = req.query;
-        if (!batchId || !businessId || !eventType) {
-            return res.status(400).json({ ok: false, reason: 'Thiếu tham số batchId, businessId, hoặc eventType' });
-        }
-
-        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-        const eventKey = ethers.solidityPackedKeccak256(
-            ["bytes32", "bytes32", "bytes32"],
-            [batchId, businessId, eventType]
-        );
-
-        const isRecorded = await contract.recordedEventKeys(eventKey);
-        let txHash = null;
-        let blockNumber = null;
-
+        const batchId = requireBytes32(String(req.query.batchId || ''), 'batchId');
+        const businessId = requireBytes32(String(req.query.businessId || ''), 'businessId');
+        const eventType = requireBytes32(String(req.query.eventType || ''), 'eventType');
+        const contract = contractFor(provider);
+        const isRecorded = await contract.isBatchEventRecorded(batchId, businessId, eventType);
+        let txHash = null, blockNumber = null;
         if (isRecorded) {
-            // eventType không indexed, nên lọc theo batchId/businessId rồi so sánh eventType.
-            const filter = contract.filters.BatchEventRecorded(batchId, businessId);
-            const latestBlk = await provider.getBlockNumber();
-            const fromBlk = Math.max(0, latestBlk - 40000);
-            const logs = await contract.queryFilter(filter, fromBlk, latestBlk);
-            const matched = logs.find(log => String(log.args.eventType).toLowerCase() === String(eventType).toLowerCase());
-            if (matched) {
-                txHash = matched.transactionHash;
-                blockNumber = Number(matched.blockNumber);
-            }
+            const latest = await provider.getBlockNumber();
+            const logs = await contract.queryFilter(contract.filters.BatchEventRecorded(batchId, businessId), Math.max(0, latest - 40000), latest);
+            const found = logs.find(log => String(log.args.eventType).toLowerCase() === eventType.toLowerCase());
+            if (found) { txHash = found.transactionHash; blockNumber = Number(found.blockNumber); }
         }
-
-        return res.json({
-            ok: true,
-            isRecorded: Boolean(isRecorded),
-            eventKey,
-            txHash,
-            blockNumber
-        });
+        return res.json({ ok: true, isRecorded, txHash, blockNumber });
     } catch (err) {
-        return res.status(500).json({ ok: false, isRecorded: false, reason: err.message });
+        return res.status(400).json({ ok: false, isRecorded: false, reason: err.message });
     }
 });
 
-// 4c. Đối soát transaction theo event chuyển giao để Job retry không gửi trùng.
 app.get('/transfers/check', authMiddleware, async (req, res) => {
     try {
-        const { maChuyenGiao, eventName } = req.query;
-        const allowed = ['TransferSubmitted', 'TransferReceived', 'TransferRejected'];
-        if (!maChuyenGiao || !allowed.includes(eventName)) {
-            return res.status(400).json({ ok: false, reason: 'Thiếu mã chuyển giao hoặc eventName không hợp lệ' });
-        }
-        // Job Laravel gửi sẵn bytes32 (sha256); nếu là UUID thì keccak256 để tương thích
-        const mgdBytes32 = /^0x[a-fA-F0-9]{64}$/.test(String(maChuyenGiao))
-            ? String(maChuyenGiao)
-            : ethers.keccak256(ethers.toUtf8Bytes(String(maChuyenGiao)));
-        const contract = new ethers.Contract(process.env.BLOCKCHAIN_CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-        const filter = contract.filters[eventName](mgdBytes32);
-        // Sepolia RPC giới hạn ~50000 block — chỉ quét cửa sổ gần
+        const transferId = requireBytes32(String(req.query.transferId || ''), 'transferId');
+        const eventName = String(req.query.eventName || '');
+        const allowed = ['TransferSubmitted', 'TransferReceived', 'TransferRejected', 'TransferCancelled'];
+        if (!allowed.includes(eventName)) throw new Error('eventName không được hỗ trợ.');
         const latest = await provider.getBlockNumber();
-        const fromBlock = Math.max(0, latest - 40000);
-        const logs = await contract.queryFilter(filter, fromBlock, latest);
-        const matched = logs.length ? logs[logs.length - 1] : null;
+        const contract = contractFor(provider);
+        const filter = contract.filters[eventName](transferId);
+        const logs = await contract.queryFilter(filter, Math.max(0, latest - 40000), latest);
+        const found = logs.length ? logs[logs.length - 1] : null;
+        return res.json({
+            ok: true, isRecorded: Boolean(found),
+            txHash: found ? found.transactionHash : null,
+            blockNumber: found ? Number(found.blockNumber) : null
+        });
+    } catch (err) {
+        return res.status(400).json({ ok: false, isRecorded: false, txHash: null, blockNumber: null, reason: err.message });
+    }
+});
+
+app.get('/batches/:batchId', authMiddleware, async (req, res) => {
+    try {
+        const batchId = requireBytes32(req.params.batchId, 'batchId');
+        const contract = contractFor(provider);
+        const [batch, pendingTransferId, transfers, recalled] = await Promise.all([
+            contract.batches(batchId),
+            contract.pendingTransferOf(batchId),
+            contract.getBatchTransfers(batchId),
+            contract.isBatchRecalled(batchId)
+        ]);
         return res.json({
             ok: true,
-            isRecorded: Boolean(matched),
-            txHash: matched ? matched.transactionHash : null,
-            blockNumber: matched ? Number(matched.blockNumber) : null
+            batch: {
+                exists: batch.exists, recalled: batch.recalled,
+                manufacturer: batch.manufacturer, currentOwner: batch.currentOwner,
+                createdAt: Number(batch.createdAt)
+            },
+            pendingTransferId,
+            transferIds: transfers,
+            isRecalled: recalled
         });
     } catch (err) {
-        // Không chặn Job ký: trả ok + isRecorded false
-        return res.json({ ok: true, isRecorded: false, reason: err.message, txHash: null, blockNumber: null });
+        return res.status(400).json({ ok: false, reason: err.message });
     }
 });
 
-// 5. Đổi ví mới (Wallet Rotation)
 app.post('/wallets/rotate', authMiddleware, async (req, res) => {
     try {
-        const { toChucId } = req.body;
+        const toChucId = Number(req.body.toChucId);
+        if (!Number.isInteger(toChucId) || toChucId < 1) throw new Error('toChucId không hợp lệ.');
         const wallets = loadWallets();
-
-        Object.keys(wallets).forEach(k => {
-            if (wallets[k].toChucId === toChucId) {
-                wallets[k].status = 'REVOKED';
-            }
+        Object.keys(wallets).forEach(key => {
+            if (Number(wallets[key].toChucId) === toChucId) wallets[key].status = 'REVOKED';
         });
-
-        const randomWallet = ethers.Wallet.createRandom();
-        const keyId = `KEY_TOCHUC_${toChucId}_ROTATE_${Date.now()}`;
-
+        const wallet = ethers.Wallet.createRandom();
+        const keyId = 'KEY_TOCHUC_' + toChucId + '_ROTATE_' + Date.now();
         wallets[keyId] = {
-            keyId,
-            toChucId,
-            diaChiVi: randomWallet.address,
-            encryptedPk: encrypt(randomWallet.privateKey),
-            status: 'ACTIVE',
+            keyId, toChucId, diaChiVi: wallet.address,
+            encryptedPk: encrypt(wallet.privateKey), status: 'ACTIVE',
             createdAt: new Date().toISOString()
         };
-
         saveWallets(wallets);
-
-        return res.json({ ok: true, keyId: keyId, diaChiVi: randomWallet.address });
+        return res.json({ ok: true, keyId, diaChiVi: wallet.address });
     } catch (err) {
-        return res.status(500).json({ ok: false, reason: err.message });
+        return res.status(400).json({ ok: false, reason: err.message });
     }
 });
 
-// Khởi chạy Server
 app.listen(PORT, () => {
-    console.log(`==================================================`);
-    console.log(`  Signer Service Node.js đang chạy tại port ${PORT}`);
-    console.log(`  Ví Admin: ${adminWallet.address}`);
-    console.log(`==================================================`);
+    console.log('Signer Service listening on port ' + PORT);
+    console.log('Admin wallet: ' + adminWallet.address);
 });
