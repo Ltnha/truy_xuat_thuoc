@@ -16,6 +16,8 @@ use App\Models\NhatKyHeThong;
 use App\Models\TaiKhoan;
 use App\Models\ToChuc;
 use App\Models\TonKhoLo;
+use App\Models\ThuHoiLoHang;
+use App\Services\Blockchain\RoleMap;
 use App\Services\Blockchain\SignerClient;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -70,6 +72,17 @@ class ChuyenGiaoService
                 }
             }
 
+            $identityNhan = BlockchainIdentity::query()
+                ->where('toChucId', $benNhan->id)
+                ->where('trangThai', 'ACTIVE')
+                ->whereNotNull('signerKeyId')
+                ->whereNotNull('diaChiVi')
+                ->firstOrFail();
+
+            if (! $this->signer->hasRole(RoleMap::cho($benNhan->loaiToChuc), (string) $identityNhan->diaChiVi)) {
+                throw new NghiepVuException('Ví của đơn vị nhận chưa được cấp đúng role trên blockchain.');
+            }
+
             if ($loaiGui === OrganizationType::nhaSanXuat && (int) $loThuoc->toChucId !== (int) $benGui->id) {
                 throw new NghiepVuException('Lô thuốc không thuộc nhà sản xuất đang đăng nhập.');
             }
@@ -77,8 +90,9 @@ class ChuyenGiaoService
             $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus
                 ? $loThuoc->trangThai
                 : BatchStatus::tryFrom((string) $loThuoc->trangThai);
+            $coQuyetDinhThuHoi = ThuHoiLoHang::query()->where('loThuocId', $loThuoc->id)->exists();
             $hanSuDung = $loThuoc->hanSuDung ? Carbon::parse($loThuoc->hanSuDung)->startOfDay() : null;
-            if ($trangThaiLo === BatchStatus::recalled || ($hanSuDung && $hanSuDung->lt(today()))) {
+            if ($coQuyetDinhThuHoi || $trangThaiLo === BatchStatus::recalled || ($hanSuDung && $hanSuDung->lt(today()))) {
                 throw new NghiepVuException('Không thể chuyển giao lô thuốc đã thu hồi hoặc hết hạn.');
             }
 
