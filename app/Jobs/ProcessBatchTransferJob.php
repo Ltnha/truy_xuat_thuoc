@@ -114,7 +114,8 @@ class ProcessBatchTransferJob implements ShouldQueue
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning('[ProcessBatchTransferJob] Không đối soát được event; tiếp tục kiểm tra gửi giao dịch: ' . $e->getMessage());
+            Log::warning('[ProcessBatchTransferJob] Chưa đối soát được event; hoãn retry để tránh gửi giao dịch trùng: ' . $e->getMessage());
+            throw $e;
         }
 
         if (! $txHash) {
