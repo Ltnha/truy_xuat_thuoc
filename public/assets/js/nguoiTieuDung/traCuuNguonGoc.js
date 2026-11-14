@@ -471,16 +471,46 @@ document.addEventListener('DOMContentLoaded', function () {
             tieuDe.textContent = "Lô thuốc đã quá hạn sử dụng";
             moTa.textContent = "Hạn dùng sản phẩm đã kết thúc. Nhà thuốc bị cấm phân phối đơn vị thuốc này.";
             khoiChiTiet.classList.remove('opacity-50', 'pointer-events-none');
+        } else if (kq.trangThai === 'UNAVAILABLE') {
+            banner.className = "p-6 rounded-2xl border border-amber-200 bg-amber-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bong-xanh";
+            bieuTuong.className = "w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 bg-amber-100 text-amber-700";
+            bieuTuong.innerHTML = '<i class="fa-solid fa-cloud-arrow-down"></i>';
+            theTrangThaiText.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-amber-600 text-white";
+            theTrangThaiText.textContent = "CHƯA THỂ XÁC MINH";
+            tieuDe.className = "text-lg sm:text-xl font-bold mt-1 text-amber-800";
+            tieuDe.textContent = "Không kết nối được dịch vụ xác minh";
+            moTa.textContent = "Không được kết luận thuốc hợp lệ hoặc không hợp lệ khi chưa đọc được dữ liệu xác thực.";
+            khoiChiTiet.classList.remove('opacity-50', 'pointer-events-none');
+        } else if (kq.trangThai === 'NOT_REGISTERED_ON_CHAIN') {
+            banner.className = "p-6 rounded-2xl border border-amber-200 bg-amber-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bong-xanh";
+            bieuTuong.className = "w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 bg-amber-100 text-amber-700";
+            bieuTuong.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            theTrangThaiText.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-amber-600 text-white";
+            theTrangThaiText.textContent = "CHƯA ĐĂNG KÝ ON-CHAIN";
+            tieuDe.className = "text-lg sm:text-xl font-bold mt-1 text-amber-800";
+            tieuDe.textContent = "Lô chưa được xác nhận đăng ký trên blockchain";
+            moTa.textContent = "Dữ liệu trong hệ thống chưa có bằng chứng BatchRegistered tương ứng trên Sepolia.";
+            khoiChiTiet.classList.remove('opacity-50', 'pointer-events-none');
+        } else if (kq.trangThai === 'INVALID') {
+            banner.className = "p-6 rounded-2xl border border-red-200 bg-red-50/70 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bong-xanh";
+            bieuTuong.className = "w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 bg-red-100 text-red-700";
+            bieuTuong.innerHTML = '<i class="fa-solid fa-shield-halved"></i>';
+            theTrangThaiText.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-red-600 text-white";
+            theTrangThaiText.textContent = "KHÔNG KHỚP DỮ LIỆU";
+            tieuDe.className = "text-lg sm:text-xl font-bold mt-1 text-red-800";
+            tieuDe.textContent = "Không thể xác thực tính toàn vẹn hồ sơ";
+            moTa.textContent = "Hash hồ sơ sản phẩm hoặc trạng thái phê duyệt on-chain không khớp dữ liệu hiện tại.";
+            khoiChiTiet.classList.remove('opacity-50', 'pointer-events-none');
         } else {
-            // NOT_FOUND hoặc INVALID
+            // NOT_FOUND
             banner.className = "p-6 rounded-2xl border border-slate-300 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bong-xanh";
             bieuTuong.className = "w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 bg-slate-200 text-slate-500";
             bieuTuong.innerHTML = '<i class="fa-solid fa-circle-question"></i>';
             theTrangThaiText.className = "px-3 py-1 rounded-full text-xs font-extrabold uppercase tracking-wide bg-slate-600 text-white";
-            theTrangThaiText.textContent = "KHÔNG TỒN TẠI (NOT FOUND)";
+            theTrangThaiText.textContent = "KHÔNG TÌM THẤY";
             tieuDe.className = "text-lg sm:text-xl font-bold mt-1 text-slate-900";
-            tieuDe.textContent = "Cảnh báo nghi vấn: Không tìm thấy mã trên Blockchain!";
-            moTa.textContent = "Mã QR hoặc chuỗi định danh này chưa từng được đăng ký bởi bất kỳ đơn vị hợp pháp nào.";
+            tieuDe.textContent = "Không tìm thấy mã định danh trong hệ thống";
+            moTa.textContent = "Mã QR hoặc chuỗi định danh này chưa được đăng ký trong cơ sở dữ liệu.";
             khoiChiTiet.classList.add('opacity-50', 'pointer-events-none');
         }
 
