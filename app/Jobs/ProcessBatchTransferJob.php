@@ -31,7 +31,7 @@ class ProcessBatchTransferJob implements ShouldQueue
         public string $eventType = 'TRANSFER_BATCH'
     ) {}
 
-    public function handle(SignerClient $signer): void
+    public function handle(SignerClient $signer, TonKhoService $tonKhoService): void
     {
         $cg = ChuyenGiao::with(['loThuoc', 'benGui', 'benNhan'])->findOrFail($this->chuyenGiaoId);
         if (! $cg->loThuoc || ! $cg->benGui || ! $cg->benNhan) {
@@ -130,13 +130,59 @@ class ProcessBatchTransferJob implements ShouldQueue
             throw new Exception('Signer không trả về Ethereum transaction hash hợp lệ.');
         }
 
-        DB::transaction(function () use ($transaction, $txHash, $blockNumber, $cg): void {
+        DB::transaction(function () use ($transaction, $txHash, $blockNumber, $cg, $tonKhoService): void {
             $transaction->update([
                 'txHash' => $txHash,
                 'blockNumber' => $blockNumber,
                 'trangThai' => 'CONFIRMED',
                 'thoiGian' => now(),
             ]);
+
+            // Chỉ đồng bộ trạng thái nghiệp vụ/tồn kho sau khi event tương ứng đã mined.
+            $lockedCg = ChuyenGiao::query()->whereKey($cg->id)->lockForUpdate()->firstOrFail();
+            $loThuoc = $lockedCg->loThuoc()->lockForUpdate()->firstOrFail();
+
+            if ($this->eventName === 'TransferSubmitted') {
+                $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus
+                    ? $loThuoc->trangThai
+                    : BatchStatus::tryFrom((string) $loThuoc->trangThai);
+                if ($trangThaiLo === BatchStatus::created) {
+                    $loThuoc->update(['trangThai' => BatchStatus::inTransit->value]);
+                }
+            } elseif ($this->eventName === 'TransferReceived' && $lockedCg->trangThai === TransferStatus::pending) {
+                $tonKhoService->tru((int) $loThuoc->id, (int) $lockedCg->benGuiId, (int) $lockedCg->soLuong);
+                $tonKhoService->cong((int) $loThuoc->id, (int) $lockedCg->benNhanId, (int) $lockedCg->soLuong);
+                $lockedCg->update([
+                    'trangThai' => TransferStatus::received,
+                    'thoiGianXacNhan' => now(),
+                ]);
+            } elseif ($this->eventName === 'TransferRejected' && $lockedCg->trangThai === TransferStatus::pending) {
+                $lockedCg->update([
+                    'trangThai' => TransferStatus::rejected,
+                    'thoiGianXacNhan' => now(),
+                ]);
+                $conPending = ChuyenGiao::query()
+                    ->where('loThuocId', $loThuoc->id)
+                    ->where('benGuiId', $lockedCg->benGuiId)
+                    ->where('trangThai', TransferStatus::pending->value)
+                    ->exists();
+                $daNhan = ChuyenGiao::query()
+                    ->where('loThuocId', $loThuoc->id)
+                    ->where('benGuiId', $lockedCg->benGuiId)
+                    ->where('trangThai', TransferStatus::received->value)
+                    ->exists();
+                $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus
+                    ? $loThuoc->trangThai
+                    : BatchStatus::tryFrom((string) $loThuoc->trangThai);
+                if (! $conPending && ! $daNhan && (int) $loThuoc->toChucId === (int) $lockedCg->benGuiId && $trangThaiLo === BatchStatus::inTransit) {
+                    $loThuoc->update(['trangThai' => BatchStatus::created->value]);
+                }
+            } elseif ($this->eventName === 'TransferCancelled') {
+                $lockedCg->update([
+                    'trangThai' => TransferStatus::cancelled,
+                    'thoiGianXacNhan' => now(),
+                ]);
+            }
 
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $this->userId,
