@@ -88,20 +88,28 @@ class DuyetSanPhamController extends Controller
         $payloadHashBytes32 = '0x' . hash('sha256', $payloadJson);
 
         try {
-            $signerClient->ensureGas($keyId);
-            $response = $signerClient->sendTransaction([
-                'keyId' => $keyId,
-                'action' => 'approveProduct',
-                'params' => [
-                    'productId' => $productIdBytes32,
-                    'payloadHash' => $payloadHashBytes32,
-                ],
-            ]);
+            // Idempotent recovery: nếu ProductApproved đã mined thì không gửi approveProduct lần hai.
+            $approvalState = $signerClient->isProductApproved($productIdBytes32);
+            if (! empty($approvalState['isApproved'])) {
+                if (strtolower((string) ($approvalState['payloadHash'] ?? '')) !== strtolower($payloadHashBytes32)) {
+                    throw new \RuntimeException('Sản phẩm đã được duyệt với payloadHash khác; contract không hỗ trợ duyệt lại.');
+                }
+                $txHash = $approvalState['txHash'] ?? null;
+            } else {
+                $signerClient->ensureGas($keyId);
+                $response = $signerClient->sendTransaction([
+                    'keyId' => $keyId,
+                    'action' => 'approveProduct',
+                    'params' => [
+                        'productId' => $productIdBytes32,
+                        'payloadHash' => $payloadHashBytes32,
+                    ],
+                ]);
+                $txHash = $response['txHash'] ?? null;
+            }
 
-            $txHash = $response['txHash'] ?? null;
-
-            if (! $txHash) {
-                throw new \RuntimeException('Signer Service không trả về mã giao dịch txHash.');
+            if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+                throw new \RuntimeException('Không truy xuất được txHash ProductApproved thật từ receipt/event.');
             }
 
             // BƯỚC 4: BLOCKCHAIN THÀNH CÔNG -> TIẾN HÀNH LƯU VÀO CSDL
