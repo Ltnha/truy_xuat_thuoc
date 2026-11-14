@@ -88,6 +88,7 @@ class DuyetSanPhamController extends Controller
         $payloadHashBytes32 = '0x' . hash('sha256', $payloadJson);
 
         try {
+            $signerClient->ensureGas($keyId);
             $response = $signerClient->sendTransaction([
                 'keyId' => $keyId,
                 'action' => 'approveProduct',
