@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Models\BlockchainIdentity;
 use App\Models\BlockchainTransaction;
 use App\Models\LoThuoc;
 use App\Models\NhatKyHeThong;
@@ -22,13 +23,10 @@ class ProcessBatchRegistrationJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    public $tries = 5;
-    public $backoff = [10, 30, 60];
+    public int $tries = 5;
+    public array $backoff = [10, 30, 60, 120, 300];
 
-    public function __construct(
-        public int $loThuocId,
-        public int $userId
-    ) {}
+    public function __construct(public int $loThuocId, public int $userId) {}
 
     public function handle(
         SignerClient $signer,
@@ -37,120 +35,118 @@ class ProcessBatchRegistrationJob implements ShouldQueue
         TonKhoService $tonKhoService
     ): void {
         $loThuoc = LoThuoc::with(['sanPham', 'toChuc'])->findOrFail($this->loThuocId);
-
-        // 1. Tính toán 4 mã bytes32 chuẩn theo BatchTraceability.sol
-        $batchId = '0x' . hash('sha256', 'BATCH_' . $loThuoc->maLo);
-        $businessId = '0x' . hash('sha256', $loThuoc->maLoNghiepVu);
-        $eventType = '0x' . hash('sha256', 'RECORD_BATCH');
-        $payloadHash = '0x' . hash('sha256', json_encode([
-            'maLo' => $loThuoc->maLo,
-            'maLoNghiepVu' => $loThuoc->maLoNghiepVu,
-            'soLuong' => (int) $loThuoc->soLuong,
-            'ngaySanXuat' => (string) $loThuoc->ngaySanXuat,
-            'hanSuDung' => (string) $loThuoc->hanSuDung,
-        ]));
-
-        $adminKeyId = config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
-
-        // 2. Đối soát On-chain trước khi ký (Đảm bảo tính Idempotent khi retry)
-        $isAlreadyRecorded = $signer->isBatchEventRecorded($batchId, $businessId, $eventType);
-        $txHash = null;
-        $blockNumber = null;
-
-        $existingTx = BlockchainTransaction::where('loThuocId', $loThuoc->id)->first();
-
-        if ($isAlreadyRecorded) {
-            Log::info("[ProcessBatchRegistrationJob] Lô [{$loThuoc->maLoNghiepVu}] đã được ghi nhận On-chain trước đó. Bỏ qua bước gọi Smart Contract.");
-            $txHash = ($existingTx && !str_starts_with($existingTx->txHash, 'PENDING_')) 
-                ? $existingTx->txHash 
-                : 'ONCHAIN_CONFIRMED_' . substr(md5($batchId), 0, 32);
-        } else {
-            // Đảm bảo gas cho ví Admin
-            $signer->ensureGas($adminKeyId);
-
-            // Ký và gửi giao dịch On-chain qua Signer Service
-            $res = $signer->tx($adminKeyId, 'recordBatchEvent', [
-                'batchId'     => $batchId,
-                'businessId'  => $businessId,
-                'eventType'   => $eventType,
-                'payloadHash' => $payloadHash,
-            ]);
-
-            if (!$res['ok']) {
-                throw new Exception("Lỗi đăng ký lô thuốc On-chain: " . ($res['reason'] ?? 'Không rõ nguyên nhân'));
-            }
-
-            $txHash = $res['txHash'];
-            $blockNumber = $res['blockNumber'] ?? null;
+        if (! $loThuoc->sanPham) {
+            throw new Exception("Lô #{$loThuoc->id} không có sản phẩm liên kết.");
         }
 
-        // 3. Cập nhật MySQL trong Transaction an toàn
-        DB::transaction(function () use (
-            $loThuoc, 
-            $txHash, 
-            $blockNumber, 
-            $donViSanPhamService, 
-            $qrService, 
-            $tonKhoService
-        ) {
-            // Cập nhật trạng thái transaction trong CSDL
-            $bctx = BlockchainTransaction::where('loThuocId', $loThuoc->id)->first();
+        // Chuẩn ID phải trùng với ID mà controller duyệt sản phẩm đã ghi lên chain.
+        $productId = '0x' . hash('sha256', 'PRODUCT_' . (string) $loThuoc->sanPham->maSanPham);
+        $approval = $signer->isProductApproved($productId);
+        if (empty($approval['isApproved'])) {
+            throw new Exception('Không thể đăng ký lô: sản phẩm chưa được approveProduct xác nhận trên blockchain.');
+        }
+
+        // Contract v2 chỉ cho NSX có role ROLE_NSX gọi registerBatch.
+        $identity = BlockchainIdentity::query()
+            ->where('toChucId', $loThuoc->toChucId)
+            ->where('trangThai', 'ACTIVE')
+            ->whereNotNull('signerKeyId')
+            ->whereNotNull('diaChiVi')
+            ->first();
+
+        if (! $identity || trim((string) $identity->signerKeyId) === '' || ! preg_match('/^0x[a-fA-F0-9]{40}$/', (string) $identity->diaChiVi)) {
+            throw new Exception('Nhà sản xuất chưa có ví Blockchain ACTIVE hợp lệ để đăng ký lô.');
+        }
+
+        $batchId = '0x' . hash('sha256', 'BATCH_' . (string) $loThuoc->maLo);
+        $batchState = $signer->getBatchState($batchId);
+        $txHash = $batchState['registerTxHash'] ?? null;
+        $blockNumber = isset($batchState['registerBlockNumber']) ? (int) $batchState['registerBlockNumber'] : null;
+
+        if (empty($batchState['batch']['exists'])) {
+            // Phí gas do treasury/admin nạp, nhưng transaction do ví NSX ký.
+            $signer->ensureGas((string) $identity->diaChiVi);
+            $result = $signer->tx((string) $identity->signerKeyId, 'registerBatch', [
+                'batchId' => $batchId,
+            ]);
+
+            if (empty($result['ok']) || empty($result['txHash'])) {
+                throw new Exception('Lỗi registerBatch: ' . ($result['reason'] ?? 'Signer không trả về txHash.'));
+            }
+            $txHash = (string) $result['txHash'];
+            $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
+        }
+
+        if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+            throw new Exception('Lô đã tồn tại on-chain nhưng không truy xuất được txHash BatchRegistered thật; cần đối soát RPC, không tạo hash thay thế.');
+        }
+
+        DB::transaction(function () use ($loThuoc, $txHash, $blockNumber, $donViSanPhamService, $qrService, $tonKhoService): void {
+            $bctx = BlockchainTransaction::query()
+                ->where('loThuocId', $loThuoc->id)
+                ->whereIn('eventName', ['BatchRegistered', 'BatchEventRecorded'])
+                ->latest('id')
+                ->first();
+
+            $data = [
+                'txHash' => $txHash,
+                'blockNumber' => $blockNumber,
+                'eventName' => 'BatchRegistered',
+                'businessId' => (string) $loThuoc->maLo,
+                'network' => config('truyXuat.blockchain.mang', 'Ethereum Sepolia Testnet'),
+                'trangThai' => 'CONFIRMED',
+                'toChucId' => $loThuoc->toChucId,
+                'sanPhamId' => $loThuoc->sanPhamId,
+                'loThuocId' => $loThuoc->id,
+                'thoiGian' => now(),
+            ];
+
             if ($bctx) {
-                $bctx->update([
-                    'txHash'      => $txHash,
-                    'blockNumber' => $blockNumber,
-                    'trangThai'   => 'CONFIRMED',
-                ]);
+                $bctx->update($data);
             } else {
-                BlockchainTransaction::create([
-                    'txHash'           => $txHash,
-                    'blockNumber'      => $blockNumber,
-                    'eventName'        => 'BatchEventRecorded',
+                BlockchainTransaction::query()->create(array_merge($data, [
                     'doiTuongToChucId' => $loThuoc->toChucId,
-                    'businessId'       => $loThuoc->maLo,
-                    'network'          => config('truyXuat.blockchain.network', 'Ethereum Sepolia Testnet'),
-                    'trangThai'        => 'CONFIRMED',
-                    'toChucId'         => $loThuoc->toChucId,
-                    'sanPhamId'        => $loThuoc->sanPhamId,
-                    'loThuocId'        => $loThuoc->id,
-                ]);
+                ]));
             }
 
-            // Đảm bảo lô ở trạng thái CREATED
             $loThuoc->update(['trangThai' => 'CREATED']);
 
-            // 4. Sinh đơn vị thuốc lẻ (Nếu chưa sinh)
-            $coDonVi = DB::table('donViSanPham')->where('loThuocId', $loThuoc->id)->exists();
-            if (!$coDonVi) {
+            if (! DB::table('donViSanPham')->where('loThuocId', $loThuoc->id)->exists()) {
                 $donViSanPhamService->sinhHangLoat($loThuoc);
             }
 
-            // 5. Sinh mã QR cấp lô và cấp đơn vị (Nếu chưa sinh)
-            $coQr = DB::table('qrCode')->where('loThuocId', $loThuoc->id)->where('loaiQR', 'BATCH')->exists();
-            if (!$coQr) {
+            if (! DB::table('qrCode')->where('loThuocId', $loThuoc->id)->where('loaiQR', 'BATCH')->exists()) {
                 $qrService->sinhChoLo($loThuoc);
             }
 
-            // 6. Khởi tạo tồn kho ban đầu đúng một lần duy nhất
             $coTonKho = DB::table('tonKhoLo')
                 ->where('loThuocId', $loThuoc->id)
                 ->where('toChucId', $loThuoc->toChucId)
                 ->exists();
 
-            if (!$coTonKho) {
+            if (! $coTonKho) {
                 $tonKhoService->cong($loThuoc->id, $loThuoc->toChucId, $loThuoc->soLuong);
             }
 
-            // 7. Ghi audit log vào nhatKyHeThong
-            NhatKyHeThong::create([
+            NhatKyHeThong::query()->create([
                 'taiKhoanId' => $this->userId,
                 'doiTuongId' => $loThuoc->id,
-                'hanhDong'   => 'DANG_KY_LO_THUOC_ONCHAIN',
-                'ketQua'     => 'THANH_CONG',
-                'chiTiet'    => "Đăng ký thành công lô thuốc [{$loThuoc->maLoNghiepVu}] trên Blockchain. TxHash: {$txHash}",
+                'hanhDong' => 'DANG_KY_LO_THUOC_ONCHAIN',
+                'ketQua' => 'THANH_CONG',
+                'chiTiet' => "Đăng ký lô [{$loThuoc->maLoNghiepVu}] bằng registerBatch thành công. TxHash: {$txHash}",
             ]);
         });
 
-        Log::info("[ProcessBatchRegistrationJob] Hoàn tất đăng ký lô thuốc [{$loThuoc->maLoNghiepVu}]. TxHash: {$txHash}");
+        Log::info("[ProcessBatchRegistrationJob] BatchRegistered confirmed for batch {$loThuoc->maLo}: {$txHash}");
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        Log::error('[ProcessBatchRegistrationJob] FAILED batch #' . $this->loThuocId . ': ' . ($exception?->getMessage() ?? ''));
+        BlockchainTransaction::query()
+            ->where('loThuocId', $this->loThuocId)
+            ->whereIn('eventName', ['BatchRegistered', 'BatchEventRecorded'])
+            ->where('trangThai', 'PENDING')
+            ->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
     }
 }
