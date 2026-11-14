@@ -63,6 +63,7 @@ class ProcessOrganizationApprovalJob implements ShouldQueue
 
         // 3. Kiểm tra Idempotent: Nếu CHƯA có quyền On-chain mới gọi grantRole
         $txHash = null;
+        $blockTimestamp = null;
 
         if (!$signer->hasRole($roleHash, $identity->diaChiVi)) {
             $kq = $signer->tx($adminKeyId, 'grantRole', [
@@ -74,13 +75,15 @@ class ProcessOrganizationApprovalJob implements ShouldQueue
                 throw new Exception("Lỗi cấp quyền On-chain: " . ($kq['reason'] ?? 'Unknown error'));
             }
 
-            $txHash = $kq['txHash'];
+            $txHash = $kq['txHash'] ?? null;
+            $blockTimestamp = isset($kq['blockTimestamp']) ? (int) $kq['blockTimestamp'] : null;
         } else {
             Log::info("Ví [{$identity->diaChiVi}] của tổ chức [{$toChuc->tenToChuc}] đã sở hữu quyền On-chain từ trước. Bỏ qua grantRole.");
         }
 
         // 4. Cập nhật đồng bộ CSDL Off-chain
-        DB::transaction(function () use ($toChuc, $identity, $txHash) {
+        DB::transaction(function () use ($toChuc, $identity, $txHash, $blockTimestamp) {
+            $blockTime = $blockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($blockTimestamp) : now();
             // Cập nhật trạng thái ví
             $identity->update(['trangThai' => 'ACTIVE']);
 
@@ -114,6 +117,7 @@ class ProcessOrganizationApprovalJob implements ShouldQueue
                     'network'          => 'Ethereum Sepolia Testnet',
                     'trangThai'        => 'CONFIRMED',
                     'toChucId'         => $toChuc->id,
+                    'thoiGian'         => $blockTime,
                 ]);
             }
 
@@ -123,7 +127,7 @@ class ProcessOrganizationApprovalJob implements ShouldQueue
                 'doiTuongId' => $toChuc->taiKhoans()->first()?->id,
                 'hanhDong'   => 'PHE_DUYET_TO_CHUC_ONCHAIN',
                 'ketQua'     => 'THANH_CONG',
-                'thoiGian'   => now(),
+                'thoiGian'   => $blockTime,
                 'chiTiet'    => "Phê duyệt tổ chức [{$toChuc->tenToChuc}] thành công. Ví: [{$identity->diaChiVi}]." . ($txHash ? " TxHash: {$txHash}" : " (Quyền On-chain đã có sẵn)"),
             ]);
         });
