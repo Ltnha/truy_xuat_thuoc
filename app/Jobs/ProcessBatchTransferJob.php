@@ -2,11 +2,14 @@
 
 namespace App\Jobs;
 
+use App\Enums\BatchStatus;
+use App\Enums\TransferStatus;
 use App\Models\BlockchainIdentity;
 use App\Models\BlockchainTransaction;
 use App\Models\ChuyenGiao;
 use App\Models\NhatKyHeThong;
 use App\Services\Blockchain\SignerClient;
+use App\Services\ChuoiCungUng\TonKhoService;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
