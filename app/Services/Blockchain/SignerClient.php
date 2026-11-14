@@ -189,6 +189,28 @@ class SignerClient
         return $response->json();
     }
 
+    /** Đọc trạng thái đầy đủ của một transferId từ mapping transfers(bytes32). */
+    public function getTransferState(string $transferId): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/transfers/{$transferId}");
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể đọc transfer on-chain: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json();
+    }
+
+    /** Lấy timeline event của một batch từ log on-chain. */
+    public function getBatchHistory(string $batchId): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/batches/{$batchId}/history");
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể đọc lịch sử batch on-chain: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json();
+    }
+
 
     /** Kiểm tra sản phẩm đã được Cơ quan quản lý duyệt trực tiếp trên contract. */
     public function isProductApproved(string $productId): array
