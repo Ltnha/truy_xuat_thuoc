@@ -177,9 +177,9 @@ class LoThuocController extends Controller
             ]);
 
             BlockchainTransaction::create([
-                'txHash'           => 'PENDING_' . str_replace('-', '', $maBusinessId),
+                'txHash'           => null,
                 'blockNumber'      => null,
-                'eventName'        => 'BatchEventRecorded',
+                'eventName'        => 'BatchRegistered',
                 'doiTuongToChucId' => $toChuc->id,
                 'businessId'       => $maBusinessId,
                 'network'          => config('truyXuat.blockchain.network', 'Ethereum Sepolia Testnet'),
