@@ -222,11 +222,19 @@ app.post('/tx', authMiddleware, async (req, res) => {
                 throw new Error('Action không được hỗ trợ: ' + action);
         }
 
-        const receipt = await tx.wait();
+        const requiredConfirmations = Math.max(1, Number(process.env.BLOCKCHAIN_CONFIRMATIONS || 1));
+        const receipt = await tx.wait(requiredConfirmations);
         if (!receipt || receipt.status !== 1) {
             return res.status(502).json({ ok: false, reason: 'Transaction reverted hoặc không có receipt.', txHash: tx.hash });
         }
-        return res.json({ ok: true, txHash: receipt.hash, blockNumber: Number(receipt.blockNumber) });
+        const minedBlock = await provider.getBlock(receipt.blockNumber);
+        return res.json({
+            ok: true,
+            txHash: receipt.hash,
+            blockNumber: Number(receipt.blockNumber),
+            blockTimestamp: minedBlock ? Number(minedBlock.timestamp) : null,
+            confirmations: requiredConfirmations
+        });
     } catch (err) {
         const reason = err.revert?.name || err.shortMessage || err.reason || err.message || 'Signer transaction failed';
         return res.status(400).json({ ok: false, reason });
@@ -249,14 +257,19 @@ app.get('/products/check', authMiddleware, async (req, res) => {
         const productId = requireBytes32(String(req.query.productId || ''), 'productId');
         const contract = contractFor(provider);
         const payloadHash = await contract.approvedProducts(productId);
-        let txHash = null, blockNumber = null;
+        let txHash = null, blockNumber = null, blockTimestamp = null;
         if (payloadHash !== ethers.ZeroHash) {
             const latest = await provider.getBlockNumber();
             const logs = await contract.queryFilter(contract.filters.ProductApproved(productId), Math.max(0, latest - 40000), latest);
             const found = logs.length ? logs[logs.length - 1] : null;
-            if (found) { txHash = found.transactionHash; blockNumber = Number(found.blockNumber); }
+            if (found) {
+                txHash = found.transactionHash;
+                blockNumber = Number(found.blockNumber);
+                const block = await provider.getBlock(found.blockNumber);
+                blockTimestamp = block ? Number(block.timestamp) : null;
+            }
         }
-        return res.json({ ok: true, isApproved: payloadHash !== ethers.ZeroHash, payloadHash, txHash, blockNumber });
+        return res.json({ ok: true, isApproved: payloadHash !== ethers.ZeroHash, payloadHash, txHash, blockNumber, blockTimestamp });
     } catch (err) {
         return res.status(400).json({ ok: false, isApproved: false, reason: err.message });
     }
@@ -269,14 +282,19 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
         const eventType = requireBytes32(String(req.query.eventType || ''), 'eventType');
         const contract = contractFor(provider);
         const isRecorded = await contract.isBatchEventRecorded(batchId, businessId, eventType);
-        let txHash = null, blockNumber = null;
+        let txHash = null, blockNumber = null, blockTimestamp = null;
         if (isRecorded) {
             const latest = await provider.getBlockNumber();
             const logs = await contract.queryFilter(contract.filters.BatchEventRecorded(batchId, businessId), Math.max(0, latest - 40000), latest);
             const found = logs.find(log => String(log.args.eventType).toLowerCase() === eventType.toLowerCase());
-            if (found) { txHash = found.transactionHash; blockNumber = Number(found.blockNumber); }
+            if (found) {
+                txHash = found.transactionHash;
+                blockNumber = Number(found.blockNumber);
+                const block = await provider.getBlock(found.blockNumber);
+                blockTimestamp = block ? Number(block.timestamp) : null;
+            }
         }
-        return res.json({ ok: true, isRecorded, txHash, blockNumber });
+        return res.json({ ok: true, isRecorded, txHash, blockNumber, blockTimestamp });
     } catch (err) {
         return res.status(400).json({ ok: false, isRecorded: false, reason: err.message });
     }
@@ -293,10 +311,12 @@ app.get('/transfers/check', authMiddleware, async (req, res) => {
         const filter = contract.filters[eventName](transferId);
         const logs = await contract.queryFilter(filter, Math.max(0, latest - 40000), latest);
         const found = logs.length ? logs[logs.length - 1] : null;
+        const block = found ? await provider.getBlock(found.blockNumber) : null;
         return res.json({
             ok: true, isRecorded: Boolean(found),
             txHash: found ? found.transactionHash : null,
-            blockNumber: found ? Number(found.blockNumber) : null
+            blockNumber: found ? Number(found.blockNumber) : null,
+            blockTimestamp: block ? Number(block.timestamp) : null
         });
     } catch (err) {
         return res.status(400).json({ ok: false, isRecorded: false, txHash: null, blockNumber: null, reason: err.message });
@@ -313,17 +333,27 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
             contract.getBatchTransfers(batchId),
             contract.isBatchRecalled(batchId)
         ]);
-        let registerTxHash = null, registerBlockNumber = null;
-        let recallTxHash = null, recallBlockNumber = null;
+        let registerTxHash = null, registerBlockNumber = null, registerBlockTimestamp = null;
+        let recallTxHash = null, recallBlockNumber = null, recallBlockTimestamp = null;
         if (batch.exists) {
             const latest = await provider.getBlockNumber();
             const logs = await contract.queryFilter(contract.filters.BatchRegistered(batchId), Math.max(0, latest - 40000), latest);
             const found = logs.length ? logs[logs.length - 1] : null;
-            if (found) { registerTxHash = found.transactionHash; registerBlockNumber = Number(found.blockNumber); }
+            if (found) {
+                registerTxHash = found.transactionHash;
+                registerBlockNumber = Number(found.blockNumber);
+                const block = await provider.getBlock(found.blockNumber);
+                registerBlockTimestamp = block ? Number(block.timestamp) : null;
+            }
             if (recalled) {
                 const recallLogs = await contract.queryFilter(contract.filters.BatchRecalled(batchId), Math.max(0, latest - 40000), latest);
                 const recallFound = recallLogs.length ? recallLogs[recallLogs.length - 1] : null;
-                if (recallFound) { recallTxHash = recallFound.transactionHash; recallBlockNumber = Number(recallFound.blockNumber); }
+                if (recallFound) {
+                    recallTxHash = recallFound.transactionHash;
+                    recallBlockNumber = Number(recallFound.blockNumber);
+                    const block = await provider.getBlock(recallFound.blockNumber);
+                    recallBlockTimestamp = block ? Number(block.timestamp) : null;
+                }
             }
         }
         return res.json({
@@ -338,11 +368,76 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
             isRecalled: recalled,
             registerTxHash,
             registerBlockNumber,
+            registerBlockTimestamp,
             recallTxHash,
-            recallBlockNumber
+            recallBlockNumber,
+            recallBlockTimestamp
         });
     } catch (err) {
         return res.status(400).json({ ok: false, reason: err.message });
+    }
+});
+
+app.get('/transfers/:transferId', authMiddleware, async (req, res) => {
+    try {
+        const transferId = requireBytes32(req.params.transferId, 'transferId');
+        const transfer = await contractFor(provider).transfers(transferId);
+        if (transfer.transferId === ethers.ZeroHash) {
+            return res.status(404).json({ ok: false, reason: 'Không tìm thấy transferId.' });
+        }
+        return res.json({
+            ok: true,
+            transfer: {
+                transferId: transfer.transferId,
+                batchId: transfer.batchId,
+                sender: transfer.sender,
+                receiver: transfer.receiver,
+                status: Number(transfer.status),
+                createdAt: Number(transfer.createdAt),
+                completedAt: Number(transfer.completedAt),
+                reasonHash: transfer.reasonHash
+            }
+        });
+    } catch (err) {
+        return res.status(400).json({ ok: false, reason: err.shortMessage || err.message });
+    }
+});
+
+app.get('/batches/:batchId/history', authMiddleware, async (req, res) => {
+    try {
+        const batchId = requireBytes32(req.params.batchId, 'batchId');
+        const contract = contractFor(provider);
+        const latest = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, latest - 40000);
+        const filters = [
+            contract.filters.BatchRegistered(batchId),
+            contract.filters.BatchEventRecorded(batchId),
+            contract.filters.BatchOwnerChanged(batchId),
+            contract.filters.BatchRecalled(batchId),
+            contract.filters.TransferSubmitted(null, batchId),
+            contract.filters.TransferReceived(null, batchId),
+            contract.filters.TransferRejected(null, batchId),
+            contract.filters.TransferCancelled(null, batchId)
+        ];
+        const groups = await Promise.all(filters.map(filter => contract.queryFilter(filter, fromBlock, latest)));
+        const events = groups.flat().map(log => {
+            const args = {};
+            log.fragment.inputs.forEach((input, index) => {
+                const value = log.args[index];
+                args[input.name] = typeof value === 'bigint' ? Number(value) : value;
+            });
+            return {
+                eventName: log.fragment.name,
+                args,
+                blockNumber: Number(log.blockNumber),
+                logIndex: Number(log.index),
+                txHash: log.transactionHash,
+                timestamp: Number(args.timestamp || 0)
+            };
+        }).sort((a, b) => a.timestamp - b.timestamp || a.blockNumber - b.blockNumber || a.logIndex - b.logIndex);
+        return res.json({ ok: true, batchId, fromBlock, toBlock: latest, events });
+    } catch (err) {
+        return res.status(400).json({ ok: false, reason: err.shortMessage || err.message });
     }
 });
 
