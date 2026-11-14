@@ -77,6 +77,7 @@ class ProcessBatchRecallJob implements ShouldQueue
         $blockNumber = isset($batchState['recallBlockNumber'])
             ? (int) $batchState['recallBlockNumber']
             : ($existingConfirmedTx?->blockNumber ? (int) $existingConfirmedTx->blockNumber : null);
+        $blockTimestamp = isset($batchState['recallBlockTimestamp']) ? (int) $batchState['recallBlockTimestamp'] : null;
 
         if (empty($batchState['batch']['recalled'])) {
             $signer->ensureGas($adminKeyId);
@@ -90,18 +91,20 @@ class ProcessBatchRecallJob implements ShouldQueue
             }
             $txHash = (string) $result['txHash'];
             $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
+            $blockTimestamp = isset($result['blockTimestamp']) ? (int) $result['blockTimestamp'] : $blockTimestamp;
         }
 
         if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
             throw new \RuntimeException('Lô đã bị thu hồi on-chain nhưng không truy xuất được txHash BatchRecalled thật.');
         }
 
-        $this->capNhatThanhCong($thuHoi, (string) $thuHoi->id, $txHash, $blockNumber);
+        $this->capNhatThanhCong($thuHoi, (string) $thuHoi->id, $txHash, $blockNumber, $blockTimestamp);
     }
 
-    protected function capNhatThanhCong(ThuHoiLoHang $thuHoi, string $businessIdStr, string $txHash, ?int $blockNumber = null): void
+    protected function capNhatThanhCong(ThuHoiLoHang $thuHoi, string $businessIdStr, string $txHash, ?int $blockNumber = null, ?int $blockTimestamp = null): void
     {
-        DB::transaction(function () use ($thuHoi, $businessIdStr, $txHash, $blockNumber) {
+        DB::transaction(function () use ($thuHoi, $businessIdStr, $txHash, $blockNumber, $blockTimestamp) {
+            $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
             $loThuoc = LoThuoc::query()->whereKey($thuHoi->loThuocId)->lockForUpdate()->firstOrFail();
             $loThuoc->update(['trangThai' => 'RECALLED']);
 
@@ -114,7 +117,7 @@ class ProcessBatchRecallJob implements ShouldQueue
                 'trangThai' => 'CONFIRMED',
                 'txHash' => $txHash,
                 'blockNumber' => $blockNumber,
-                'thoiGian' => now(),
+                'thoiGian' => $blockTime,
             ]);
 
             // Contract không tự xóa pendingTransferOf khi recall. Sau khi BatchRecalled
@@ -163,7 +166,7 @@ class ProcessBatchRecallJob implements ShouldQueue
                 'doiTuongId' => $thuHoi->loThuocId,
                 'hanhDong' => 'NEO_BLOCKCHAIN_THU_HOI_THANH_CONG',
                 'ketQua' => 'THANH_CONG',
-                'thoiGian' => now(),
+                'thoiGian' => $blockTime,
                 'chiTiet' => "Neo thành công quyết định thu hồi lô [{$thuHoi->loThuoc?->maLoNghiepVu}] lên Blockchain. TxHash: {$txHash}",
             ]);
         });
