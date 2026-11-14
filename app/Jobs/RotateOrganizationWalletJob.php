@@ -35,6 +35,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
         $adminKeyId = config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
 
         // 1. Tước quyền On-chain ví cũ (nếu có ví và ví đang nắm quyền On-chain)
+        $revokeBlockTimestamp = null;
         $viCu = BlockchainIdentity::where('toChucId', $toChuc->id)
             ->whereNotNull('diaChiVi')
             ->latest('id')
@@ -52,6 +53,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                     throw new Exception("Không thể thu hồi role ví cũ; dừng đổi ví để tránh hai ví cùng có quyền. " . ($kqRevoke['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
                 }
 
+                $revokeBlockTimestamp = isset($kqRevoke['blockTimestamp']) ? (int) $kqRevoke['blockTimestamp'] : null;
                 BlockchainTransaction::create([
                     'txHash'           => $kqRevoke['txHash'],
                     'eventName'        => 'RoleRevoked',
@@ -60,6 +62,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                     'network'          => 'Ethereum Sepolia Testnet',
                     'trangThai'        => 'CONFIRMED',
                     'toChucId'         => $toChuc->id,
+                    'thoiGian'         => $revokeBlockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($revokeBlockTimestamp) : now(),
                 ]);
             }
             $viCu->update(['trangThai' => 'REVOKED']);
@@ -86,12 +89,14 @@ class RotateOrganizationWalletJob implements ShouldQueue
             'role'    => $roleHash,
         ]);
 
-        if (!$kqGrant['ok']) {
-            throw new Exception("Lỗi cấp quyền ví mới On-chain: " . ($kqGrant['reason'] ?? 'Unknown error'));
+        if (empty($kqGrant['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) ($kqGrant['txHash'] ?? ''))) {
+            throw new Exception("Lỗi cấp quyền ví mới On-chain: " . ($kqGrant['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
         }
+        $grantBlockTimestamp = isset($kqGrant['blockTimestamp']) ? (int) $kqGrant['blockTimestamp'] : null;
 
         // 4. Hoàn tất kích hoạt ví mới
-        DB::transaction(function () use ($viMoi, $toChuc, $kqGrant) {
+        DB::transaction(function () use ($viMoi, $toChuc, $kqGrant, $grantBlockTimestamp) {
+            $blockTime = $grantBlockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($grantBlockTimestamp) : now();
             $viMoi->update(['trangThai' => 'ACTIVE']);
 
             BlockchainTransaction::create([
@@ -102,6 +107,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                 'network'          => 'Ethereum Sepolia Testnet',
                 'trangThai'        => 'CONFIRMED',
                 'toChucId'         => $toChuc->id,
+                'thoiGian'         => $blockTime,
             ]);
 
             NhatKyHeThong::create([
@@ -109,7 +115,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                 'doiTuongId' => $toChuc->taiKhoans()->first()?->id,
                 'hanhDong'   => 'ROTATE_WALLET_ONCHAIN',
                 'ketQua'     => 'THANH_CONG',
-                'thoiGian'   => now(),
+                'thoiGian'   => $blockTime,
                 'chiTiet'    => "Đổi ví mới thành công [{$viMoi->diaChiVi}] cho tổ chức [{$toChuc->tenToChuc}]. TxHash: {$kqGrant['txHash']}",
             ]);
         });
