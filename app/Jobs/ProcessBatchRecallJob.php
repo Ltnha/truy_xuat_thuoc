@@ -124,16 +124,21 @@ class ProcessBatchRecallJob implements ShouldQueue
         Log::error("ProcessBatchRecallJob thất bại hoàn toàn: {$exception->getMessage()}");
 
         $thuHoi = ThuHoiLoHang::find($this->thuHoiLoHangId);
-        if ($thuHoi) {
+        $reason = $exception->getMessage();
+        $isDefinitiveRevert = (bool) preg_match('/revert|unauthorized|batchnotfound|batchalreadyrecalled|invaliddata/i', $reason);
+        if ($thuHoi && $isDefinitiveRevert) {
             BlockchainTransaction::where(function ($q) use ($thuHoi) {
                 $q->where('businessId', (string) $thuHoi->id)
                   ->orWhere('loThuocId', $thuHoi->loThuocId);
             })
             ->whereIn('eventName', ['BatchRecalled', 'RECALL_BATCH'])
+            ->where('trangThai', 'PENDING')
             ->update([
                 'trangThai' => 'FAILED',
                 'thoiGian' => now(),
             ]);
+        } elseif ($thuHoi) {
+            Log::warning('[ProcessBatchRecallJob] Giữ PENDING để đối soát/retry vì chưa có bằng chứng tx revert.');
         }
     }
 }
