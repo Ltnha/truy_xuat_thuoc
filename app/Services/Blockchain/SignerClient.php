@@ -178,7 +178,7 @@ class SignerClient
     {
         $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/transfers/check", [
-            'maChuyenGiao' => $maChuyenGiao,
+            'transferId' => $maChuyenGiao,
             'eventName' => $eventName,
         ]);
         // RPC range / network lỗi: trả isRecorded=false để Job vẫn gửi tx, không chặn luồng
@@ -190,6 +190,20 @@ class SignerClient
                 'blockNumber' => null,
                 'reason' => $response->json('reason') ?? $response->body(),
             ];
+        }
+        return $response->json();
+    }
+
+
+    /** Kiểm tra sản phẩm đã được Cơ quan quản lý duyệt trực tiếp trên contract. */
+    public function isProductApproved(string $productId): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/products/check", [
+            'productId' => $productId,
+        ]);
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể kiểm tra trạng thái duyệt sản phẩm on-chain: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
     }
