@@ -217,6 +217,7 @@ class ChuyenGiaoService
             if ((int) $chuyenGiao->benNhanId !== (int) $benNhan->id || $chuyenGiao->trangThai !== TransferStatus::pending) {
                 throw new NghiepVuException('Giao dịch không thuộc đơn vị nhận hoặc không còn chờ tiếp nhận.');
             }
+            $this->assertNoPendingRecall((int) $chuyenGiao->loThuocId);
             $this->assertNoPendingTransferAction((int) $chuyenGiao->id);
 
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
@@ -279,6 +280,7 @@ class ChuyenGiaoService
             if ((int) $cg->benGuiId !== (int) $benGui->id || $cg->trangThai !== TransferStatus::pending) {
                 throw new NghiepVuException('Chỉ bên gửi mới được hủy lệnh đang chờ tiếp nhận.');
             }
+            $this->assertNoPendingRecall((int) $cg->loThuocId);
             $this->assertNoPendingTransferAction((int) $cg->id);
 
             $loThuoc = LoThuoc::query()->whereKey($cg->loThuocId)->lockForUpdate()->firstOrFail();
@@ -303,6 +305,13 @@ class ChuyenGiaoService
             'TransferCancelled',
             'TRANSFER_CANCELLED'
         )->afterCommit();
+    }
+
+    private function assertNoPendingRecall(int $loThuocId): void
+    {
+        if (ThuHoiLoHang::query()->where('loThuocId', $loThuocId)->exists()) {
+            throw new NghiepVuException('Lô thuốc đã có quyết định thu hồi; không thể xử lý chuyển giao.');
+        }
     }
 
     private function assertNoPendingTransferAction(int $chuyenGiaoId): void
