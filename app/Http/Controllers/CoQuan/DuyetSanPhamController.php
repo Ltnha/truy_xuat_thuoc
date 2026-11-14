@@ -94,7 +94,13 @@ class DuyetSanPhamController extends Controller
                 if (strtolower((string) ($approvalState['payloadHash'] ?? '')) !== strtolower($payloadHashBytes32)) {
                     throw new \RuntimeException('Sản phẩm đã được duyệt với payloadHash khác; contract không hỗ trợ duyệt lại.');
                 }
-                $txHash = $approvalState['txHash'] ?? null;
+                $txHash = $approvalState['txHash'] ?? BlockchainTransaction::query()
+                    ->where('sanPhamId', $sanPham->id)
+                    ->where('eventName', 'ProductApproved')
+                    ->where('trangThai', 'CONFIRMED')
+                    ->whereNotNull('txHash')
+                    ->latest('id')
+                    ->value('txHash');
             } else {
                 $signerClient->ensureGas($keyId);
                 $response = $signerClient->sendTransaction([
