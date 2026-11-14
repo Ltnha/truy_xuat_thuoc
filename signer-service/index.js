@@ -230,7 +230,14 @@ app.get('/products/check', authMiddleware, async (req, res) => {
         const productId = requireBytes32(String(req.query.productId || ''), 'productId');
         const contract = contractFor(provider);
         const payloadHash = await contract.approvedProducts(productId);
-        return res.json({ ok: true, isApproved: payloadHash !== ethers.ZeroHash, payloadHash });
+        let txHash = null, blockNumber = null;
+        if (payloadHash !== ethers.ZeroHash) {
+            const latest = await provider.getBlockNumber();
+            const logs = await contract.queryFilter(contract.filters.ProductApproved(productId), Math.max(0, latest - 40000), latest);
+            const found = logs.length ? logs[logs.length - 1] : null;
+            if (found) { txHash = found.transactionHash; blockNumber = Number(found.blockNumber); }
+        }
+        return res.json({ ok: true, isApproved: payloadHash !== ethers.ZeroHash, payloadHash, txHash, blockNumber });
     } catch (err) {
         return res.status(400).json({ ok: false, isApproved: false, reason: err.message });
     }
