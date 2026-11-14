@@ -288,11 +288,17 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
             contract.isBatchRecalled(batchId)
         ]);
         let registerTxHash = null, registerBlockNumber = null;
+        let recallTxHash = null, recallBlockNumber = null;
         if (batch.exists) {
             const latest = await provider.getBlockNumber();
             const logs = await contract.queryFilter(contract.filters.BatchRegistered(batchId), Math.max(0, latest - 40000), latest);
             const found = logs.length ? logs[logs.length - 1] : null;
             if (found) { registerTxHash = found.transactionHash; registerBlockNumber = Number(found.blockNumber); }
+            if (recalled) {
+                const recallLogs = await contract.queryFilter(contract.filters.BatchRecalled(batchId), Math.max(0, latest - 40000), latest);
+                const recallFound = recallLogs.length ? recallLogs[recallLogs.length - 1] : null;
+                if (recallFound) { recallTxHash = recallFound.transactionHash; recallBlockNumber = Number(recallFound.blockNumber); }
+            }
         }
         return res.json({
             ok: true,
@@ -305,7 +311,9 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
             transferIds: transfers,
             isRecalled: recalled,
             registerTxHash,
-            registerBlockNumber
+            registerBlockNumber,
+            recallTxHash,
+            recallBlockNumber
         });
     } catch (err) {
         return res.status(400).json({ ok: false, reason: err.message });
