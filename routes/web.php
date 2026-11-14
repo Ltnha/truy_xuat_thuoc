@@ -140,7 +140,6 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::get('/quan-ly-lo-thuoc', [LoThuocController::class, 'index'])->name('lo-thuoc.index');
             Route::get('/api/danh-sach-lo-thuoc', [LoThuocController::class, 'getDanhSachAPI'])->name('lo-thuoc.api');
             Route::post('/api/tao-lo-thuoc', [LoThuocController::class, 'store'])->name('lo-thuoc.store');
-            Route::post('/api/lo-thuoc/{id}/luu-txhash', [LoThuocController::class, 'saveTxHash'])->name('lo-thuoc.luu-txhash');
 
             // Chuyển giao lô thuốc
             Route::get('/api/nha-phan-phoi', [ChuyenGiaoController::class, 'danhSachNhaPhanPhoi'])->name('lo-thuoc.api.npp');
