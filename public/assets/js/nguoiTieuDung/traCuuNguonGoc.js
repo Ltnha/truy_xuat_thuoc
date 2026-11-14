@@ -381,32 +381,52 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-    function thucHienTraCuu(ma) {
+    async function thucHienTraCuu(ma) {
         if (!ma) {
             alert("Vui lòng nhập mã lô hoặc mã đơn vị thuốc để kiểm tra!");
             return;
         }
 
         khuVucKetQua.classList.remove('hidden');
+        khuVucKetQua.setAttribute('aria-busy', 'true');
 
-        const ketQua = duLieuMoPhong[ma] || {
-            trangThai: 'NOT_FOUND',
-            loai: 'KHÔNG TÌM THẤY',
-            tenThuoc: 'Không có thông tin trong CSDL Blockchain',
-            hamLuongDangBaoChe: 'Không xác định',
-            hoatChat: 'Không xác định',
-            soDangKy: 'Chưa cấp phép',
-            nhaSanXuat: 'Không rõ',
-            ngaySanXuat: '--',
-            hanSuDung: '--',
-            batchIdHash: '0x0000000000000000000000000000000000000000',
-            txHash: '0x0000000000000000000000000000000000000000',
-            isDispensed: 'KHÔNG TỒN TẠI',
-            hanhTrinh: []
-        };
-
-        capNhatGiaoDien(ma, ketQua);
-        luuVaoLocalStorage(ma, ketQua);
+        try {
+            const response = await fetch('/api/tra-cuu-nguon-goc/' + encodeURIComponent(ma), {
+                headers: { 'Accept': 'application/json' },
+                cache: 'no-store'
+            });
+            if (!response.ok) {
+                throw new Error('Không thể tra cứu dữ liệu (' + response.status + ').');
+            }
+            const ketQua = await response.json();
+            capNhatGiaoDien(ma, ketQua);
+            luuVaoLocalStorage(ma, ketQua);
+        } catch (error) {
+            const ketQua = {
+                trangThai: 'UNAVAILABLE',
+                loai: 'KHÔNG THỂ KẾT NỐI',
+                tenThuoc: 'Không thể lấy dữ liệu xác thực từ máy chủ.',
+                hamLuongDangBaoChe: '—',
+                hoatChat: '—',
+                soDangKy: '—',
+                nhaSanXuat: '—',
+                ngaySanXuat: '—',
+                hanSuDung: '—',
+                batchIdHash: '—',
+                txHash: '—',
+                isDispensed: 'Không xác định',
+                productIntegrity: 'UNVERIFIED',
+                chainReadStatus: 'UNAVAILABLE',
+                chainOwner: null,
+                chainRecalled: false,
+                chainHistory: [],
+                hanhTrinh: []
+            };
+            capNhatGiaoDien(ma, ketQua);
+            console.error(error);
+        } finally {
+            khuVucKetQua.removeAttribute('aria-busy');
+        }
     }
 
     function capNhatGiaoDien(ma, kq) {
@@ -473,8 +493,23 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('ngaySanXuat').textContent = kq.ngaySanXuat;
         document.getElementById('hanSuDung').textContent = kq.hanSuDung;
 
-        document.getElementById('batchIdHash').textContent = kq.batchIdHash;
-        document.getElementById('txHashKhoiTao').textContent = kq.txHash;
+        document.getElementById('batchIdHash').textContent = kq.batchIdHash || '—';
+        document.getElementById('txHashKhoiTao').textContent = kq.txHash || 'Chưa có giao dịch blockchain';
+        const ownerNode = document.getElementById('chainOwner');
+        if (ownerNode) ownerNode.textContent = kq.chainOwner || 'Chưa có dữ liệu on-chain';
+        const integrityNode = document.getElementById('productIntegrity');
+        if (integrityNode) {
+            integrityNode.textContent = kq.productIntegrity || 'UNVERIFIED';
+            integrityNode.className = 'font-bold px-2.5 py-1 rounded text-[11px] inline-block ' +
+                (kq.productIntegrity === 'MATCH' ? 'bg-emerald-100 text-emerald-800' :
+                (kq.productIntegrity === 'MISMATCH' || kq.productIntegrity === 'NOT_APPROVED_ON_CHAIN' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'));
+        }
+        const batchStatusNode = document.getElementById('chainBatchStatus');
+        if (batchStatusNode) {
+            batchStatusNode.textContent = kq.chainReadStatus !== 'AVAILABLE'
+                ? 'Không thể kết nối RPC để xác minh'
+                : (kq.chainRecalled ? 'Đã thu hồi on-chain' : (kq.batchExistsOnChain ? 'Đã đăng ký on-chain' : 'Chưa đăng ký on-chain'));
+        }
         
         const coBanLe = document.getElementById('coBanLe');
         coBanLe.textContent = kq.isDispensed;
