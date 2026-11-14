@@ -130,7 +130,7 @@ class ChiTietLoThuocController extends Controller
             $st = strtoupper((string) ($txHienTai->trangThai ?? ''));
             $hash = (string) ($txHienTai->txHash ?? '');
 
-            if (in_array($st, ['CONFIRMED', 'SUCCESS'], true) || ($hash && !str_starts_with($hash, 'PENDING_'))) {
+            if (in_array($st, ['CONFIRMED', 'SUCCESS'], true) && preg_match('/^0x[a-fA-F0-9]{64}$/', $hash)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Lô thuốc này đã được ghi nhận On-chain thành công.',
@@ -138,7 +138,7 @@ class ChiTietLoThuocController extends Controller
             }
 
             // Nếu đang PENDING thì không tạo record mới
-            if ($st === 'PENDING' || str_starts_with($hash, 'PENDING_')) {
+            if ($st === 'PENDING') {
                 // Vẫn dispatch lại job để retry
                 ProcessBatchRegistrationJob::dispatch($loThuoc->id, $user->id);
 
@@ -151,9 +151,9 @@ class ChiTietLoThuocController extends Controller
 
         // Tạo record PENDING mới
         BlockchainTransaction::create([
-            'txHash'           => 'PENDING_' . str_replace('-', '', (string) $loThuoc->maLo),
+            'txHash'           => null,
             'blockNumber'      => null,
-            'eventName'        => 'BatchEventRecorded',
+            'eventName'        => 'BatchRegistered',
             'doiTuongToChucId' => $loThuoc->toChucId,
             'businessId'       => $loThuoc->maLo,
             'network'          => config('truyXuat.blockchain.mang', 'Ethereum Sepolia'),
