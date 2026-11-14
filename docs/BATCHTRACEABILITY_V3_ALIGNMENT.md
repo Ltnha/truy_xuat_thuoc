@@ -30,9 +30,10 @@
 - [x] blockchainTransaction.txHash cho phép NULL trước khi có transaction hash thật; đã cập nhật cả hai SQL dump và thêm migration.
 - [x] Không tạo txHash giả dạng PENDING_*, ONCHAIN_* hoặc FAILED_* trong các luồng đã đồng bộ.
 - [x] Signer chờ số confirmation cấu hình bằng BLOCKCHAIN_CONFIRMATIONS và trả block timestamp.
+- [x] Gỡ bỏ controller/route lưu txHash thủ công và synchronizer cũ còn phụ thuộc writers(address), không có trong ABI mới.
 - [x] Các luồng duyệt sản phẩm, đăng ký lô, transfer, recall và cấp/thu hồi role lưu thời gian block khi receipt có timestamp.
 - [ ] Tách hàm chuẩn hóa/hash thành một service dùng chung duy nhất; hiện một số luồng vẫn lặp lại cấu trúc JSON.
-- [ ] Ánh xạ đầy đủ custom error sang thông báo tiếng Việt thống nhất ở API/UI.
+- [x] SignerClient ánh xạ 17 custom error của contract sang thông báo tiếng Việt và vẫn giữ mã lỗi để job phân loại revert.
 - [ ] Xây indexer bền vững có cursor block, unique log identity, restart/replay và đồng bộ RoleGranted/RoleRevoked.
 
 ## 2. Role và owner
