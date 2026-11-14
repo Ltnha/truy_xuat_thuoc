@@ -30,7 +30,7 @@ class DuyetSanPhamController extends Controller
             ->get();
 
         // TAB 2: Danh mục sản phẩm ĐÃ DUYỆT (Lưu hành & On-Chain)
-        $sanPhamDaDuyets = SanPham::with(['nhaSanXuat', 'blockchainTransactions' => fn($q) => $q->where('eventName', 'ProductRegistered')])
+        $sanPhamDaDuyets = SanPham::with(['nhaSanXuat', 'blockchainTransactions' => fn($q) => $q->where('eventName', 'ProductApproved')])
             ->where('trangThaiDuyet', 'DA_DUYET')
             ->latest('id')
             ->get();
@@ -66,35 +66,33 @@ class DuyetSanPhamController extends Controller
             return back()->with('loi', $thongBaoLoi);
         }
 
-        // BƯỚC 2: XÁC ĐỊNH KEY ID KÝ GIAO DỊCH BLOCKCHAIN
-        $identity = BlockchainIdentity::where('toChucId', $toChucCoQuan->id)->first();
+        // Contract v2: approveProduct chỉ cho địa chỉ có ROLE_CO_QUAN.
+        // Owner deploy contract mặc định có ROLE_CO_QUAN; dùng admin key tương ứng owner.
+        $keyId = config('truyXuat.blockchain.adminKeyId', env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY'));
 
-        $keyId = env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY');
-        if ($identity && !empty($identity->signerKeyId) && !str_starts_with($identity->signerKeyId, 'KEY-DEMO-')) {
-            $keyId = $identity->signerKeyId;
-        }
-
-        // BƯỚC 3: ĐỊNH DẠNG DỮ LIỆU VÀ GỬI GIAO DỊCH LÊN ETHEREUM SEPOLIA BLOCKCHAIN
-        $batchIdBytes32 = '0x' . hash('sha256', $sanPham->maSanPham);
-        $businessIdBytes32 = '0x' . hash('sha256', $sanPham->soDangKy);
-        $eventTypeBytes32 = '0x' . hash('sha256', 'PRODUCT_REGISTERED');
-        $payloadHashBytes32 = '0x' . hash('sha256', json_encode([
-            'tenSanPham' => $sanPham->tenSanPham,
-            'soDangKy' => $sanPham->soDangKy,
+        $productIdBytes32 = '0x' . hash('sha256', 'PRODUCT_' . (string) $sanPham->maSanPham);
+        $productPayload = [
+            'maSanPham' => (string) $sanPham->maSanPham,
+            'tenSanPham' => (string) $sanPham->tenSanPham,
+            'soDangKy' => (string) $sanPham->soDangKy,
             'thanhPhan' => $sanPham->thanhPhan,
             'hamLuong' => $sanPham->hamLuong,
             'dangBaoChe' => $sanPham->dangBaoChe,
-            'nhaSanXuatId' => $sanPham->nhaSanXuatId,
-        ]));
+            'quyCachDongGoi' => $sanPham->quyCachDongGoi,
+            'nhaSanXuatId' => (int) $sanPham->nhaSanXuatId,
+        ];
+        $payloadJson = json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        if ($payloadJson === false) {
+            throw new \RuntimeException('Không thể chuẩn hóa hồ sơ sản phẩm để tạo payloadHash.');
+        }
+        $payloadHashBytes32 = '0x' . hash('sha256', $payloadJson);
 
         try {
             $response = $signerClient->sendTransaction([
-                'keyId'  => $keyId,
-                'action' => 'recordBatchEvent',
+                'keyId' => $keyId,
+                'action' => 'approveProduct',
                 'params' => [
-                    'batchId' => $batchIdBytes32,
-                    'businessId' => $businessIdBytes32,
-                    'eventType' => $eventTypeBytes32,
+                    'productId' => $productIdBytes32,
                     'payloadHash' => $payloadHashBytes32,
                 ],
             ]);
@@ -122,12 +120,12 @@ class DuyetSanPhamController extends Controller
                 BlockchainTransaction::updateOrCreate(
                     [
                         'sanPhamId' => $sanPham->id,
-                        'eventName' => 'ProductRegistered',
+                        'eventName' => 'ProductApproved',
                     ],
                     [
                         'txHash' => $txHash,
                         'businessId' => $sanPham->maSanPham,
-                        'toChucId' => $sanPham->nhaSanXuatId,
+                        'toChucId' => $toChucCoQuan->id,
                         'network' => 'Ethereum Sepolia Testnet',
                         'trangThai' => 'CONFIRMED',
                         'thoiGian' => $now,
