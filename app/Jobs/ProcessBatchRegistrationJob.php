@@ -67,7 +67,9 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             ->whereNotNull('txHash')
             ->latest('id')
             ->first();
-        $txHash = $batchState['registerTxHash'] ?? $existingConfirmedTx?->txHash;
+        $dbTxHash = $existingConfirmedTx?->txHash;
+        if (! is_string($dbTxHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $dbTxHash)) $dbTxHash = null;
+        $txHash = $batchState['registerTxHash'] ?? $dbTxHash;
         $blockNumber = isset($batchState['registerBlockNumber'])
             ? (int) $batchState['registerBlockNumber']
             : ($existingConfirmedTx?->blockNumber ? (int) $existingConfirmedTx->blockNumber : null);
