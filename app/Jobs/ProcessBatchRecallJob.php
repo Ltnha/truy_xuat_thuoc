@@ -87,7 +87,7 @@ class ProcessBatchRecallJob implements ShouldQueue
             ]);
 
             if (empty($result['ok']) || empty($result['txHash'])) {
-                throw new \RuntimeException('Lỗi recallBatch: ' . ($result['reason'] ?? 'Signer không trả về txHash.'));
+                throw new \RuntimeException('Lỗi recallBatch: ' . ($result['reasonVi'] ?? $result['reason'] ?? 'Signer không trả về txHash.'));
             }
             $txHash = (string) $result['txHash'];
             $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
