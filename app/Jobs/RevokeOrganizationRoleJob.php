@@ -46,6 +46,7 @@ class RevokeOrganizationRoleJob implements ShouldQueue
         $roleHash = RoleMap::cho($toChuc->loaiToChuc);
         $adminKeyId = config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
         $txHash = null;
+        $blockTimestamp = null;
 
         // Chỉ gọi revokeRole On-chain nếu trên hợp đồng ví vẫn đang sở hữu vai trò
         if ($signer->hasRole($roleHash, $identity->diaChiVi)) {
@@ -60,13 +61,15 @@ class RevokeOrganizationRoleJob implements ShouldQueue
                 throw new Exception("Lỗi tước quyền On-chain: " . ($kq['reason'] ?? 'Unknown error'));
             }
 
-            $txHash = $kq['txHash'];
+            $txHash = $kq['txHash'] ?? null;
+            $blockTimestamp = isset($kq['blockTimestamp']) ? (int) $kq['blockTimestamp'] : null;
         } else {
             \Illuminate\Support\Facades\Log::info("Ví [{$identity->diaChiVi}] của tổ chức [{$toChuc->tenToChuc}] đã không còn quyền On-chain từ trước.");
         }
 
         // Cập nhật CSDL
-        DB::transaction(function () use ($identity, $toChuc, $txHash) {
+        DB::transaction(function () use ($identity, $toChuc, $txHash, $blockTimestamp) {
+            $blockTime = $blockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($blockTimestamp) : now();
             $identity->update(['trangThai' => 'REVOKED']);
 
             if ($txHash) {
@@ -78,6 +81,7 @@ class RevokeOrganizationRoleJob implements ShouldQueue
                     'network'          => 'Ethereum Sepolia Testnet',
                     'trangThai'        => 'CONFIRMED',
                     'toChucId'         => $toChuc->id,
+                    'thoiGian'         => $blockTime,
                 ]);
             }
 
@@ -86,7 +90,7 @@ class RevokeOrganizationRoleJob implements ShouldQueue
                 'doiTuongId' => $toChuc->taiKhoans()->first()?->id,
                 'hanhDong'   => 'REVOKE_ROLE_ONCHAIN',
                 'ketQua'     => 'THANH_CONG',
-                'thoiGian'   => now(),
+                'thoiGian'   => $blockTime,
                 'chiTiet'    => "Đã tước quyền On-chain thành công của tổ chức [{$toChuc->tenToChuc}]." . ($txHash ? " TxHash: {$txHash}" : " (Ví đã không còn quyền On-chain từ trước)"),
             ]);
         });
