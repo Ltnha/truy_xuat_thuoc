@@ -203,6 +203,7 @@ class ChuyenGiaoService
             if ((int) $chuyenGiao->benNhanId !== (int) $benNhan->id || $chuyenGiao->trangThai !== TransferStatus::pending) {
                 throw new NghiepVuException('Giao dịch không thuộc đơn vị nhận hoặc không còn chờ tiếp nhận.');
             }
+            $this->assertNoPendingTransferAction((int) $chuyenGiao->id);
 
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus ? $loThuoc->trangThai : BatchStatus::tryFrom((string) $loThuoc->trangThai);
@@ -233,6 +234,7 @@ class ChuyenGiaoService
             if ((int) $chuyenGiao->benNhanId !== (int) $benNhan->id || $chuyenGiao->trangThai !== TransferStatus::pending) {
                 throw new NghiepVuException('Giao dịch không thuộc đơn vị nhận hoặc không còn chờ tiếp nhận.');
             }
+            $this->assertNoPendingTransferAction((int) $chuyenGiao->id);
 
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $lyDoTuChoi = trim((string) $lyDo) ?: 'Đơn vị nhận từ chối tiếp nhận lô hàng';
@@ -263,6 +265,7 @@ class ChuyenGiaoService
             if ((int) $cg->benGuiId !== (int) $benGui->id || $cg->trangThai !== TransferStatus::pending) {
                 throw new NghiepVuException('Chỉ bên gửi mới được hủy lệnh đang chờ tiếp nhận.');
             }
+            $this->assertNoPendingTransferAction((int) $cg->id);
 
             $loThuoc = LoThuoc::query()->whereKey($cg->loThuocId)->lockForUpdate()->firstOrFail();
             $tx = $this->taoGiaoDichBlockchain($cg, $benGui, $loThuoc, 'TransferCancelled', 'TRANSFER_CANCELLED');
@@ -286,6 +289,19 @@ class ChuyenGiaoService
             'TransferCancelled',
             'TRANSFER_CANCELLED'
         )->afterCommit();
+    }
+
+    private function assertNoPendingTransferAction(int $chuyenGiaoId): void
+    {
+        $dangXuLy = BlockchainTransaction::query()
+            ->where('chuyenGiaoId', $chuyenGiaoId)
+            ->whereIn('eventName', ['TransferReceived', 'TransferRejected', 'TransferCancelled'])
+            ->where('trangThai', 'PENDING')
+            ->exists();
+
+        if ($dangXuLy) {
+            throw new NghiepVuException('Yêu cầu xử lý chuyển giao trước đó vẫn đang chờ xác nhận blockchain.');
+        }
     }
 
     private function taoGiaoDichBlockchain(
