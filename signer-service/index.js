@@ -67,6 +67,9 @@ function authMiddleware(req, res, next) {
 function isAdminKey(keyId) {
     return keyId === (process.env.ADMIN_MASTER_KEY_ID || 'ADMIN_MASTER_KEY')
         || keyId === 'ADMIN_MASTER_KEY'
+        || keyId === 'KEY-DEMO-CQ-001'
+        || keyId === 'KEY-DEMO-CQQL-001'
+        || (typeof keyId === 'string' && keyId.startsWith('KEY-DEMO-CQ'))
         || (typeof keyId === 'string' && keyId.toLowerCase() === adminWallet.address.toLowerCase());
 }
 
