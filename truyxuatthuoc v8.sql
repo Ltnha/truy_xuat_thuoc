@@ -288,7 +288,7 @@ CREATE TABLE blockchainIdentity (
 -- 20. Bảng blockchainTransaction
 CREATE TABLE blockchainTransaction (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    txHash VARCHAR(66) NOT NULL UNIQUE,
+    txHash VARCHAR(66) NULL UNIQUE,
     blockNumber BIGINT NULL,
     eventName VARCHAR(100) NOT NULL,
     doiTuongToChucId BIGINT NULL,
