@@ -19,6 +19,8 @@ Phạm vi đối chiếu: contract v2 do chủ dự án cung cấp và mã ngu�
 - [x] txHash mới được để NULL trước khi có receipt; cập nhật SQL schema và thêm migration nullable.
 - [x] Sửa khai báo SQL của chuyenGiao.lyDoTuChoi và thêm migration an toàn nếu cột chưa tồn tại.
 - [x] Loại bỏ route lưu txHash thủ công không còn method xử lý.
+- [x] Vô hiệu hóa đường ký private key legacy trong Laravel; SepoliaBlockchainGateway cũ chuyển tiếp qua Signer v2.
+- [x] Bổ sung .gitignore cho signer-service/wallets.json và log cục bộ.
 - [x] Cấu hình mặc định BLOCKCHAIN_DRIVER=sepolia; thêm signer-service/.env.example.
 - [x] Cập nhật giao diện quản lý lô để không còn phụ thuộc vào chuỗi PENDING_ giả.
 - [x] Thêm API hủy chuyển giao cho bên gửi ở luồng NSX và NPP.
@@ -36,7 +38,7 @@ Phạm vi đối chiếu: contract v2 do chủ dự án cung cấp và mã ngu�
 - [ ] Hoàn thiện indexer bền vững để quét lại event logs và đồng bộ idempotent sau khi service khởi động lại.
 - [ ] Hoàn thiện API tra cứu công khai để hiển thị owner, transfer timeline, recall status và kết quả xác minh payloadHash trực tiếp từ chain.
 - [ ] Kiểm thử end-to-end đủ 3 luồng: NSX → NPP, NPP → nhà thuốc, và reject/cancel; kiểm thử retry khi RPC timeout và queue chạy lại.
-- [ ] Rà soát các class gateway cũ (FakeBlockchainGateway, SepoliaBlockchainGateway, BlockchainService) để loại bỏ đường gọi legacy không còn được sử dụng.
+- [ ] Rà soát các luồng FakeBlockchainGateway còn được gọi trong môi trường testing; chỉ được bật khi BLOCKCHAIN_DRIVER=fake.
 
 ## Lưu ý kiến trúc bắt buộc
 - Contract xác thực msg.sender cho submitTransfer/receiveTransfer/rejectTransfer/cancelTransfer. Không thể dùng admin wallet ký thay cho sender/receiver trong các hàm này mà vẫn giữ đúng contract hiện tại.
