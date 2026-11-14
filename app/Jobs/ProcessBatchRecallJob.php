@@ -60,8 +60,17 @@ class ProcessBatchRecallJob implements ShouldQueue
             throw new \RuntimeException('Không thể thu hồi on-chain: batch chưa được registerBatch.');
         }
 
-        $txHash = $batchState['recallTxHash'] ?? null;
-        $blockNumber = isset($batchState['recallBlockNumber']) ? (int) $batchState['recallBlockNumber'] : null;
+        $existingConfirmedTx = BlockchainTransaction::query()
+            ->where('loThuocId', $loThuoc->id)
+            ->where('eventName', 'BatchRecalled')
+            ->where('trangThai', 'CONFIRMED')
+            ->whereNotNull('txHash')
+            ->latest('id')
+            ->first();
+        $txHash = $batchState['recallTxHash'] ?? $existingConfirmedTx?->txHash;
+        $blockNumber = isset($batchState['recallBlockNumber'])
+            ? (int) $batchState['recallBlockNumber']
+            : ($existingConfirmedTx?->blockNumber ? (int) $existingConfirmedTx->blockNumber : null);
 
         if (empty($batchState['batch']['recalled'])) {
             $signer->ensureGas($adminKeyId);
