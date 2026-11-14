@@ -9,6 +9,7 @@ use App\Http\Controllers\XacThuc\HoSoController;
 
 // --- CONTROLLERS NGƯỜI TIÊU DÙNG ---
 use App\Http\Controllers\NguoiTieuDung\TrangChuController;
+use App\Http\Controllers\TraCuu\TraCuuController;
 
 // --- CONTROLLERS NGHIỆP VỤ LÔ THUỐC & SẢN PHẨM ---
 use App\Http\Controllers\NhaSanXuat\SanPhamController;
@@ -44,6 +45,7 @@ use App\Http\Controllers\Blockchain\SepoliaTransactionController;
 // =========================================================================
 Route::get('/', [TrangChuController::class, 'index'])->name('home');
 Route::get('/tra-cuu-nguon-goc', fn() => view('nguoiTieuDung.traCuuNguonGoc'))->name('tra-cuu');
+Route::get('/api/tra-cuu-nguon-goc/{ma}', [TraCuuController::class, 'api'])->name('api.tra-cuu-nguon-goc');
 Route::get('/lich-su-tra-cuu', fn() => view('nguoiTieuDung.lichSuTraCuu'));
 
 // Báo cáo nghi vấn công khai & API Tra cứu cho Người tiêu dùng
