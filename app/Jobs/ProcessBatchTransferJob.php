@@ -125,7 +125,7 @@ class ProcessBatchTransferJob implements ShouldQueue
             $result = $signer->tx((string) $actor->signerKeyId, $action, $params);
 
             if (empty($result['ok']) || empty($result['txHash'])) {
-                throw new Exception('Signer không gửi được ' . $action . ': ' . ($result['reason'] ?? 'Không có txHash.'));
+                throw new Exception('Signer không gửi được ' . $action . ': ' . ($result['reasonVi'] ?? $result['reason'] ?? 'Không có txHash.'));
             }
 
             $txHash = (string) $result['txHash'];
