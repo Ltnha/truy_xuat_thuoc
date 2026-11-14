@@ -11,7 +11,6 @@ return [
         'signerUrl' => env('BLOCKCHAIN_SIGNER_URL'),
         'signerApiToken' => env('SIGNER_API_TOKEN'),
         'adminKeyId' => env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY'),
-        'privateKey' => env('BLOCKCHAIN_PRIVATE_KEY'), // <-- Thêm dòng này vào đây
     ],
     'choPhepNsxDenNhaThuoc' => false,
     'soDonViBanToiDaMoiLan' => 50,
