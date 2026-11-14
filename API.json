@@ -683,5 +683,223 @@
         "type": "uint256"
       }
     ]
+  },
+  {
+    "type": "function",
+    "name": "ROLE_CO_QUAN",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "ROLE_NSX",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "ROLE_NPP",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "ROLE_NHA_THUOC",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "EVENT_PRODUCTION",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "EVENT_RECALL_BATCH",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "OwnershipTransferred",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "previousOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "name": "newOwner",
+        "type": "address"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "RoleGranted",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "sender",
+        "type": "address"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "RoleRevoked",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "account",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "name": "role",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "sender",
+        "type": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "Unauthorized",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidData",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BatchAlreadyExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BatchNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "BatchAlreadyRecalled",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "DuplicateEvent",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferAlreadyExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TransferNotFound",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "InvalidTransferStatus",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotCurrentOwner",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotTransferSender",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NotTransferReceiver",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RoleAlreadyGranted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "RoleNotGranted",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PendingTransferExists",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ProductAlreadyApproved",
+    "inputs": []
   }
 ]
