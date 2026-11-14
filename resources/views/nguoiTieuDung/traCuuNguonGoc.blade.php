@@ -257,8 +257,20 @@
                     <div>
                         <span class="text-slate-500 block mb-1">Mạng Smart Contract:</span>
                         <span class="font-semibold text-slate-900 flex items-center gap-1.5">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Polygon Testnet (Amoy)
+                            <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Ethereum Sepolia Testnet
                         </span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block mb-1">Chủ sở hữu hiện tại (on-chain):</span>
+                        <div id="chainOwner" class="font-mono text-[11px] break-all text-slate-800"></div>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block mb-1">Đối chiếu hash hồ sơ sản phẩm:</span>
+                        <span id="productIntegrity" class="font-bold px-2.5 py-1 rounded text-[11px] inline-block"></span>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block mb-1">Trạng thái lô trên blockchain:</span>
+                        <span id="chainBatchStatus" class="font-semibold text-slate-900"></span>
                     </div>
                     <div>
                         <span class="text-slate-500 block mb-1">Trạng thái cờ bán lẻ (Unit Flag):</span>
