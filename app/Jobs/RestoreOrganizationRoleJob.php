@@ -65,6 +65,7 @@ class RestoreOrganizationRoleJob implements ShouldQueue
 
         // 3. Cấp lại quyền On-chain nếu chưa sở hữu
         $txHash = null;
+        $blockTimestamp = null;
         if (!$signer->hasRole($roleHash, $identity->diaChiVi)) {
             $kq = $signer->tx($adminKeyId, 'grantRole', [
                 'account' => $identity->diaChiVi,
@@ -75,13 +76,15 @@ class RestoreOrganizationRoleJob implements ShouldQueue
                 throw new Exception("Lỗi cấp lại quyền On-chain: " . ($kq['reason'] ?? 'Unknown error'));
             }
 
-            $txHash = $kq['txHash'];
+            $txHash = $kq['txHash'] ?? null;
+            $blockTimestamp = isset($kq['blockTimestamp']) ? (int) $kq['blockTimestamp'] : null;
         } else {
             Log::info("Ví [{$identity->diaChiVi}] của tổ chức [{$toChuc->tenToChuc}] đã có sẵn vai trò On-chain.");
         }
 
         // 4. Kích hoạt lại tổ chức và tài khoản trong CSDL
-        DB::transaction(function () use ($toChuc, $identity, $txHash) {
+        DB::transaction(function () use ($toChuc, $identity, $txHash, $blockTimestamp) {
+            $blockTime = $blockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($blockTimestamp) : now();
             $identity->update(['trangThai' => 'ACTIVE']);
 
             $toChuc->update([
@@ -101,6 +104,7 @@ class RestoreOrganizationRoleJob implements ShouldQueue
                     'network'          => 'Ethereum Sepolia Testnet',
                     'trangThai'        => 'CONFIRMED',
                     'toChucId'         => $toChuc->id,
+                    'thoiGian'         => $blockTime,
                 ]);
             }
 
@@ -109,7 +113,7 @@ class RestoreOrganizationRoleJob implements ShouldQueue
                 'doiTuongId' => $toChuc->taiKhoans()->first()?->id,
                 'hanhDong'   => 'RESTORE_ROLE_ONCHAIN',
                 'ketQua'     => 'THANH_CONG',
-                'thoiGian'   => now(),
+                'thoiGian'   => $blockTime,
                 'chiTiet'    => "Khôi phục quyền tổ chức [{$toChuc->tenToChuc}] thành công. Ví: [{$identity->diaChiVi}]." . ($txHash ? " TxHash: {$txHash}" : " (Quyền On-chain đã có sẵn)"),
             ]);
         });
