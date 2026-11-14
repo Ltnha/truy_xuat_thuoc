@@ -16,7 +16,7 @@ const CONTRACT_ABI = require('../API.json');
 const CONTRACT_ADDRESS = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
 const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '', 'utf8');
 const ALGORITHM = 'aes-256-gcm';
-const LEGACY_MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '12345678901234567890123456789012', 'utf8');
+const LEGACY_DEFAULT_KEY = Buffer.from('12345678901234567890123456789012', 'utf8');
 
 if (!CONTRACT_ADDRESS || !ethers.isAddress(CONTRACT_ADDRESS)) {
     throw new Error('BLOCKCHAIN_CONTRACT_ADDRESS không hợp lệ.');
@@ -37,8 +37,18 @@ function decrypt(value) {
     // Tương thích wallet records cũ được mã hóa bằng aes-256-cbc.
     if (parts.length === 2) {
         const [ivHex, encryptedHex] = parts;
-        const decipher = crypto.createDecipheriv('aes-256-cbc', LEGACY_MASTER_KEY, Buffer.from(ivHex, 'hex'));
-        return decipher.update(encryptedHex, 'hex', 'utf8') + decipher.final('utf8');
+        const keys = [MASTER_KEY, LEGACY_DEFAULT_KEY].filter((key, index, all) =>
+            key.length === 32 && all.findIndex(other => other.equals(key)) === index
+        );
+        for (const key of keys) {
+            try {
+                const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
+                return decipher.update(encryptedHex, 'hex', 'utf8') + decipher.final('utf8');
+            } catch (_) {
+                // thử key tương thích kế tiếp; không bỏ qua lỗi với định dạng GCM.
+            }
+        }
+        throw new Error('Không giải mã được private key cũ: ENCRYPTION_MASTER_KEY hiện tại không khớp khóa mã hóa ban đầu.');
     }
     const [ivHex, tagHex, encryptedHex] = parts;
     if (!ivHex || !tagHex || !encryptedHex) throw new Error('Dữ liệu khóa ví đã mã hóa không hợp lệ.');
