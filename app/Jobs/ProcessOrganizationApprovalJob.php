@@ -72,7 +72,7 @@ class ProcessOrganizationApprovalJob implements ShouldQueue
             ]);
 
             if (!$kq['ok']) {
-                throw new Exception("Lỗi cấp quyền On-chain: " . ($kq['reason'] ?? 'Unknown error'));
+                throw new Exception("Lỗi cấp quyền On-chain: " . ($kq['reasonVi'] ?? $kq['reason'] ?? 'Unknown error'));
             }
 
             $txHash = $kq['txHash'] ?? null;
