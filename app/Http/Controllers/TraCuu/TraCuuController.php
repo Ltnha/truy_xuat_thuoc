@@ -219,9 +219,11 @@ class TraCuuController extends Controller
         $ngayHetHan = (string) $lo->hanSuDung;
         $status = ($lo->trangThai === 'RECALLED' || $chainRecalled)
             ? 'RECALLED'
-            : (! $batchExistsOnChain && $chainReadStatus === 'AVAILABLE'
-                ? 'NOT_REGISTERED_ON_CHAIN'
-                : ($ngayHetHan < today()->toDateString() ? 'EXPIRED' : ($lo->trangThaiSanPham === 'DA_DUYET' && $productIntegrity === 'MATCH' ? 'VALID' : 'INVALID')));
+            : ($chainReadStatus !== 'AVAILABLE'
+                ? 'UNAVAILABLE'
+                : (! $batchExistsOnChain
+                    ? 'NOT_REGISTERED_ON_CHAIN'
+                    : ($ngayHetHan < today()->toDateString() ? 'EXPIRED' : ($lo->trangThaiSanPham === 'DA_DUYET' && $productIntegrity === 'MATCH' ? 'VALID' : 'INVALID'))));
 
         $chainSteps = array_map(function (array $event): array {
             $args = $event['args'] ?? [];
