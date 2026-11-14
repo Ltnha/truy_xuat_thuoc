@@ -24,6 +24,7 @@ class ChuyenGiaoService
 {
     public function __construct(
         private TonKhoService $tonKhoService,
+        private SignerClient $signer,
     ) {
     }
 
@@ -103,6 +104,35 @@ class ChuyenGiaoService
                         ->lockForUpdate()
                         ->first();
                 }
+            }
+
+            // Một lô chỉ có một transfer đang chờ; kiểm tra cả DB và contract source-of-truth.
+            $coLenhChoOffchain = ChuyenGiao::query()
+                ->where('loThuocId', $loThuoc->id)
+                ->where('trangThai', TransferStatus::pending->value)
+                ->exists();
+            if ($coLenhChoOffchain) {
+                throw new NghiepVuException('Lô thuốc đang có một lệnh chuyển giao chờ xử lý.');
+            }
+
+            $identityGui = BlockchainIdentity::query()
+                ->where('toChucId', $benGui->id)
+                ->where('trangThai', 'ACTIVE')
+                ->firstOrFail();
+            $batchIdBytes32 = '0x' . hash('sha256', 'BATCH_' . (string) $loThuoc->maLo);
+            $onChainBatch = $this->signer->getBatchState($batchIdBytes32);
+            if (empty($onChainBatch['batch']['exists'])) {
+                throw new NghiepVuException('Lô thuốc chưa được registerBatch thành công trên blockchain.');
+            }
+            if (! empty($onChainBatch['batch']['recalled'])) {
+                throw new NghiepVuException('Lô thuốc đã bị thu hồi trên blockchain.');
+            }
+            $zeroBytes32 = '0x' . str_repeat('0', 64);
+            if (strtolower((string) ($onChainBatch['pendingTransferId'] ?? $zeroBytes32)) !== $zeroBytes32) {
+                throw new NghiepVuException('Lô thuốc đang có một lệnh chuyển giao PENDING trên blockchain.');
+            }
+            if (strtolower((string) ($onChainBatch['batch']['currentOwner'] ?? '')) !== strtolower((string) $identityGui->diaChiVi)) {
+                throw new NghiepVuException('Ví của tổ chức gửi không phải chủ sở hữu hiện tại của lô trên blockchain.');
             }
 
             $soLuong = (int) ($duLieu['soLuong'] ?? 0);
