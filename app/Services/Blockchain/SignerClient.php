@@ -208,6 +208,18 @@ class SignerClient
         return $response->json();
     }
 
+
+    /** Đọc trạng thái lô và txHash BatchRegistered đã mined để phục hồi job retry. */
+    public function getBatchState(string $batchId): array
+    {
+        $this->assertConfigured();
+        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/batches/{$batchId}");
+        if ($response->failed() || ! $response->json('ok')) {
+            throw new Exception('Không thể đọc trạng thái batch on-chain: ' . ($response->json('reason') ?? $response->body()));
+        }
+        return $response->json();
+    }
+
     private function assertConfigured(): void
     {
         if ($this->baseUrl === '' || $this->apiToken === '') {
