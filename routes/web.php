@@ -91,7 +91,6 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::get('/phe-duyet-tai-khoan', [DuyetHoSoController::class, 'index'])->name('co-quan.phe-duyet-tai-khoan');
         Route::post('/phe-duyet-to-chuc/{toChuc}', [DuyetHoSoController::class, 'approveOrganization'])->name('co-quan.approve-organization');
         Route::get('/to-chuc/{toChuc}/trang-thai-duyet', [DuyetHoSoController::class, 'checkApprovalStatus'])->name('co-quan.check-approval-status');
-        Route::post('/phe-duyet-san-pham/{sanPham}', [DuyetHoSoController::class, 'approveProduct'])->name('co-quan.approve-product');
 
         // Quản lý quyền hạn & Ví On-chain (Thu hồi, Khôi phục, Đổi ví)
         Route::get('/quan-ly-quyen-han', [DuyetHoSoController::class, 'quanLyQuyenHan'])->name('co-quan.quan-ly-quyen-han');
