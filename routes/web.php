@@ -225,11 +225,4 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::get('/nhat-ky-he-thong', [NhatKyController::class, 'index'])->name('quan-tri.nhat-ky');
         });
 
-    // ════════════════════════════════════════════════════════════════
-    // BLOCKCHAIN UTILITY APIS
-    // ════════════════════════════════════════════════════════════════
-    Route::prefix('blockchain')->group(function () {
-        Route::get('/generate-hashes/{id}', [SepoliaTransactionController::class, 'generateBatchHashes'])->name('blockchain.generate-hashes');
-        Route::post('/save-transaction', [SepoliaTransactionController::class, 'saveTransaction'])->name('blockchain.save-transaction');
-    });
 });
