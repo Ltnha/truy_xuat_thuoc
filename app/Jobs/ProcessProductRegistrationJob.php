@@ -13,13 +13,14 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 class ProcessProductRegistrationJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $tries = 5;
-    public int $backoff = 10;
+    public array $backoff = [10, 30, 60, 120, 300];
 
     public function __construct(
         public int $sanPhamId,
@@ -27,103 +28,86 @@ class ProcessProductRegistrationJob implements ShouldQueue
         public int $taiKhoanDuyetId
     ) {}
 
-    public function handle(SignerClient $signerClient): void
+    public function handle(SignerClient $signer): void
     {
-        $sanPham = SanPham::with('nhaSanXuat')->find($this->sanPhamId);
-
-        if (! $sanPham || $sanPham->trangThaiDuyet !== 'DA_DUYET') {
-            Log::warning("Job ProcessProductRegistrationJob bỏ qua do sản phẩm ID {$this->sanPhamId} không ở trạng thái DA_DUYET.");
+        $sanPham = SanPham::query()->findOrFail($this->sanPhamId);
+        if ($sanPham->trangThaiDuyet !== 'DA_DUYET') {
+            Log::info("[ProcessProductRegistrationJob] Bỏ qua sản phẩm #{$sanPham->id}: chưa được duyệt off-chain.");
             return;
         }
 
-        // Kiểm tra Idempotency: Nếu đã có giao dịch CONFIRMED thì kết thúc
-        $existingTx = BlockchainTransaction::where('sanPhamId', $sanPham->id)
-            ->where('eventName', 'ProductRegistered')
-            ->where('trangThai', 'CONFIRMED')
-            ->first();
-
-        if ($existingTx) {
-            Log::info("Sản phẩm ID {$sanPham->id} đã được xác nhận on-chain trước đó. TxHash: {$existingTx->txHash}");
-            return;
-        }
-
-        // Chuyển đổi dữ liệu sang format bytes32 của Smart Contract BatchTraceability.sol
-        $batchIdBytes32 = '0x' . hash('sha256', $sanPham->maSanPham);
-        $businessIdBytes32 = '0x' . hash('sha256', $sanPham->soDangKy);
-        $eventTypeBytes32 = '0x' . hash('sha256', 'PRODUCT_REGISTERED');
-        $payloadHashBytes32 = '0x' . hash('sha256', json_encode([
-            'tenSanPham' => $sanPham->tenSanPham,
-            'soDangKy' => $sanPham->soDangKy,
+        $productId = '0x' . hash('sha256', 'PRODUCT_' . (string) $sanPham->maSanPham);
+        $payload = [
+            'maSanPham' => (string) $sanPham->maSanPham,
+            'tenSanPham' => (string) $sanPham->tenSanPham,
+            'soDangKy' => (string) $sanPham->soDangKy,
             'thanhPhan' => $sanPham->thanhPhan,
             'hamLuong' => $sanPham->hamLuong,
             'dangBaoChe' => $sanPham->dangBaoChe,
             'quyCachDongGoi' => $sanPham->quyCachDongGoi,
-            'nhaSanXuatId' => $sanPham->nhaSanXuatId,
-        ]));
+            'nhaSanXuatId' => (int) $sanPham->nhaSanXuatId,
+        ];
+        $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        if ($json === false) throw new RuntimeException('Không thể chuẩn hóa hồ sơ sản phẩm.');
+        $payloadHash = '0x' . hash('sha256', $json);
 
-        try {
-            // Gọi Signer Service thực thi hàm recordBatchEvent
-            $response = $signerClient->sendTransaction([
-                'action' => 'recordBatchEvent',
-                'params' => [
-                    'batchId' => $batchIdBytes32,
-                    'businessId' => $businessIdBytes32,
-                    'eventType' => $eventTypeBytes32,
-                    'payloadHash' => $payloadHashBytes32,
-                ],
-            ]);
+        $existing = $signer->isProductApproved($productId);
+        $txHash = $existing['txHash'] ?? null;
+        $blockNumber = isset($existing['blockNumber']) ? (int) $existing['blockNumber'] : null;
 
-            $txHash = $response['txHash'] ?? null;
-
-            if (! $txHash) {
-                throw new \RuntimeException('Signer Service không trả về txHash.');
+        if (! empty($existing['isApproved'])) {
+            if (strtolower((string) ($existing['payloadHash'] ?? '')) !== strtolower($payloadHash)) {
+                throw new RuntimeException('Sản phẩm đã được approveProduct với payloadHash khác; contract không hỗ trợ duyệt lại.');
             }
+        } else {
+            $adminKeyId = config('truyXuat.blockchain.adminKeyId', env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY'));
+            $signer->ensureGas($adminKeyId);
+            $result = $signer->tx($adminKeyId, 'approveProduct', [
+                'productId' => $productId,
+                'payloadHash' => $payloadHash,
+            ]);
+            if (empty($result['ok']) || empty($result['txHash'])) {
+                throw new RuntimeException('approveProduct thất bại: ' . ($result['reason'] ?? 'Signer không trả txHash.'));
+            }
+            $txHash = (string) $result['txHash'];
+            $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
+        }
 
-            DB::transaction(function () use ($sanPham, $txHash): void {
-                BlockchainTransaction::updateOrCreate(
-                    [
-                        'sanPhamId' => $sanPham->id,
-                        'eventName' => 'ProductRegistered',
-                    ],
-                    [
-                        'txHash' => $txHash,
-                        'businessId' => $sanPham->maSanPham,
-                        'toChucId' => $sanPham->nhaSanXuatId,
-                        'network' => 'Ethereum Sepolia Testnet',
-                        'trangThai' => 'CONFIRMED',
-                        'thoiGian' => now(),
-                    ]
-                );
+        if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+            throw new RuntimeException('Không truy xuất được txHash ProductApproved thật; không tạo hash thay thế.');
+        }
 
-                NhatKyHeThong::create([
-                    'taiKhoanId' => $this->taiKhoanDuyetId,
-                    'doiTuongId' => $this->taiKhoanDuyetId,
-                    'hanhDong' => 'DONG_BO_BLOCKCHAIN_SAN_PHAM',
-                    'ketQua' => 'THANH_CONG',
-                    'chiTiet' => "Đã đồng bộ sản phẩm [{$sanPham->tenSanPham}] lên blockchain. TxHash: {$txHash}",
-                ]);
-            });
-
-            Log::info("Đồng bộ sản phẩm [{$sanPham->tenSanPham}] lên Sepolia thành công. TxHash: {$txHash}");
-        } catch (\Throwable $e) {
-            Log::error("Lỗi đồng bộ sản phẩm ID {$sanPham->id} lên Blockchain: " . $e->getMessage());
-
-            BlockchainTransaction::updateOrCreate(
+        DB::transaction(function () use ($sanPham, $txHash, $blockNumber): void {
+            BlockchainTransaction::query()->updateOrCreate(
+                ['sanPhamId' => $sanPham->id, 'eventName' => 'ProductApproved'],
                 [
-                    'sanPhamId' => $sanPham->id,
-                    'eventName' => 'ProductRegistered',
-                ],
-                [
-                    'txHash' => 'FAILED_' . uniqid(),
-                    'businessId' => $sanPham->maSanPham,
+                    'txHash' => $txHash,
+                    'blockNumber' => $blockNumber,
+                    'businessId' => (string) $sanPham->maSanPham,
                     'toChucId' => $sanPham->nhaSanXuatId,
-                    'network' => 'Ethereum Sepolia Testnet',
-                    'trangThai' => 'FAILED',
+                    'network' => config('truyXuat.blockchain.mang', 'Ethereum Sepolia Testnet'),
+                    'trangThai' => 'CONFIRMED',
                     'thoiGian' => now(),
                 ]
             );
 
-            throw $e;
-        }
+            NhatKyHeThong::query()->create([
+                'taiKhoanId' => $this->taiKhoanDuyetId,
+                'doiTuongId' => $sanPham->id,
+                'hanhDong' => 'DONG_BO_APPROVE_PRODUCT_ONCHAIN',
+                'ketQua' => 'THANH_CONG',
+                'chiTiet' => "Đã ghi nhận ProductApproved cho [{$sanPham->tenSanPham}]. TxHash: {$txHash}",
+            ]);
+        });
+    }
+
+    public function failed(?\Throwable $exception): void
+    {
+        Log::error('[ProcessProductRegistrationJob] FAILED product #' . $this->sanPhamId . ': ' . ($exception?->getMessage() ?? ''));
+        BlockchainTransaction::query()
+            ->where('sanPhamId', $this->sanPhamId)
+            ->where('eventName', 'ProductApproved')
+            ->where('trangThai', 'PENDING')
+            ->update(['trangThai' => 'FAILED', 'thoiGian' => now()]);
     }
 }
