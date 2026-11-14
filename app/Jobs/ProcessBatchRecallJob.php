@@ -37,65 +37,51 @@ class ProcessBatchRecallJob implements ShouldQueue
         $maLoStr = $loThuoc->maLoNghiepVu ?? $loThuoc->maLo ?? (string) $loThuoc->id;
         $businessIdStr = (string) $thuHoi->id;
 
-        // 1. Tính toán 4 tham số bytes32 chuẩn theo BatchTraceability.sol
-        $batchId = '0x' . hash('sha256', 'BATCH_' . $loThuoc->maLo);
-        $businessId = '0x' . hash('sha256', 'RECALL_' . $thuHoi->id . '_' . $loThuoc->maLo);
-        // EVENT_RECALL_BATCH trên Smart Contract = keccak256("RECALL_BATCH")
-        $eventType = '0x' . Keccak::hash('RECALL_BATCH', 256);
-
+        $batchId = '0x' . hash('sha256', 'BATCH_' . (string) $loThuoc->maLo);
         $payloadData = [
-            'maLo' => $loThuoc->maLo,
-            'maLoNghiepVu' => $maLoStr,
-            'thuHoiId' => $thuHoi->id,
-            'lyDo' => $thuHoi->lyDo,
+            'maLo' => (string) $loThuoc->maLo,
+            'maLoNghiepVu' => (string) ($loThuoc->maLoNghiepVu ?? $loThuoc->maLo),
+            'thuHoiId' => (int) $thuHoi->id,
+            'lyDo' => (string) $thuHoi->lyDo,
             'ngayThuHoi' => (string) ($thuHoi->ngayThuHoi ?? now()),
         ];
-        $payloadHash = '0x' . hash('sha256', json_encode($payloadData, JSON_UNESCAPED_UNICODE));
+        $payloadJson = json_encode($payloadData, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        if ($payloadJson === false) {
+            throw new \RuntimeException('Không thể chuẩn hóa hồ sơ thu hồi để tạo payloadHash.');
+        }
+        $payloadHash = '0x' . hash('sha256', $payloadJson);
 
-        $driver = config('truyXuat.blockchain.driver', 'fake');
+        // Contract v2: recallBatch chỉ cho NSX tạo lô hoặc địa chỉ có ROLE_CO_QUAN.
+        // Cơ quan quản lý thực hiện thu hồi bằng owner/admin wallet.
+        $adminKeyId = config('truyXuat.blockchain.adminKeyId', env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY'));
 
-        // Chỉ sinh mã giả lập nếu driver được cấu hình rõ ràng là 'fake'
-        if ($driver === 'fake') {
-            $fakeTxHash = '0x' . bin2hex(random_bytes(32));
-            $this->capNhatThanhCong($thuHoi, $businessIdStr, $fakeTxHash, rand(5000000, 6000000));
-            return;
+        $batchState = $signer->getBatchState($batchId);
+        if (empty($batchState['batch']['exists'])) {
+            throw new \RuntimeException('Không thể thu hồi on-chain: batch chưa được registerBatch.');
         }
 
-        // 2. Kiểm tra Idempotency trên Contract qua Signer Service
-        $isAlreadyRecorded = false;
-        try {
-            $isAlreadyRecorded = $signer->isBatchEventRecorded($batchId, $businessId, $eventType);
-        } catch (\Throwable $e) {
-            Log::warning("[ProcessBatchRecallJob] Kiểm tra Idempotency cảnh báo: " . $e->getMessage());
-        }
+        $txHash = $batchState['recallTxHash'] ?? null;
+        $blockNumber = isset($batchState['recallBlockNumber']) ? (int) $batchState['recallBlockNumber'] : null;
 
-        if ($isAlreadyRecorded) {
-            Log::info("[ProcessBatchRecallJob] Quyết định thu hồi #{$thuHoi->id} đã có trên Blockchain.");
-            $this->capNhatThanhCong($thuHoi, $businessIdStr, 'ONCHAIN_RECALL_' . substr(md5($businessId), 0, 32));
-            return;
-        }
-
-        // 3. Đảm bảo nạp Gas tự động cho ví Admin nếu số dư thấp
-        $adminKeyId = config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
-        try {
+        if (empty($batchState['batch']['recalled'])) {
             $signer->ensureGas($adminKeyId);
-        } catch (\Throwable $e) {
-            Log::warning("[ProcessBatchRecallJob] ensureGas cảnh báo: " . $e->getMessage());
+            $result = $signer->tx($adminKeyId, 'recallBatch', [
+                'batchId' => $batchId,
+                'payloadHash' => $payloadHash,
+            ]);
+
+            if (empty($result['ok']) || empty($result['txHash'])) {
+                throw new \RuntimeException('Lỗi recallBatch: ' . ($result['reason'] ?? 'Signer không trả về txHash.'));
+            }
+            $txHash = (string) $result['txHash'];
+            $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
         }
 
-        // 4. Ký và gửi giao dịch recordBatchEvent qua Signer Service (node index.js)
-        $res = $signer->tx($adminKeyId, 'recordBatchEvent', [
-            'batchId' => $batchId,
-            'businessId' => $businessId,
-            'eventType' => $eventType,
-            'payloadHash' => $payloadHash,
-        ]);
-
-        if (!empty($res['ok']) && !empty($res['txHash'])) {
-            $this->capNhatThanhCong($thuHoi, $businessIdStr, $res['txHash'], $res['blockNumber'] ?? null);
-        } else {
-            throw new \Exception("Ký giao dịch Blockchain thất bại: " . ($res['reason'] ?? json_encode($res)));
+        if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+            throw new \RuntimeException('Lô đã bị thu hồi on-chain nhưng không truy xuất được txHash BatchRecalled thật.');
         }
+
+        $this->capNhatThanhCong($thuHoi, (string) $thuHoi->id, $txHash, $blockNumber);
     }
 
     protected function capNhatThanhCong(ThuHoiLoHang $thuHoi, string $businessIdStr, string $txHash, ?int $blockNumber = null): void
