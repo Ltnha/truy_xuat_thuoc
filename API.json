@@ -1,935 +1,687 @@
 [
-	{
-		"inputs": [],
-		"stateMutability": "nonpayable",
-		"type": "constructor"
-	},
-	{
-		"inputs": [],
-		"name": "BatchAlreadyExists",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "BatchAlreadyRecalled",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "BatchNotFound",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "DuplicateEvent",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "InvalidAddress",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "InvalidData",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "InvalidTransferStatus",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "NotCurrentOwner",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "NotTransferReceiver",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "NotTransferSender",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "RoleAlreadyGranted",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "RoleNotGranted",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "TransferAlreadyExists",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "TransferNotFound",
-		"type": "error"
-	},
-	{
-		"inputs": [],
-		"name": "Unauthorized",
-		"type": "error"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "businessId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "actor",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "eventType",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "payloadHash",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "BatchEventRecorded",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "oldOwner",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "newOwner",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "BatchOwnerChanged",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "actor",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "payloadHash",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "BatchRecalled",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "manufacturer",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "BatchRegistered",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "previousOwner",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "newOwner",
-				"type": "address"
-			}
-		],
-		"name": "OwnershipTransferred",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "account",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "role",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			}
-		],
-		"name": "RoleGranted",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "account",
-				"type": "address"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "role",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			}
-		],
-		"name": "RoleRevoked",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "TransferCancelled",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "receiver",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "TransferReceived",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "receiver",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "bytes32",
-				"name": "reasonHash",
-				"type": "bytes32"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "TransferRejected",
-		"type": "event"
-	},
-	{
-		"anonymous": false,
-		"inputs": [
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"indexed": true,
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "address",
-				"name": "receiver",
-				"type": "address"
-			},
-			{
-				"indexed": false,
-				"internalType": "uint256",
-				"name": "timestamp",
-				"type": "uint256"
-			}
-		],
-		"name": "TransferSubmitted",
-		"type": "event"
-	},
-	{
-		"inputs": [],
-		"name": "EVENT_PRODUCTION",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "EVENT_RECALL_BATCH",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "ROLE_CO_QUAN",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "ROLE_NHA_THUOC",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "ROLE_NPP",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "ROLE_NSX",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"name": "batchTransfers",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"name": "batches",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "exists",
-				"type": "bool"
-			},
-			{
-				"internalType": "bool",
-				"name": "recalled",
-				"type": "bool"
-			},
-			{
-				"internalType": "address",
-				"name": "currentOwner",
-				"type": "address"
-			},
-			{
-				"internalType": "uint256",
-				"name": "createdAt",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			}
-		],
-		"name": "cancelTransfer",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			}
-		],
-		"name": "getBatchOwner",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			}
-		],
-		"name": "getBatchTransferCount",
-		"outputs": [
-			{
-				"internalType": "uint256",
-				"name": "",
-				"type": "uint256"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "account",
-				"type": "address"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "role",
-				"type": "bytes32"
-			}
-		],
-		"name": "grantRole",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "account",
-				"type": "address"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "role",
-				"type": "bytes32"
-			}
-		],
-		"name": "hasRole",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "businessId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "eventType",
-				"type": "bytes32"
-			}
-		],
-		"name": "isBatchEventRecorded",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			}
-		],
-		"name": "isBatchRecalled",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "businessId",
-				"type": "bytes32"
-			}
-		],
-		"name": "isBatchRecalled",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [],
-		"name": "owner",
-		"outputs": [
-			{
-				"internalType": "address",
-				"name": "",
-				"type": "address"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "payloadHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "recallBatch",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			}
-		],
-		"name": "receiveTransfer",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "businessId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "eventType",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "payloadHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "recordBatchEvent",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"name": "recordedEventKeys",
-		"outputs": [
-			{
-				"internalType": "bool",
-				"name": "",
-				"type": "bool"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			}
-		],
-		"name": "registerBatch",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "reasonHash",
-				"type": "bytes32"
-			}
-		],
-		"name": "rejectTransfer",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "address",
-				"name": "account",
-				"type": "address"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "role",
-				"type": "bytes32"
-			}
-		],
-		"name": "revokeRole",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "address",
-				"name": "receiver",
-				"type": "address"
-			}
-		],
-		"name": "submitTransfer",
-		"outputs": [],
-		"stateMutability": "nonpayable",
-		"type": "function"
-	},
-	{
-		"inputs": [
-			{
-				"internalType": "bytes32",
-				"name": "",
-				"type": "bytes32"
-			}
-		],
-		"name": "transfers",
-		"outputs": [
-			{
-				"internalType": "bytes32",
-				"name": "transferId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "batchId",
-				"type": "bytes32"
-			},
-			{
-				"internalType": "address",
-				"name": "sender",
-				"type": "address"
-			},
-			{
-				"internalType": "address",
-				"name": "receiver",
-				"type": "address"
-			},
-			{
-				"internalType": "enum BatchTraceability.TransferStatus",
-				"name": "status",
-				"type": "uint8"
-			},
-			{
-				"internalType": "uint256",
-				"name": "createdAt",
-				"type": "uint256"
-			},
-			{
-				"internalType": "uint256",
-				"name": "completedAt",
-				"type": "uint256"
-			},
-			{
-				"internalType": "bytes32",
-				"name": "reasonHash",
-				"type": "bytes32"
-			}
-		],
-		"stateMutability": "view",
-		"type": "function"
-	}
+  {
+    "type": "function",
+    "name": "owner",
+    "stateMutability": "view",
+    "inputs": [],
+    "outputs": [
+      {
+        "type": "address",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "transferOwnership",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "newOwner"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "hasRole",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "account"
+      },
+      {
+        "type": "bytes32",
+        "name": "role"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "grantRole",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "account"
+      },
+      {
+        "type": "bytes32",
+        "name": "role"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "revokeRole",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "address",
+        "name": "account"
+      },
+      {
+        "type": "bytes32",
+        "name": "role"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "approveProduct",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "productId"
+      },
+      {
+        "type": "bytes32",
+        "name": "payloadHash"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "approvedProducts",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "productId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "isProductApproved",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "productId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "registerBatch",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "recordBatchEvent",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      },
+      {
+        "type": "bytes32",
+        "name": "businessId"
+      },
+      {
+        "type": "bytes32",
+        "name": "eventType"
+      },
+      {
+        "type": "bytes32",
+        "name": "payloadHash"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "recallBatch",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      },
+      {
+        "type": "bytes32",
+        "name": "payloadHash"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "batches",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bool",
+        "name": "exists"
+      },
+      {
+        "type": "bool",
+        "name": "recalled"
+      },
+      {
+        "type": "address",
+        "name": "manufacturer"
+      },
+      {
+        "type": "address",
+        "name": "currentOwner"
+      },
+      {
+        "type": "uint256",
+        "name": "createdAt"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "submitTransfer",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "transferId"
+      },
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      },
+      {
+        "type": "address",
+        "name": "receiver"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "receiveTransfer",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "transferId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "rejectTransfer",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "transferId"
+      },
+      {
+        "type": "bytes32",
+        "name": "reasonHash"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "cancelTransfer",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "transferId"
+      }
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "transfers",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": "transferId"
+      },
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      },
+      {
+        "type": "address",
+        "name": "sender"
+      },
+      {
+        "type": "address",
+        "name": "receiver"
+      },
+      {
+        "type": "uint8",
+        "name": "status"
+      },
+      {
+        "type": "uint256",
+        "name": "createdAt"
+      },
+      {
+        "type": "uint256",
+        "name": "completedAt"
+      },
+      {
+        "type": "bytes32",
+        "name": "reasonHash"
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "pendingTransferOf",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getBatchOwner",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "address",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getBatchTransferCount",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "uint256",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "getBatchTransfers",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bytes32[]",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "isBatchRecalled",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "function",
+    "name": "isBatchEventRecorded",
+    "stateMutability": "view",
+    "inputs": [
+      {
+        "type": "bytes32",
+        "name": "batchId"
+      },
+      {
+        "type": "bytes32",
+        "name": "businessId"
+      },
+      {
+        "type": "bytes32",
+        "name": "eventType"
+      }
+    ],
+    "outputs": [
+      {
+        "type": "bool",
+        "name": ""
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "TransferSubmitted",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "transferId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "TransferReceived",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "transferId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "TransferRejected",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "transferId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "receiver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "reasonHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "TransferCancelled",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "transferId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "sender",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "BatchRegistered",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "manufacturer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "BatchOwnerChanged",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "oldOwner",
+        "type": "address"
+      },
+      {
+        "indexed": true,
+        "name": "newOwner",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "BatchRecalled",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "actor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "payloadHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "BatchEventRecorded",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "batchId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "businessId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "actor",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "eventType",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "name": "payloadHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "ProductApproved",
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": true,
+        "name": "productId",
+        "type": "bytes32"
+      },
+      {
+        "indexed": true,
+        "name": "approver",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "name": "payloadHash",
+        "type": "bytes32"
+      },
+      {
+        "indexed": false,
+        "name": "timestamp",
+        "type": "uint256"
+      }
+    ]
+  }
 ]
