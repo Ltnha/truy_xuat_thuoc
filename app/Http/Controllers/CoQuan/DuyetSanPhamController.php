@@ -105,7 +105,7 @@ class DuyetSanPhamController extends Controller
             }
 
             // BƯỚC 4: BLOCKCHAIN THÀNH CÔNG -> TIẾN HÀNH LƯU VÀO CSDL
-            DB::transaction(function () use ($yeuCau, $sanPham, $user, $txHash): void {
+            DB::transaction(function () use ($yeuCau, $sanPham, $user, $txHash, $toChucCoQuan): void {
                 $now = now();
 
                 $yeuCau->update([
