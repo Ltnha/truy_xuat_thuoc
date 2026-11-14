@@ -93,6 +93,7 @@ class ProcessBatchRegistrationJob implements ShouldQueue
         $blockNumber = isset($batchState['registerBlockNumber'])
             ? (int) $batchState['registerBlockNumber']
             : ($existingConfirmedTx?->blockNumber ? (int) $existingConfirmedTx->blockNumber : null);
+        $blockTimestamp = isset($batchState['registerBlockTimestamp']) ? (int) $batchState['registerBlockTimestamp'] : null;
 
         if (empty($batchState['batch']['exists'])) {
             // Phí gas do treasury/admin nạp, nhưng transaction do ví NSX ký.
@@ -106,13 +107,15 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             }
             $txHash = (string) $result['txHash'];
             $blockNumber = isset($result['blockNumber']) ? (int) $result['blockNumber'] : null;
+            $blockTimestamp = isset($result['blockTimestamp']) ? (int) $result['blockTimestamp'] : $blockTimestamp;
         }
 
         if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
             throw new Exception('Lô đã tồn tại on-chain nhưng không truy xuất được txHash BatchRegistered thật; cần đối soát RPC, không tạo hash thay thế.');
         }
 
-        DB::transaction(function () use ($loThuoc, $txHash, $blockNumber, $donViSanPhamService, $qrService, $tonKhoService): void {
+        DB::transaction(function () use ($loThuoc, $txHash, $blockNumber, $blockTimestamp, $donViSanPhamService, $qrService, $tonKhoService): void {
+            $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
             $bctx = BlockchainTransaction::query()
                 ->where('loThuocId', $loThuoc->id)
                 ->whereIn('eventName', ['BatchRegistered', 'BatchEventRecorded'])
@@ -129,7 +132,7 @@ class ProcessBatchRegistrationJob implements ShouldQueue
                 'toChucId' => $loThuoc->toChucId,
                 'sanPhamId' => $loThuoc->sanPhamId,
                 'loThuocId' => $loThuoc->id,
-                'thoiGian' => now(),
+                'thoiGian' => $blockTime,
             ];
 
             if ($bctx) {
