@@ -48,17 +48,19 @@ class RotateOrganizationWalletJob implements ShouldQueue
                     'role'    => $roleHash,
                 ]);
 
-                if ($kqRevoke['ok'] && !empty($kqRevoke['txHash'])) {
-                    BlockchainTransaction::create([
-                        'txHash'           => $kqRevoke['txHash'],
-                        'eventName'        => 'RoleRevoked',
-                        'doiTuongToChucId' => $toChuc->id,
-                        'businessId'       => (string) \Illuminate\Support\Str::uuid(),
-                        'network'          => 'Ethereum Sepolia Testnet',
-                        'trangThai'        => 'CONFIRMED',
-                        'toChucId'         => $toChuc->id,
-                    ]);
+                if (empty($kqRevoke['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) ($kqRevoke['txHash'] ?? ''))) {
+                    throw new Exception("Không thể thu hồi role ví cũ; dừng đổi ví để tránh hai ví cùng có quyền. " . ($kqRevoke['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
                 }
+
+                BlockchainTransaction::create([
+                    'txHash'           => $kqRevoke['txHash'],
+                    'eventName'        => 'RoleRevoked',
+                    'doiTuongToChucId' => $toChuc->id,
+                    'businessId'       => (string) \Illuminate\Support\Str::uuid(),
+                    'network'          => 'Ethereum Sepolia Testnet',
+                    'trangThai'        => 'CONFIRMED',
+                    'toChucId'         => $toChuc->id,
+                ]);
             }
             $viCu->update(['trangThai' => 'REVOKED']);
         }
