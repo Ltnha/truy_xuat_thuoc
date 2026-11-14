@@ -46,6 +46,26 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             throw new Exception('Không thể đăng ký lô: sản phẩm chưa được approveProduct xác nhận trên blockchain.');
         }
 
+        // Không chỉ kiểm tra cờ approved: xác minh hash hồ sơ hiện tại vẫn khớp bản đã duyệt.
+        $productPayload = [
+            'maSanPham' => (string) $loThuoc->sanPham->maSanPham,
+            'tenSanPham' => (string) $loThuoc->sanPham->tenSanPham,
+            'soDangKy' => (string) $loThuoc->sanPham->soDangKy,
+            'thanhPhan' => $loThuoc->sanPham->thanhPhan,
+            'hamLuong' => $loThuoc->sanPham->hamLuong,
+            'dangBaoChe' => $loThuoc->sanPham->dangBaoChe,
+            'quyCachDongGoi' => $loThuoc->sanPham->quyCachDongGoi,
+            'nhaSanXuatId' => (int) $loThuoc->sanPham->nhaSanXuatId,
+        ];
+        $productPayloadJson = json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        if ($productPayloadJson === false) {
+            throw new Exception('Không thể chuẩn hóa hồ sơ sản phẩm để xác minh payloadHash.');
+        }
+        $expectedProductHash = '0x' . hash('sha256', $productPayloadJson);
+        if (strtolower((string) ($approval['payloadHash'] ?? '')) !== strtolower($expectedProductHash)) {
+            throw new Exception('Hash hồ sơ sản phẩm trong DB không khớp approvedProducts trên blockchain. Không thể tạo lô.');
+        }
+
         // Contract v2 chỉ cho NSX có role ROLE_NSX gọi registerBatch.
         $identity = BlockchainIdentity::query()
             ->where('toChucId', $loThuoc->toChucId)
