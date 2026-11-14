@@ -138,4 +138,32 @@ class ChuyenGiaoController extends Controller
             ],
         ]);
     }
+    /** Bên gửi yêu cầu hủy lệnh chuyển giao đang PENDING. */
+    public function huy(Request $request, int $id)
+    {
+        $user = Auth::user();
+        $toChuc = $user?->toChuc;
+        if (! $toChuc) {
+            return response()->json(['success' => false, 'message' => 'Tài khoản chưa gắn tổ chức.'], 403);
+        }
+
+        $chuyenGiao = \App\Models\ChuyenGiao::query()->find($id);
+        if (! $chuyenGiao) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch chuyển giao.'], 404);
+        }
+
+        try {
+            $this->chuyenGiaoService->huy($chuyenGiao, $toChuc, $user, $request->ip());
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã gửi yêu cầu hủy. Hệ thống đang chờ TransferCancelled được xác nhận trên blockchain.',
+            ]);
+        } catch (\App\Exceptions\NghiepVuException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json(['success' => false, 'message' => 'Không thể gửi yêu cầu hủy chuyển giao.'], 500);
+        }
+    }
+
 }
