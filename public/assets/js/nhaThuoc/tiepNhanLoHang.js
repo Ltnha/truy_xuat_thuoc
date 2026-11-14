@@ -147,7 +147,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
-                        toast('Tiếp nhận thành công!');
+                        toast('Đã gửi yêu cầu tiếp nhận. Đang chờ xác nhận giao dịch trên blockchain.');
                         loadChoXacNhan(currentPageCho);
                         // Cập nhật badge lịch sử nếu đang mở
                     } catch (err) {
@@ -171,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function () {
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ lyDo }),
                         });
-                        toast('Đã từ chối lô hàng. Số lượng được giải phóng về bên gửi.');
+                        toast('Đã gửi yêu cầu từ chối. Đang chờ xác nhận giao dịch trên blockchain.');
                         loadChoXacNhan(currentPageCho);
                     } catch (err) {
                         toast(err.message, 'error');
