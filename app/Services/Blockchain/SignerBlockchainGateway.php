@@ -45,6 +45,19 @@ class SignerBlockchainGateway implements BlockchainGateway
                 throw new NghiepVuException('Sản phẩm chưa được approveProduct xác nhận trên blockchain.');
             }
 
+            $batchState = $this->signer->getBatchState($batchId);
+            if (! empty($batchState['batch']['exists'])) {
+                $existingHash = $batchState['registerTxHash'] ?? null;
+                if (! is_string($existingHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $existingHash)) {
+                    throw new NghiepVuException('Batch đã tồn tại on-chain nhưng không tìm thấy txHash BatchRegistered thật.');
+                }
+                return [
+                    'txHash' => $existingHash,
+                    'blockNumber' => $batchState['registerBlockNumber'] ?? null,
+                    'status' => 'confirmed',
+                ];
+            }
+
             $this->signer->ensureGas((string) $identity->diaChiVi);
             $result = $this->signer->tx((string) $identity->signerKeyId, 'registerBatch', [
                 'batchId' => $batchId,
@@ -63,6 +76,19 @@ class SignerBlockchainGateway implements BlockchainGateway
                 throw new RuntimeException('Không thể chuẩn hóa payload sự kiện.');
             }
             $payloadHash = '0x' . hash('sha256', $payloadJson);
+
+            $existingEvent = $this->signer->findBatchEvent($batchId, $businessId, $eventType);
+            if (! empty($existingEvent['isRecorded'])) {
+                $existingHash = $existingEvent['txHash'] ?? null;
+                if (! is_string($existingHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $existingHash)) {
+                    throw new NghiepVuException('Event đã tồn tại on-chain nhưng không truy xuất được txHash thật.');
+                }
+                return [
+                    'txHash' => $existingHash,
+                    'blockNumber' => $existingEvent['blockNumber'] ?? null,
+                    'status' => 'confirmed',
+                ];
+            }
 
             $this->signer->ensureGas((string) $identity->diaChiVi);
             $result = $this->signer->tx((string) $identity->signerKeyId, 'recordBatchEvent', [
