@@ -255,6 +255,39 @@ class ChuyenGiaoService
         ProcessBatchTransferJob::dispatch($chuyenGiao->id, $taiKhoan->id, $blockchainTransaction->id, 'TransferRejected', 'TRANSFER_REJECTED')->afterCommit();
     }
 
+    /** Bên gửi được hủy lệnh khi giao dịch vẫn đang chờ người nhận. */
+    public function huy(ChuyenGiao $chuyenGiao, ToChuc $benGui, TaiKhoan $taiKhoan, ?string $ip = null): void
+    {
+        $blockchainTransaction = DB::transaction(function () use ($chuyenGiao, $benGui, $taiKhoan, $ip): BlockchainTransaction {
+            $cg = ChuyenGiao::query()->whereKey($chuyenGiao->id)->lockForUpdate()->firstOrFail();
+            if ((int) $cg->benGuiId !== (int) $benGui->id || $cg->trangThai !== TransferStatus::pending) {
+                throw new NghiepVuException('Chỉ bên gửi mới được hủy lệnh đang chờ tiếp nhận.');
+            }
+
+            $loThuoc = LoThuoc::query()->whereKey($cg->loThuocId)->lockForUpdate()->firstOrFail();
+            $tx = $this->taoGiaoDichBlockchain($cg, $benGui, $loThuoc, 'TransferCancelled', 'TRANSFER_CANCELLED');
+
+            NhatKyHeThong::query()->create([
+                'taiKhoanId' => $taiKhoan->id,
+                'doiTuongId' => $cg->id,
+                'hanhDong' => 'YEU_CAU_HUY_CHUYEN_GIAO',
+                'ketQua' => 'THANH_CONG',
+                'thoiGian' => now(),
+                'chiTiet' => "Bên gửi yêu cầu hủy chuyển giao {$cg->maChuyenGiao}; chờ TransferCancelled được xác nhận on-chain." . ($ip ? " IP: {$ip}" : ''),
+            ]);
+
+            return $tx;
+        });
+
+        ProcessBatchTransferJob::dispatch(
+            $chuyenGiao->id,
+            $taiKhoan->id,
+            $blockchainTransaction->id,
+            'TransferCancelled',
+            'TRANSFER_CANCELLED'
+        )->afterCommit();
+    }
+
     private function taoGiaoDichBlockchain(
         ChuyenGiao $chuyenGiao,
         ToChuc $toChuc,
