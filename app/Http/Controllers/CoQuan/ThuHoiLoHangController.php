@@ -97,8 +97,8 @@ class ThuHoiLoHangController extends Controller
                         'lyDo' => $thuHoi->lyDo,
                         'ngayThuHoi' => $thuHoi->ngayThuHoi ? date('d/m/Y H:i', strtotime($thuHoi->ngayThuHoi)) : null,
                         'trangThaiDongBo' => $bcTx?->trangThai ?? 'CHO_DONG_BO',
-                        // BẮT BUỘC: Hiển thị trực tiếp mã txHash (kể cả PENDING_RECALL_... hoặc 0x...)
-                        'hashBlockchain' => $txHash ?? 'N/A',
+                        // Chỉ hiển thị txHash thật sau khi recallBatch được xác nhận.
+                        'hashBlockchain' => $txHash,
                     ];
                 }
 
