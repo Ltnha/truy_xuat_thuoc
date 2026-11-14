@@ -16,7 +16,9 @@ const CONTRACT_ABI = require('../API.json');
 const CONTRACT_ADDRESS = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
 const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '', 'utf8');
 const ALGORITHM = 'aes-256-gcm';
-const LEGACY_DEFAULT_KEY = Buffer.from('12345678901234567890123456789012', 'utf8');
+const LEGACY_MASTER_KEY = process.env.LEGACY_ENCRYPTION_MASTER_KEY
+    ? Buffer.from(process.env.LEGACY_ENCRYPTION_MASTER_KEY, 'utf8')
+    : null;
 
 if (!CONTRACT_ADDRESS || !ethers.isAddress(CONTRACT_ADDRESS)) {
     throw new Error('BLOCKCHAIN_CONTRACT_ADDRESS không hợp lệ.');
@@ -37,8 +39,8 @@ function decrypt(value) {
     // Tương thích wallet records cũ được mã hóa bằng aes-256-cbc.
     if (parts.length === 2) {
         const [ivHex, encryptedHex] = parts;
-        const keys = [MASTER_KEY, LEGACY_DEFAULT_KEY].filter((key, index, all) =>
-            key.length === 32 && all.findIndex(other => other.equals(key)) === index
+        const keys = [MASTER_KEY, LEGACY_MASTER_KEY].filter((key, index, all) =>
+            key && key.length === 32 && all.findIndex(other => other && other.equals(key)) === index
         );
         for (const key of keys) {
             try {
