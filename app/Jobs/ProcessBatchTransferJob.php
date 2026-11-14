@@ -180,11 +180,22 @@ class ProcessBatchTransferJob implements ShouldQueue
                 if (! $conPending && ! $daNhan && (int) $loThuoc->toChucId === (int) $lockedCg->benGuiId && $trangThaiLo === BatchStatus::inTransit) {
                     $loThuoc->update(['trangThai' => BatchStatus::created->value]);
                 }
-            } elseif ($this->eventName === 'TransferCancelled') {
+            } elseif ($this->eventName === 'TransferCancelled' && $lockedCg->trangThai === TransferStatus::pending) {
                 $lockedCg->update([
                     'trangThai' => TransferStatus::cancelled,
                     'thoiGianXacNhan' => now(),
                 ]);
+                $daNhanTruocDo = ChuyenGiao::query()
+                    ->where('loThuocId', $loThuoc->id)
+                    ->where('benGuiId', $lockedCg->benGuiId)
+                    ->where('trangThai', TransferStatus::received->value)
+                    ->exists();
+                $trangThaiLo = $loThuoc->trangThai instanceof BatchStatus
+                    ? $loThuoc->trangThai
+                    : BatchStatus::tryFrom((string) $loThuoc->trangThai);
+                if (! $daNhanTruocDo && (int) $loThuoc->toChucId === (int) $lockedCg->benGuiId && $trangThaiLo === BatchStatus::inTransit) {
+                    $loThuoc->update(['trangThai' => BatchStatus::created->value]);
+                }
             }
 
             NhatKyHeThong::query()->create([
