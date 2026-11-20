@@ -165,11 +165,26 @@ class ChuyenGiaoService
             $transferId = '0x' . hash('sha256', $maChuyenGiao);
 
             try {
+                IlluminateSupportFacadesLog::info('[ChuyenGiaoService] Bắt đầu kiểm tra/nạp gas cho ví gửi submitTransfer.', [
+                    'toChucGuiId' => $benGui->id,
+                    'signerAddress' => $identityGui->diaChiVi,
+                    'batchId' => $batchIdBytes32,
+                    'receiver' => $identityNhan->diaChiVi,
+                ]);
                 $this->signer->ensureGas((string) $identityGui->diaChiVi);
+                IlluminateSupportFacadesLog::info('[ChuyenGiaoService] Gas đã sẵn sàng; gọi Signer submitTransfer.', [
+                    'toChucGuiId' => $benGui->id,
+                    'signerAddress' => $identityGui->diaChiVi,
+                ]);
                 $result = $this->signer->tx((string) $identityGui->signerKeyId, 'submitTransfer', [
                     'transferId' => $transferId,
                     'batchId' => $batchIdBytes32,
                     'receiver' => (string) $identityNhan->diaChiVi,
+                ]);
+                IlluminateSupportFacadesLog::info('[ChuyenGiaoService] Signer submitTransfer đã phản hồi.', [
+                    'ok' => ! empty($result['ok']),
+                    'txHash' => $result['txHash'] ?? null,
+                    'reason' => $result['reasonVi'] ?? $result['reason'] ?? null,
                 ]);
 
                 $txHash = (string) ($result['txHash'] ?? '');
