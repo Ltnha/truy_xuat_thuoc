@@ -8,6 +8,7 @@ use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
 use App\Http\Controllers\Controller;
 use App\Models\ChuyenGiao;
+use App\Models\BlockchainTransaction;
 use App\Models\ToChuc;
 use App\Models\TonKhoLo;
 use App\Services\ChuoiCungUng\ChuyenGiaoService;
@@ -257,4 +258,55 @@ class QuanLyLoHangController extends Controller
             return response()->json(['success' => false, 'message' => 'Có lỗi hệ thống, vui lòng thử lại.'], 500);
         }
     }
+
+    /**
+     * Kiểm tra trạng thái xác nhận on-chain của lệnh từ chối.
+     * Chỉ trả confirmed khi receipt đã được lưu cùng txHash Ethereum hợp lệ.
+     */
+    public function trangThaiTuChoi(int $id): JsonResponse
+    {
+        $toChuc = Auth::user()?->toChuc;
+        if (! $toChuc) {
+            return response()->json(['success' => false, 'message' => 'Tài khoản chưa gắn tổ chức.'], 403);
+        }
+
+        $chuyenGiao = ChuyenGiao::query()->find($id);
+        if (! $chuyenGiao) {
+            return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch chuyển giao.'], 404);
+        }
+        if ((int) $chuyenGiao->benNhanId !== (int) $toChuc->id) {
+            return response()->json(['success' => false, 'message' => 'Bạn không có quyền xem trạng thái từ chối giao dịch này.'], 403);
+        }
+
+        $transaction = BlockchainTransaction::query()
+            ->where('chuyenGiaoId', $chuyenGiao->id)
+            ->where('eventName', 'TransferRejected')
+            ->latest('id')
+            ->first();
+
+        if (! $transaction) {
+            return response()->json(['success' => true, 'data' => ['status' => 'NOT_FOUND', 'confirmed' => false]]);
+        }
+
+        $status = strtoupper((string) $transaction->trangThai);
+        $txHash = (string) ($transaction->txHash ?? '');
+        $hasRealHash = (bool) preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash);
+        $confirmed = $status === 'CONFIRMED' && $hasRealHash;
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'status' => $confirmed ? 'CONFIRMED' : ($status === 'FAILED' ? 'FAILED' : 'PENDING'),
+                'confirmed' => $confirmed,
+                'txHash' => $confirmed ? $txHash : null,
+                'explorerUrl' => $confirmed ? 'https://sepolia.etherscan.io/tx/' . $txHash : null,
+                'message' => $confirmed
+                    ? 'Giao dịch từ chối đã được xác nhận trên Ethereum Sepolia.'
+                    : ($status === 'FAILED'
+                        ? 'Signer không thể hoàn tất giao dịch từ chối. Kiểm tra log Laravel và Signer Service.'
+                        : 'Đang chờ Signer ký và Ethereum Sepolia xác nhận giao dịch từ chối.'),
+            ],
+        ]);
+    }
+
 }
