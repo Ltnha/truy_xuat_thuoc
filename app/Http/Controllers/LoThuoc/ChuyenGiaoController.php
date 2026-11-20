@@ -65,7 +65,7 @@ class ChuyenGiaoController extends Controller
         if (! $benNhan) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nhà phân phối không tồn tại, chưa được xét duyệt hoặc chưa có ví Blockchain ACTIVE.',
+                'message' => 'Nhà phân phối không tồn tại hoặc chưa được Cơ quan quản lý xét duyệt.',
             ], 422);
         }
 
