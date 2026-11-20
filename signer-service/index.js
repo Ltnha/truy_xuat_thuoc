@@ -192,6 +192,11 @@ app.post('/tx', authMiddleware, async (req, res) => {
         const contract = contractFor(wallet);
         let tx;
 
+        logSigner('TX_SIGNING', {
+            action: actionName,
+            signer: signerAddress
+        });
+
         switch (action) {
             case 'grantRole':
                 tx = await contract.grantRole(params.account, requireBytes32(params.role, 'role'));
