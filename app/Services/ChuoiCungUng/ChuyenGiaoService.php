@@ -230,7 +230,7 @@ class ChuyenGiaoService
             ]);
 
             return $chuyenGiao;
-        }, 3);
+        }, 1);
     }
 
     public function nhan(ChuyenGiao $chuyenGiao, ToChuc $benNhan, TaiKhoan $taiKhoan, ?string $ip): void
