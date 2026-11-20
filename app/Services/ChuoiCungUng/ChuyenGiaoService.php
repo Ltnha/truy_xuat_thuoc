@@ -36,51 +36,58 @@ class ChuyenGiaoService
      * NSX -> NPP và NPP -> Nhà thuốc. Tồn kho được khóa trong transaction
      * để tránh hai yêu cầu đồng thời cùng giữ vượt số lượng.
      */
+    /**
+     * Tạo chuyển giao NSX -> NPP hoặc NPP -> Nhà thuốc.
+     * Giao dịch submitTransfer phải được ký, mined và đối soát event trên Sepolia
+     * trước khi tạo bất kỳ bản ghi chuyenGiao/blockchainTransaction nào.
+     */
     public function tao(ToChuc $benGui, array $duLieu, TaiKhoan $taiKhoan, ?string $ip = null): ChuyenGiao
     {
-        [$chuyenGiao, $blockchainTransaction] = DB::transaction(function () use ($benGui, $duLieu, $taiKhoan, $ip): array {
+        return DB::transaction(function () use ($benGui, $duLieu, $taiKhoan, $ip): ChuyenGiao {
             $loThuoc = LoThuoc::query()->whereKey($duLieu['loThuocId'])->lockForUpdate()->firstOrFail();
             $benNhan = ToChuc::query()->whereKey($duLieu['benNhanId'])->firstOrFail();
 
             $duyetNhan = $benNhan->trangThaiDuyet instanceof OrganizationApprovalStatus
                 ? $benNhan->trangThaiDuyet
                 : OrganizationApprovalStatus::tryFrom((string) $benNhan->trangThaiDuyet);
-            if ($benGui->id === $benNhan->id || $duyetNhan !== OrganizationApprovalStatus::daDuyet) {
-                throw new NghiepVuException('Đơn vị nhận không hợp lệ hoặc chưa được phê duyệt.');
+            if ((int) $benGui->id === (int) $benNhan->id || $duyetNhan !== OrganizationApprovalStatus::daDuyet) {
+                throw new NghiepVuException('Nhà phân phối không hợp lệ hoặc chưa được cơ quan quản lý xét duyệt.');
             }
 
             $loaiGui = $benGui->loaiToChuc instanceof OrganizationType ? $benGui->loaiToChuc : OrganizationType::tryFrom((string) $benGui->loaiToChuc);
             $loaiNhan = $benNhan->loaiToChuc instanceof OrganizationType ? $benNhan->loaiToChuc : OrganizationType::tryFrom((string) $benNhan->loaiToChuc);
             $hopLe = ($loaiGui === OrganizationType::nhaSanXuat && $loaiNhan === OrganizationType::nhaPhanPhoi)
                 || ($loaiGui === OrganizationType::nhaPhanPhoi && $loaiNhan === OrganizationType::nhaThuoc);
-
             if (! $hopLe) {
                 throw new NghiepVuException('Chỉ cho phép chuyển giao theo luồng Nhà sản xuất → Nhà phân phối → Nhà thuốc.');
             }
 
-            // Cả hai tổ chức cần có ví ACTIVE để submit/receive được ký bằng đúng chủ thể.
-            // Không fallback sang ví Admin vì sẽ làm sai actor/benNhan trên contract.
-            foreach ([$benGui->id, $benNhan->id] as $toChucIdCanVi) {
-                $identity = BlockchainIdentity::query()
-                    ->where('toChucId', $toChucIdCanVi)
-                    ->where('trangThai', 'ACTIVE')
-                    ->whereNotNull('signerKeyId')
-                    ->whereNotNull('diaChiVi')
-                    ->first();
-                if (! $identity || trim((string) $identity->signerKeyId) === '' || trim((string) $identity->diaChiVi) === '') {
-                    throw new NghiepVuException("Tổ chức #{$toChucIdCanVi} chưa có ví Blockchain ACTIVE đầy đủ. Không thể tạo chuyển giao on-chain.");
-                }
-            }
-
+            $identityGui = BlockchainIdentity::query()
+                ->where('toChucId', $benGui->id)
+                ->where('trangThai', 'ACTIVE')
+                ->whereNotNull('signerKeyId')
+                ->whereNotNull('diaChiVi')
+                ->first();
             $identityNhan = BlockchainIdentity::query()
                 ->where('toChucId', $benNhan->id)
                 ->where('trangThai', 'ACTIVE')
                 ->whereNotNull('signerKeyId')
                 ->whereNotNull('diaChiVi')
-                ->firstOrFail();
+                ->first();
 
+            if (! $identityGui || ! $identityNhan
+                || trim((string) $identityGui->signerKeyId) === ''
+                || trim((string) $identityNhan->signerKeyId) === ''
+                || ! preg_match('/^0x[a-fA-F0-9]{40}$/', (string) $identityGui->diaChiVi)
+                || ! preg_match('/^0x[a-fA-F0-9]{40}$/', (string) $identityNhan->diaChiVi)) {
+                throw new NghiepVuException('Nhà sản xuất hoặc nhà phân phối chưa có ví Blockchain ACTIVE hợp lệ.');
+            }
+
+            if (! $this->signer->hasRole(RoleMap::cho($benGui->loaiToChuc), (string) $identityGui->diaChiVi)) {
+                throw new NghiepVuException('Ví nhà sản xuất chưa được cấp đúng role trên blockchain.');
+            }
             if (! $this->signer->hasRole(RoleMap::cho($benNhan->loaiToChuc), (string) $identityNhan->diaChiVi)) {
-                throw new NghiepVuException('Ví của đơn vị nhận chưa được cấp đúng role trên blockchain.');
+                throw new NghiepVuException('Ví nhà phân phối chưa được cấp đúng role trên blockchain.');
             }
 
             if ($loaiGui === OrganizationType::nhaSanXuat && (int) $loThuoc->toChucId !== (int) $benGui->id) {
@@ -96,14 +103,38 @@ class ChuyenGiaoService
                 throw new NghiepVuException('Không thể chuyển giao lô thuốc đã thu hồi hoặc hết hạn.');
             }
 
+            $coLenhChoOffchain = ChuyenGiao::query()
+                ->where('loThuocId', $loThuoc->id)
+                ->where('trangThai', TransferStatus::pending->value)
+                ->exists();
+            if ($coLenhChoOffchain) {
+                throw new NghiepVuException('Lô thuốc đang có một lệnh chuyển giao chờ xử lý.');
+            }
+
+            $batchIdBytes32 = '0x' . hash('sha256', 'BATCH_' . (string) $loThuoc->maLo);
+            $onChainBatch = $this->signer->getBatchState($batchIdBytes32);
+            if (empty($onChainBatch['batch']['exists'])) {
+                throw new NghiepVuException('Lô thuốc chưa được registerBatch thành công trên blockchain.');
+            }
+            if (! empty($onChainBatch['batch']['recalled'])) {
+                throw new NghiepVuException('Lô thuốc đã bị thu hồi trên blockchain.');
+            }
+
+            $zeroBytes32 = '0x' . str_repeat('0', 64);
+            if (strtolower((string) ($onChainBatch['pendingTransferId'] ?? $zeroBytes32)) !== $zeroBytes32) {
+                throw new NghiepVuException('Lô thuốc đang có một lệnh chuyển giao PENDING trên blockchain.');
+            }
+            if (strtolower((string) ($onChainBatch['batch']['currentOwner'] ?? '')) !== strtolower((string) $identityGui->diaChiVi)) {
+                throw new NghiepVuException('Ví nhà sản xuất không phải chủ sở hữu hiện tại của lô trên blockchain.');
+            }
+
             $tonKho = TonKhoLo::query()
                 ->where('loThuocId', $loThuoc->id)
                 ->where('toChucId', $benGui->id)
                 ->lockForUpdate()
                 ->first();
 
-            // Tương thích các lô NSX cũ được tạo trước khi hệ thống khởi tạo tonKhoLo.
-            // Chỉ seed tồn ban đầu khi chưa từng có chuyển giao để không cộng lại hàng đã xuất.
+            // Seed tồn kho cũ trong cùng DB transaction; nếu ký on-chain lỗi thì thay đổi này cũng rollback.
             if (! $tonKho && $loaiGui === OrganizationType::nhaSanXuat) {
                 $daTungChuyen = ChuyenGiao::query()->where('loThuocId', $loThuoc->id)->exists();
                 if (! $daTungChuyen) {
@@ -121,44 +152,51 @@ class ChuyenGiaoService
                 }
             }
 
-            // Một lô chỉ có một transfer đang chờ; kiểm tra cả DB và contract source-of-truth.
-            $coLenhChoOffchain = ChuyenGiao::query()
-                ->where('loThuocId', $loThuoc->id)
-                ->where('trangThai', TransferStatus::pending->value)
-                ->exists();
-            if ($coLenhChoOffchain) {
-                throw new NghiepVuException('Lô thuốc đang có một lệnh chuyển giao chờ xử lý.');
-            }
-
-            $identityGui = BlockchainIdentity::query()
-                ->where('toChucId', $benGui->id)
-                ->where('trangThai', 'ACTIVE')
-                ->firstOrFail();
-            $batchIdBytes32 = '0x' . hash('sha256', 'BATCH_' . (string) $loThuoc->maLo);
-            $onChainBatch = $this->signer->getBatchState($batchIdBytes32);
-            if (empty($onChainBatch['batch']['exists'])) {
-                throw new NghiepVuException('Lô thuốc chưa được registerBatch thành công trên blockchain.');
-            }
-            if (! empty($onChainBatch['batch']['recalled'])) {
-                throw new NghiepVuException('Lô thuốc đã bị thu hồi trên blockchain.');
-            }
-            $zeroBytes32 = '0x' . str_repeat('0', 64);
-            if (strtolower((string) ($onChainBatch['pendingTransferId'] ?? $zeroBytes32)) !== $zeroBytes32) {
-                throw new NghiepVuException('Lô thuốc đang có một lệnh chuyển giao PENDING trên blockchain.');
-            }
-            if (strtolower((string) ($onChainBatch['batch']['currentOwner'] ?? '')) !== strtolower((string) $identityGui->diaChiVi)) {
-                throw new NghiepVuException('Ví của tổ chức gửi không phải chủ sở hữu hiện tại của lô trên blockchain.');
-            }
-
             $soLuong = (int) ($duLieu['soLuong'] ?? 0);
             $khaDung = $this->tonKhoService->soLuongKhaDung((int) $loThuoc->id, (int) $benGui->id);
-
             if (! $tonKho || $soLuong < 1 || $soLuong > $khaDung) {
                 throw new NghiepVuException("Số lượng chuyển không hợp lệ hoặc vượt tồn kho khả dụng ({$khaDung}).");
             }
 
+            // Contract hiện tại chuyển quyền sở hữu TOÀN BỘ batch, không có tham số quantity.
+            // Không cho phép MySQL ghi một phần số lượng trong khi blockchain chuyển cả lô.
+            if ($soLuong !== $khaDung) {
+                throw new NghiepVuException("Hợp đồng Sepolia hiện chuyển toàn bộ lô. Vui lòng nhập đúng số lượng khả dụng: {$khaDung}.");
+            }
+
+            // Sinh transferId trước khi ký; chỉ đưa vào CSDL sau khi có event + txHash đã mined.
             $maChuyenGiao = (string) Str::uuid();
-            $cg = ChuyenGiao::query()->create([
+            $transferId = '0x' . hash('sha256', $maChuyenGiao);
+
+            try {
+                $this->signer->ensureGas((string) $identityGui->diaChiVi);
+                $result = $this->signer->tx((string) $identityGui->signerKeyId, 'submitTransfer', [
+                    'transferId' => $transferId,
+                    'batchId' => $batchIdBytes32,
+                    'receiver' => (string) $identityNhan->diaChiVi,
+                ]);
+
+                $txHash = (string) ($result['txHash'] ?? '');
+                if (empty($result['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+                    throw new NghiepVuException('Không thể ký/gửi submitTransfer lên Sepolia: ' . ($result['reasonVi'] ?? $result['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
+                }
+
+                // Đối soát log sự kiện thật trên Sepolia; không chỉ tin dữ liệu trả về từ HTTP.
+                $event = $this->signer->findTransferEvent($transferId, 'TransferSubmitted');
+                $eventHash = (string) ($event['txHash'] ?? '');
+                if (empty($event['isRecorded'])
+                    || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $eventHash)
+                    || strtolower($eventHash) !== strtolower($txHash)) {
+                    throw new NghiepVuException('Giao dịch đã gửi nhưng chưa đối soát được TransferSubmitted trên Sepolia. Không tạo bản ghi chuyển giao trong CSDL; cần kiểm tra lại giao dịch ' . $txHash . '.');
+                }
+            } catch (NghiepVuException $e) {
+                throw $e;
+            } catch (\Throwable $e) {
+                throw new NghiepVuException('Ký xác thực on-chain thất bại. CSDL chưa tạo chuyển giao: ' . $e->getMessage());
+            }
+
+            // Chỉ đến đây mới ghi CSDL: txHash phải là hash thật đã được Sepolia xác nhận.
+            $chuyenGiao = ChuyenGiao::query()->create([
                 'maChuyenGiao' => $maChuyenGiao,
                 'loThuocId' => $loThuoc->id,
                 'benGuiId' => $benGui->id,
@@ -168,46 +206,34 @@ class ChuyenGiaoService
                 'trangThai' => TransferStatus::pending,
             ]);
 
-            // Chưa có txHash cho tới khi Signer gửi giao dịch thật lên Sepolia.
-            // Cột txHash phải nullable; tuyệt đối không ghi mã PENDING giả vào đây.
-            $tx = BlockchainTransaction::query()->create([
-                'txHash' => null,
-                'blockNumber' => null,
+            BlockchainTransaction::query()->create([
+                'txHash' => $txHash,
+                'blockNumber' => isset($event['blockNumber']) ? (int) $event['blockNumber'] : ($result['blockNumber'] ?? null),
                 'eventName' => 'TransferSubmitted',
                 'doiTuongToChucId' => $benGui->id,
                 'businessId' => $maChuyenGiao,
                 'network' => config('truyXuat.blockchain.mang', 'Ethereum Sepolia'),
-                'trangThai' => 'PENDING',
+                'trangThai' => 'CONFIRMED',
                 'toChucId' => $benGui->id,
                 'sanPhamId' => $loThuoc->sanPhamId,
                 'loThuocId' => $loThuoc->id,
-                'chuyenGiaoId' => $cg->id,
-                'thoiGian' => now(),
+                'chuyenGiaoId' => $chuyenGiao->id,
+                'thoiGian' => ! empty($event['blockTimestamp'])
+                    ? Carbon::createFromTimestamp((int) $event['blockTimestamp'])
+                    : now(),
             ]);
-
 
             NhatKyHeThong::query()->create([
                 'taiKhoanId' => $taiKhoan->id,
-                'doiTuongId' => $cg->id,
-                'hanhDong' => 'KHOI_TAO_CHUYEN_GIAO',
+                'doiTuongId' => $chuyenGiao->id,
+                'hanhDong' => 'KHOI_TAO_CHUYEN_GIAO_ONCHAIN',
                 'ketQua' => 'THANH_CONG',
                 'thoiGian' => now(),
-                'chiTiet' => "{$benGui->tenToChuc} chuyển {$soLuong} đơn vị lô [{$loThuoc->maLoNghiepVu}] đến {$benNhan->tenToChuc}. Chờ ghi nhận Sepolia." . ($ip ? " IP: {$ip}" : ''),
+                'chiTiet' => "{$benGui->tenToChuc} đã ký và xác nhận TransferSubmitted trên Ethereum Sepolia. TxHash: {$txHash}. Chờ {$benNhan->tenToChuc} tiếp nhận." . ($ip ? " IP: {$ip}" : ''),
             ]);
 
-            return [$cg, $tx];
-        });
-
-        // Chỉ dispatch sau khi dữ liệu nghiệp vụ và tx PENDING đã commit.
-        ProcessBatchTransferJob::dispatch(
-            $chuyenGiao->id,
-            $taiKhoan->id,
-            $blockchainTransaction->id,
-            'TransferSubmitted',
-            'TRANSFER_BATCH'
-        )->afterCommit();
-
-        return $chuyenGiao;
+            return $chuyenGiao;
+        }, 3);
     }
 
     public function nhan(ChuyenGiao $chuyenGiao, ToChuc $benNhan, TaiKhoan $taiKhoan, ?string $ip): void
