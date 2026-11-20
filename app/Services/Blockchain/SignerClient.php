@@ -118,12 +118,40 @@ class SignerClient
     public function hasRole(string $roleHash, string $accountAddress): bool
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/roles/check", [
-            'role'    => $roleHash,
-            'account' => $accountAddress,
-        ]);
 
-        return $response->successful() && $response->json('hasRole') === true;
+        if (! preg_match('/^0x[a-fA-F0-9]{64}$/', $roleHash)) {
+            throw new Exception('Role hash không hợp lệ khi kiểm tra quyền blockchain.');
+        }
+        if (! preg_match('/^0x[a-fA-F0-9]{40}$/', $accountAddress)) {
+            throw new Exception('Địa chỉ ví không hợp lệ khi kiểm tra quyền blockchain.');
+        }
+
+        try {
+            $response = Http::withToken($this->apiToken)
+                ->acceptJson()
+                ->timeout(15)
+                ->get("{$this->baseUrl}/roles/check", [
+                    'role' => strtolower($roleHash),
+                    'account' => $accountAddress,
+                ]);
+        } catch (\\Throwable $e) {
+            throw new Exception('Không thể kết nối Signer khi kiểm tra role: ' . $e->getMessage(), 0, $e);
+        }
+
+        if (! $response->successful()) {
+            $reason = $response->json('reason') ?? $response->body();
+            throw new Exception(
+                'Signer không thể kiểm tra role (HTTP ' . $response->status() . '): ' . $reason
+            );
+        }
+
+        $payload = $response->json();
+        if (! is_array($payload) || ($payload['ok'] ?? false) !== true || ! is_bool($payload['hasRole'] ?? null)) {
+            throw new Exception('Signer trả về dữ liệu kiểm tra role không hợp lệ.');
+        }
+
+        // Chỉ trả false khi Signer đã đọc thành công contract và xác nhận ví thực sự không có role.
+        return $payload['hasRole'];
     }
 
     /**
