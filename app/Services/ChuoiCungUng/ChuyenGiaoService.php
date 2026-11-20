@@ -32,14 +32,10 @@ class ChuyenGiaoService
     }
 
     /**
-     * Tạo chuyển giao duy nhất dùng chung cho hai luồng hợp lệ:
-     * NSX -> NPP và NPP -> Nhà thuốc. Tồn kho được khóa trong transaction
-     * để tránh hai yêu cầu đồng thời cùng giữ vượt số lượng.
-     */
     /**
      * Tạo chuyển giao NSX -> NPP hoặc NPP -> Nhà thuốc.
-     * Giao dịch submitTransfer phải được ký, mined và đối soát event trên Sepolia
-     * trước khi tạo bất kỳ bản ghi chuyenGiao/blockchainTransaction nào.
+     * Chỉ tạo bản ghi chuyển giao sau khi Signer trả receipt thành công, có txHash thật
+     * và blockNumber từ Sepolia.
      */
     public function tao(ToChuc $benGui, array $duLieu, TaiKhoan $taiKhoan, ?string $ip = null): ChuyenGiao
     {
@@ -202,6 +198,10 @@ class ChuyenGiaoService
                 'thoiGianKhoiTao' => now(),
                 'trangThai' => TransferStatus::pending,
             ]);
+
+            if ($trangThaiLo === BatchStatus::created) {
+                $loThuoc->update(['trangThai' => BatchStatus::inTransit->value]);
+            }
 
             BlockchainTransaction::query()->create([
                 'txHash' => $txHash,
