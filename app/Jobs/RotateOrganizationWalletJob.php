@@ -63,7 +63,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                     'network'          => 'Ethereum Sepolia Testnet',
                     'trangThai'        => 'CONFIRMED',
                     'toChucId'         => $toChuc->id,
-                    'thoiGian'         => $revokeBlockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($revokeBlockTimestamp) : now(),
+                    'thoiGian'         => $revokeBlockTimestamp ? Carbon::createFromTimestamp($revokeBlockTimestamp) : now(),
                 ]);
             }
             $viCu->update(['trangThai' => 'REVOKED']);
@@ -97,7 +97,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
 
         // 4. HoĂ n táº¥t kĂ­ch hoáº¡t vĂ­ má»›i
         DB::transaction(function () use ($viMoi, $toChuc, $kqGrant, $grantBlockTimestamp) {
-            $blockTime = $grantBlockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($grantBlockTimestamp) : now();
+            $blockTime = $grantBlockTimestamp ? Carbon::createFromTimestamp($grantBlockTimestamp) : now();
             $viMoi->update(['trangThai' => 'ACTIVE']);
 
             BlockchainTransaction::create([
