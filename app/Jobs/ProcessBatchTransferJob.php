@@ -126,8 +126,51 @@ class ProcessBatchTransferJob implements ShouldQueue
                 }
             }
         } catch (\Throwable $e) {
-            Log::warning('[ProcessBatchTransferJob] Chưa đối soát được event; hoãn retry để tránh gửi giao dịch trùng: ' . $e->getMessage());
-            throw $e;
+            // Fallback đọc mapping transfers(bytes32) trực tiếp từ contract storage.
+            // Đây là RPC eth_call, không cần truy vấn lịch sử eth_getLogs đã bị prune.
+            Log::warning('[ProcessBatchTransferJob] RPC không đọc được lịch sử event; chuyển sang kiểm tra trạng thái transfer trong contract storage.', [
+                'chuyenGiaoId' => $cg->id,
+                'eventName' => $this->eventName,
+                'transferId' => $transferId,
+                'reason' => $e->getMessage(),
+            ]);
+
+            $state = $signer->getTransferState($transferId);
+            $transfer = $state['transfer'] ?? null;
+            $onChainStatus = $transfer ? (int) ($transfer['status'] ?? 0) : 0;
+
+            if (! $transfer) {
+                // Chỉ an toàn gửi mới khi submitTransfer chưa tồn tại trên contract.
+                if ($action !== 'submitTransfer') {
+                    throw new Exception(
+                        'Không tìm thấy transferId trên contract; không thể thực hiện ' . $action . '. Lỗi đối soát event gốc: ' . $e->getMessage(),
+                        previous: $e
+                    );
+                }
+
+                Log::warning('[ProcessBatchTransferJob] Transfer chưa tồn tại trên contract; an toàn tiếp tục submitTransfer dù RPC không đọc được event history.', [
+                    'chuyenGiaoId' => $cg->id,
+                    'transferId' => $transferId,
+                ]);
+            } elseif ($action !== 'submitTransfer' && $onChainStatus === 1) {
+                // Status 1 = PENDING. Contract xác nhận transfer đã submit và đang chờ bên nhận.
+                // Với receive/reject/cancel, có thể tiếp tục action tương ứng mà không resend submit.
+                Log::warning('[ProcessBatchTransferJob] Đã xác minh transfer đang PENDING bằng contract storage; tiếp tục action mà không cần eth_getLogs.', [
+                    'chuyenGiaoId' => $cg->id,
+                    'transferId' => $transferId,
+                    'action' => $action,
+                    'onChainStatus' => $onChainStatus,
+                ]);
+            } else {
+                // Transfer đã có trạng thái khác hoặc submit đã tồn tại: không thể lấy txHash từ
+                // storage mapping. Dừng an toàn để tránh gửi trùng; cần archive-capable RPC khôi phục txHash.
+                throw new Exception(
+                    'Không thể xác minh an toàn giao dịch do RPC không cung cấp event history. Trạng thái transfer on-chain='
+                    . $onChainStatus . '; action=' . $action
+                    . '. Cần RPC hỗ trợ archive eth_getLogs để khôi phục txHash, không gửi lại giao dịch.',
+                    previous: $e
+                );
+            }
         }
 
         if (! $txHash) {
