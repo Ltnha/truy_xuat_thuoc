@@ -181,13 +181,10 @@ class ChuyenGiaoService
                     throw new NghiepVuException('Không thể ký/gửi submitTransfer lên Sepolia: ' . ($result['reasonVi'] ?? $result['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
                 }
 
-                // Đối soát log sự kiện thật trên Sepolia; không chỉ tin dữ liệu trả về từ HTTP.
-                $event = $this->signer->findTransferEvent($transferId, 'TransferSubmitted');
-                $eventHash = (string) ($event['txHash'] ?? '');
-                if (empty($event['isRecorded'])
-                    || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $eventHash)
-                    || strtolower($eventHash) !== strtolower($txHash)) {
-                    throw new NghiepVuException('Giao dịch đã gửi nhưng chưa đối soát được TransferSubmitted trên Sepolia. Không tạo bản ghi chuyển giao trong CSDL; cần kiểm tra lại giao dịch ' . $txHash . '.');
+                // Signer chỉ trả ok=true sau khi tx.wait(BLOCKCHAIN_CONFIRMATIONS) nhận receipt status=1.
+                // Receipt chứa txHash và blockNumber thật từ Ethereum Sepolia.
+                if (! isset($result['blockNumber']) || (int) $result['blockNumber'] < 1) {
+                    throw new NghiepVuException('Signer chưa trả về blockNumber của giao dịch đã mined. Không ghi chuyển giao vào CSDL.');
                 }
             } catch (NghiepVuException $e) {
                 throw $e;
@@ -208,7 +205,7 @@ class ChuyenGiaoService
 
             BlockchainTransaction::query()->create([
                 'txHash' => $txHash,
-                'blockNumber' => isset($event['blockNumber']) ? (int) $event['blockNumber'] : ($result['blockNumber'] ?? null),
+                'blockNumber' => (int) $result['blockNumber'],
                 'eventName' => 'TransferSubmitted',
                 'doiTuongToChucId' => $benGui->id,
                 'businessId' => $maChuyenGiao,
@@ -218,8 +215,8 @@ class ChuyenGiaoService
                 'sanPhamId' => $loThuoc->sanPhamId,
                 'loThuocId' => $loThuoc->id,
                 'chuyenGiaoId' => $chuyenGiao->id,
-                'thoiGian' => ! empty($event['blockTimestamp'])
-                    ? Carbon::createFromTimestamp((int) $event['blockTimestamp'])
+                'thoiGian' => ! empty($result['blockTimestamp'])
+                    ? Carbon::createFromTimestamp((int) $result['blockTimestamp'])
                     : now(),
             ]);
 
