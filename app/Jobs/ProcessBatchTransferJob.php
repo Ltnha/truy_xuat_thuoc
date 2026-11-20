@@ -121,6 +121,17 @@ class ProcessBatchTransferJob implements ShouldQueue
         }
 
         if (! $txHash) {
+            if ($action === 'rejectTransfer') {
+                Log::info('[ProcessBatchTransferJob] Nhà phân phối đang yêu cầu ký giao dịch từ chối trên Sepolia.', [
+                    'chuyenGiaoId' => $cg->id,
+                    'transferId' => $transferId,
+                    'benGuiId' => $cg->benGuiId,
+                    'benNhanId' => $cg->benNhanId,
+                    'signerAddress' => $actor->diaChiVi,
+                    'eventName' => $this->eventName,
+                ]);
+            }
+
             $signer->ensureGas((string) $actor->diaChiVi);
             $result = $signer->tx((string) $actor->signerKeyId, $action, $params);
 
@@ -214,6 +225,14 @@ class ProcessBatchTransferJob implements ShouldQueue
         });
 
         Log::info("[ProcessBatchTransferJob] {$this->eventName} CG #{$cg->id} confirmed: {$txHash}");
+
+        if ($this->eventName === 'TransferRejected') {
+            Log::info('[ProcessBatchTransferJob] Giao dịch từ chối đã xác nhận; quyền sở hữu lô vẫn thuộc bên gửi.', [
+                'chuyenGiaoId' => $cg->id,
+                'txHash' => $txHash,
+                'blockNumber' => $blockNumber,
+            ]);
+        }
     }
 
     private function findTransaction(ChuyenGiao $cg): BlockchainTransaction
