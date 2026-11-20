@@ -106,7 +106,17 @@ class ProcessBatchTransferJob implements ShouldQueue
         $blockNumber = null;
         $blockTimestamp = null;
         try {
+            Log::info('[ProcessBatchTransferJob] Bắt đầu đối soát event trước khi ký.', [
+                'chuyenGiaoId' => $cg->id,
+                'eventName' => $this->eventName,
+                'transferId' => $transferId,
+            ]);
             $eventCheck = $signer->findTransferEvent($transferId, $this->eventName);
+            Log::info('[ProcessBatchTransferJob] Đối soát event hoàn tất.', [
+                'chuyenGiaoId' => $cg->id,
+                'eventName' => $this->eventName,
+                'isRecorded' => ! empty($eventCheck['isRecorded']),
+            ]);
             if (! empty($eventCheck['isRecorded'])) {
                 $candidate = $eventCheck['txHash'] ?? null;
                 if (is_string($candidate) && preg_match('/^0x[a-fA-F0-9]{64}$/', $candidate)) {
@@ -132,8 +142,23 @@ class ProcessBatchTransferJob implements ShouldQueue
                 ]);
             }
 
+            Log::info('[ProcessBatchTransferJob] Bắt đầu kiểm tra/nạp gas cho ví ký.', [
+                'action' => $action,
+                'signerAddress' => $actor->diaChiVi,
+                'chuyenGiaoId' => $cg->id,
+            ]);
             $signer->ensureGas((string) $actor->diaChiVi);
+            Log::info('[ProcessBatchTransferJob] Kiểm tra/nạp gas hoàn tất; chuẩn bị gọi Signer /tx.', [
+                'action' => $action,
+                'chuyenGiaoId' => $cg->id,
+            ]);
             $result = $signer->tx((string) $actor->signerKeyId, $action, $params);
+            Log::info('[ProcessBatchTransferJob] Signer /tx đã trả phản hồi.', [
+                'action' => $action,
+                'ok' => ! empty($result['ok']),
+                'txHash' => $result['txHash'] ?? null,
+                'reason' => $result['reasonVi'] ?? $result['reason'] ?? null,
+            ]);
 
             if (empty($result['ok']) || empty($result['txHash'])) {
                 throw new Exception('Signer không gửi được ' . $action . ': ' . ($result['reasonVi'] ?? $result['reason'] ?? 'Không có txHash.'));
