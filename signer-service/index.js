@@ -432,24 +432,34 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
         let registerTxHash = null, registerBlockNumber = null, registerBlockTimestamp = null;
         let recallTxHash = null, recallBlockNumber = null, recallBlockTimestamp = null;
         if (batch.exists) {
-            const latest = await provider.getBlockNumber();
-            const logs = await contract.queryFilter(contract.filters.BatchRegistered(batchId), Math.max(0, latest - 40000), latest);
-            const found = logs.length ? logs[logs.length - 1] : null;
-            if (found) {
-                registerTxHash = found.transactionHash;
-                registerBlockNumber = Number(found.blockNumber);
-                const block = await provider.getBlock(found.blockNumber);
-                registerBlockTimestamp = block ? Number(block.timestamp) : null;
-            }
-            if (recalled) {
-                const recallLogs = await contract.queryFilter(contract.filters.BatchRecalled(batchId), Math.max(0, latest - 40000), latest);
-                const recallFound = recallLogs.length ? recallLogs[recallLogs.length - 1] : null;
-                if (recallFound) {
-                    recallTxHash = recallFound.transactionHash;
-                    recallBlockNumber = Number(recallFound.blockNumber);
-                    const block = await provider.getBlock(recallFound.blockNumber);
-                    recallBlockTimestamp = block ? Number(block.timestamp) : null;
+            // Trạng thái batch lấy từ storage của contract; log chỉ dùng để bổ sung tx metadata.
+            try {
+                const latest = await provider.getBlockNumber();
+                const fromBlock = Math.max(0, latest - 40000);
+                const logs = await contract.queryFilter(contract.filters.BatchRegistered(batchId), fromBlock, latest);
+                const found = logs.length ? logs[logs.length - 1] : null;
+                if (found) {
+                    registerTxHash = found.transactionHash;
+                    registerBlockNumber = Number(found.blockNumber);
+                    const block = await provider.getBlock(found.blockNumber);
+                    registerBlockTimestamp = block ? Number(block.timestamp) : null;
                 }
+
+                if (recalled) {
+                    const recallLogs = await contract.queryFilter(contract.filters.BatchRecalled(batchId), fromBlock, latest);
+                    const recallFound = recallLogs.length ? recallLogs[recallLogs.length - 1] : null;
+                    if (recallFound) {
+                        recallTxHash = recallFound.transactionHash;
+                        recallBlockNumber = Number(recallFound.blockNumber);
+                        const block = await provider.getBlock(recallFound.blockNumber);
+                        recallBlockTimestamp = block ? Number(block.timestamp) : null;
+                    }
+                }
+            } catch (historyError) {
+                logSigner('BATCH_HISTORY_METADATA_UNAVAILABLE', {
+                    batchId,
+                    reason: historyError.shortMessage || historyError.message
+                });
             }
         }
         return res.json({
