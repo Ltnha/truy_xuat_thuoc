@@ -164,25 +164,105 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             });
 
-            // Bind nút từ chối
+            // Giữ hộp chờ mở cho đến khi TransferRejected có receipt CONFIRMED và txHash thật.
             tbody.querySelectorAll('.btn-tu-choi').forEach(btn => {
                 btn.addEventListener('click', async function () {
-                    if (!confirm('Bạn có chắc muốn gửi yêu cầu TỪ CHỐI? Số lượng chỉ được giải phóng sau khi blockchain xác nhận.')) return;
+                    if (!confirm('Bạn có chắc muốn từ chối tiếp nhận lô hàng này?')) return;
                     const lyDo = prompt('Lý do từ chối (có thể bỏ trống):', 'Nhà phân phối từ chối nhận hàng') || 'Nhà phân phối từ chối nhận hàng';
-                    btn.disabled = true;
                     const oldText = btn.textContent;
-                    btn.textContent = 'Đang từ chối...';
+                    btn.disabled = true;
+                    btn.textContent = 'Đang gửi yêu cầu...';
+
+                    const modal = document.createElement('div');
+                    modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-4';
+                    modal.innerHTML = `
+                        <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                            <div class="flex items-center gap-3 mb-4">
+                                <div class="h-11 w-11 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"><i class="fa-solid fa-hourglass-half text-lg"></i></div>
+                                <div><h3 class="font-bold text-slate-900">Đang chờ xác nhận từ chối</h3><p class="text-xs text-slate-500">Ethereum Sepolia</p></div>
+                            </div>
+                            <div class="flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
+                                <i data-role="spinner" class="fa-solid fa-spinner fa-spin text-amber-600"></i>
+                                <p data-role="message" class="text-sm text-amber-900">Đang gửi yêu cầu đến hệ thống ký giao dịch...</p>
+                            </div>
+                            <p data-role="detail" class="mt-3 text-xs text-slate-500">Hộp này chỉ tự đóng sau khi giao dịch được xác nhận.</p>
+                            <a data-role="tx" href="#" target="_blank" rel="noopener" class="hidden mt-3 text-xs text-blue-700 underline break-all">Xem giao dịch trên Etherscan</a>
+                            <button data-role="close" type="button" class="hidden mt-5 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white">Đóng</button>
+                        </div>`;
+                    document.body.appendChild(modal);
+                    const message = modal.querySelector('[data-role="message"]');
+                    const detail = modal.querySelector('[data-role="detail"]');
+                    const txLink = modal.querySelector('[data-role="tx"]');
+                    const closeButton = modal.querySelector('[data-role="close"]');
+                    const closeModal = () => modal.remove();
+
+                    closeButton.addEventListener('click', () => {
+                        closeModal();
+                        loadPending(currentPagePending);
+                        loadKho();
+                    });
+
                     try {
                         await fetchJSON(`/nha-phan-phoi/api/tu-choi/${btn.dataset.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ lyDo }),
                         });
-                        toast('Đã gửi yêu cầu từ chối. Đang chờ xác nhận giao dịch trên blockchain.');
-                        loadPending(currentPagePending);
-                        loadKho();
+
+                        message.textContent = 'Đang chờ Signer ký rejectTransfer và xác nhận trên blockchain...';
+                        detail.textContent = 'Không gửi lại yêu cầu trong lúc đang chờ để tránh giao dịch trùng.';
+                        let finished = false;
+                        for (let attempt = 0; attempt < 120; attempt++) {
+                            await new Promise(resolve => setTimeout(resolve, 3000));
+                            const response = await fetchJSON(`/nha-phan-phoi/api/tu-choi/${btn.dataset.id}/trang-thai`);
+                            const state = response.data || {};
+
+                            if (state.status === 'CONFIRMED' && state.confirmed && state.txHash) {
+                                message.textContent = 'Giao dịch từ chối đã ký và xác nhận trên Ethereum Sepolia.';
+                                message.className = 'text-sm text-emerald-900';
+                                modal.querySelector('[data-role="spinner"]').className = 'fa-solid fa-circle-check text-emerald-600';
+                                detail.textContent = 'Quyền sở hữu lô vẫn thuộc bên gửi.';
+                                txLink.href = state.explorerUrl;
+                                txLink.textContent = 'TxHash: ' + state.txHash;
+                                txLink.classList.remove('hidden');
+                                closeButton.textContent = 'Đóng';
+                                closeButton.classList.remove('hidden');
+                                finished = true;
+                                setTimeout(() => {
+                                    if (modal.isConnected) closeModal();
+                                    loadPending(currentPagePending);
+                                    loadKho();
+                                }, 1800);
+                                break;
+                            }
+
+                            if (state.status === 'FAILED') {
+                                message.textContent = state.message || 'Giao dịch từ chối ký thất bại.';
+                                message.className = 'text-sm text-rose-800';
+                                detail.textContent = 'Hộp vẫn mở. Kiểm tra log Laravel và Signer Service trước khi thử lại.';
+                                closeButton.textContent = 'Đóng';
+                                closeButton.classList.remove('hidden');
+                                finished = true;
+                                break;
+                            }
+                            message.textContent = state.message || 'Đang chờ Signer ký và blockchain xác nhận...';
+                            detail.textContent = 'Đã chờ ' + Math.round(((attempt + 1) * 3) / 60) + ' phút. Vẫn đang kiểm tra trạng thái.';
+                        }
+
+                        if (!finished) {
+                            message.textContent = 'Giao dịch vẫn đang chờ xác nhận.';
+                            detail.textContent = 'Chưa nhận được kết quả sau 6 phút. Hộp vẫn mở; không gửi lại để tránh giao dịch trùng.';
+                            closeButton.textContent = 'Đóng';
+                            closeButton.classList.remove('hidden');
+                        }
                     } catch (err) {
+                        message.textContent = err.message || 'Không thể gửi hoặc kiểm tra yêu cầu từ chối.';
+                        message.className = 'text-sm text-rose-800';
+                        detail.textContent = 'Kiểm tra queue worker, log Laravel và Signer Service.';
+                        closeButton.textContent = 'Đóng';
+                        closeButton.classList.remove('hidden');
                         toast(err.message, 'error');
+                    } finally {
                         btn.disabled = false;
                         btn.textContent = oldText || 'Từ chối';
                     }
