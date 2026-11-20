@@ -312,12 +312,33 @@ app.post('/tx', authMiddleware, async (req, res) => {
 
 app.get('/roles/check', authMiddleware, async (req, res) => {
     try {
-        if (!ethers.isAddress(String(req.query.account || ''))) throw new Error('account không hợp lệ.');
+        const account = String(req.query.account || '');
+        if (!ethers.isAddress(account)) throw new Error('account không hợp lệ.');
+
         const role = requireBytes32(String(req.query.role || ''), 'role');
-        const hasRole = await contractFor(provider).hasRole(role, req.query.account);
-        return res.json({ ok: true, hasRole });
+        const network = await provider.getNetwork();
+
+        // BatchTraceability.sol và API.json khai báo hasRole(address account, bytes32 role).
+        // Giữ đúng thứ tự ABI: account trước, role sau.
+        const hasRole = await contractFor(provider).hasRole(account, role);
+
+        return res.json({
+            ok: true,
+            hasRole,
+            account: ethers.getAddress(account),
+            role,
+            chainId: Number(network.chainId),
+            contractAddress: ethers.getAddress(CONTRACT_ADDRESS)
+        });
     } catch (err) {
-        return res.status(400).json({ ok: false, hasRole: false, reason: err.message });
+        const reason = err.shortMessage || err.reason || err.message || 'Không thể kiểm tra role trên blockchain.';
+        logSigner('ROLE_CHECK_FAILED', {
+            account: String(req.query.account || ''),
+            role: String(req.query.role || ''),
+            contract: CONTRACT_ADDRESS,
+            reason
+        });
+        return res.status(502).json({ ok: false, reason });
     }
 });
 
