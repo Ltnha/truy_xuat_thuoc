@@ -85,7 +85,7 @@ class RestoreOrganizationRoleJob implements ShouldQueue
 
         // 4. KĂ­ch hoáº¡t láº¡i tá»• chá»©c vĂ  tĂ i khoáº£n trong CSDL
         DB::transaction(function () use ($toChuc, $identity, $txHash, $blockTimestamp) {
-            $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
+            $blockTime = $blockTimestamp ? Carbon::createFromTimestamp($blockTimestamp) : now();
             $identity->update(['trangThai' => 'ACTIVE']);
 
             $toChuc->update([
