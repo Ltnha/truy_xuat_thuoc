@@ -197,6 +197,17 @@ app.post('/tx', authMiddleware, async (req, res) => {
             signer: signerAddress
         });
 
+        if (action === 'rejectTransfer') {
+            logSigner('TRANSFER_REJECTION_SIGNING', {
+                message: 'Đang ký giao dịch từ chối tiếp nhận; quyền sở hữu lô vẫn thuộc bên gửi và được giữ nguyên.',
+                signer: signerAddress,
+                transferId: params.transferId,
+                reasonHash: params.reasonHash,
+                chainId: Number(network.chainId),
+                contract: CONTRACT_ADDRESS
+            });
+        }
+
         switch (action) {
             case 'grantRole':
                 tx = await contract.grantRole(params.account, requireBytes32(params.role, 'role'));
@@ -297,6 +308,17 @@ app.post('/tx', authMiddleware, async (req, res) => {
             explorer: 'https://sepolia.etherscan.io/tx/' + result.txHash
         });
 
+        if (action === 'rejectTransfer') {
+            logSigner('TRANSFER_REJECTION_CONFIRMED', {
+                message: 'Giao dịch từ chối đã được xác nhận on-chain; lô vẫn thuộc quyền sở hữu của bên gửi.',
+                signer: signerAddress,
+                transferId: params.transferId,
+                txHash: result.txHash,
+                blockNumber: result.blockNumber,
+                explorer: 'https://sepolia.etherscan.io/tx/' + result.txHash
+            });
+        }
+
         return res.json(result);
     } catch (err) {
         const reason = err.revert?.name || err.shortMessage || err.reason || err.message || 'Signer transaction failed';
@@ -306,6 +328,15 @@ app.post('/tx', authMiddleware, async (req, res) => {
             txHash,
             reason
         });
+        if (actionName === 'rejectTransfer') {
+            logSigner('TRANSFER_REJECTION_FAILED', {
+                message: 'Không thể ký hoặc xác nhận giao dịch từ chối chuyển giao.',
+                signer: signerAddress,
+                transferId: req.body?.params?.transferId ?? null,
+                txHash,
+                reason
+            });
+        }
         return res.status(400).json({ ok: false, reason });
     }
 });
