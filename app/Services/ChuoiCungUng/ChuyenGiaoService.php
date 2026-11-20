@@ -292,7 +292,15 @@ class ChuyenGiaoService
             return $tx;
         });
 
-        ProcessBatchTransferJob::dispatch($chuyenGiao->id, $taiKhoan->id, $blockchainTransaction->id, 'TransferRejected', 'TRANSFER_REJECTED')->afterCommit();
+        // Từ chối phải được ký ngay trong request để không phụ thuộc queue worker.
+        // Giao diện đã mở hộp chờ trước khi gọi API và sẽ chỉ đóng sau khi receipt CONFIRMED.
+        ProcessBatchTransferJob::dispatchSync(
+            $chuyenGiao->id,
+            $taiKhoan->id,
+            $blockchainTransaction->id,
+            'TransferRejected',
+            'TRANSFER_REJECTED'
+        );
     }
 
     /** Bên gửi được hủy lệnh khi giao dịch vẫn đang chờ người nhận. */
