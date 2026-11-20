@@ -70,7 +70,7 @@ class RevokeOrganizationRoleJob implements ShouldQueue
 
         // Cáº­p nháº­t CSDL
         DB::transaction(function () use ($identity, $toChuc, $txHash, $blockTimestamp) {
-            $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
+            $blockTime = $blockTimestamp ? Carbon::createFromTimestamp($blockTimestamp) : now();
             $identity->update(['trangThai' => 'REVOKED']);
 
             if ($txHash) {
