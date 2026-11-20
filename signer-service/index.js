@@ -159,11 +159,36 @@ app.post('/gas/ensure', authMiddleware, async (req, res) => {
     }
 });
 
+function logSigner(event, details = {}) {
+    const record = {
+        time: new Date().toISOString(),
+        event,
+        ...details
+    };
+    console.log('[SIGNER]', JSON.stringify(record));
+}
+
 app.post('/tx', authMiddleware, async (req, res) => {
+    let actionName = 'UNKNOWN';
+    let signerAddress = null;
+    let txHash = null;
+
     try {
         const { keyId, action, params = {} } = req.body || {};
+        actionName = String(action || 'UNKNOWN');
         if (!keyId || !action || !params || typeof params !== 'object') throw new Error('Thiếu keyId, action hoặc params.');
+
         const wallet = getWallet(String(keyId));
+        signerAddress = wallet.address;
+        const network = await provider.getNetwork();
+        logSigner('TX_START', {
+            action: actionName,
+            keyId: String(keyId),
+            signer: signerAddress,
+            chainId: Number(network.chainId),
+            contract: CONTRACT_ADDRESS
+        });
+
         const contract = contractFor(wallet);
         let tx;
 
@@ -224,21 +249,58 @@ app.post('/tx', authMiddleware, async (req, res) => {
                 throw new Error('Action không được hỗ trợ: ' + action);
         }
 
+        txHash = tx.hash;
+        logSigner('TX_BROADCAST', {
+            action: actionName,
+            signer: signerAddress,
+            txHash
+        });
+
         const requiredConfirmations = Math.max(1, Number(process.env.BLOCKCHAIN_CONFIRMATIONS || 1));
+        logSigner('TX_WAIT_CONFIRMATIONS', {
+            action: actionName,
+            txHash,
+            requiredConfirmations
+        });
+
         const receipt = await tx.wait(requiredConfirmations);
         if (!receipt || receipt.status !== 1) {
-            return res.status(502).json({ ok: false, reason: 'Transaction reverted hoặc không có receipt.', txHash: tx.hash });
+            logSigner('TX_REVERTED', {
+                action: actionName,
+                signer: signerAddress,
+                txHash,
+                blockNumber: receipt?.blockNumber ?? null
+            });
+            return res.status(502).json({ ok: false, reason: 'Transaction reverted hoặc không có receipt.', txHash });
         }
+
         const minedBlock = await provider.getBlock(receipt.blockNumber);
-        return res.json({
+        const result = {
             ok: true,
             txHash: receipt.hash,
             blockNumber: Number(receipt.blockNumber),
             blockTimestamp: minedBlock ? Number(minedBlock.timestamp) : null,
             confirmations: requiredConfirmations
+        };
+
+        logSigner('TX_CONFIRMED', {
+            action: actionName,
+            signer: signerAddress,
+            txHash: result.txHash,
+            blockNumber: result.blockNumber,
+            confirmations: result.confirmations,
+            explorer: 'https://sepolia.etherscan.io/tx/' + result.txHash
         });
+
+        return res.json(result);
     } catch (err) {
         const reason = err.revert?.name || err.shortMessage || err.reason || err.message || 'Signer transaction failed';
+        logSigner('TX_FAILED', {
+            action: actionName,
+            signer: signerAddress,
+            txHash,
+            reason
+        });
         return res.status(400).json({ ok: false, reason });
     }
 });
@@ -465,7 +527,29 @@ app.post('/wallets/rotate', authMiddleware, async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
-    console.log('Signer Service listening on port ' + PORT);
-    console.log('Admin wallet: ' + adminWallet.address);
+app.listen(PORT, async () => {
+    console.log('============================================================');
+    console.log(' PHARMACHAIN SIGNER SERVICE');
+    console.log('============================================================');
+    console.log('[SIGNER] HTTP listening: http://127.0.0.1:' + PORT);
+    console.log('[SIGNER] Admin/Owner wallet: ' + adminWallet.address);
+    console.log('[SIGNER] Contract: ' + CONTRACT_ADDRESS);
+    console.log('[SIGNER] RPC: ' + (process.env.BLOCKCHAIN_RPC_URL || '(not configured)'));
+    console.log('[SIGNER] Required confirmations: ' + Math.max(1, Number(process.env.BLOCKCHAIN_CONFIRMATIONS || 1)));
+
+    try {
+        const network = await provider.getNetwork();
+        const code = await provider.getCode(CONTRACT_ADDRESS);
+        console.log('[SIGNER] Connected chainId: ' + Number(network.chainId));
+        console.log('[SIGNER] Contract deployed: ' + (code !== '0x' ? 'YES' : 'NO'));
+        if (Number(network.chainId) !== 11155111) {
+            console.error('[SIGNER] WARNING: RPC is not Ethereum Sepolia (expected chainId 11155111).');
+        } else if (code === '0x') {
+            console.error('[SIGNER] ERROR: No contract bytecode at configured address.');
+        } else {
+            console.log('[SIGNER] READY - waiting for signing requests.');
+        }
+    } catch (err) {
+        console.error('[SIGNER] STARTUP_CHECK_FAILED: ' + (err.shortMessage || err.message));
+    }
 });
