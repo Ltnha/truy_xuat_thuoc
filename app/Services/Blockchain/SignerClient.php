@@ -224,10 +224,15 @@ class SignerClient
     {
         $this->assertConfigured();
         $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/transfers/{$transferId}");
+        if ($response->status() === 404) {
+            return ['ok' => true, 'exists' => false, 'transfer' => null];
+        }
         if ($response->failed() || ! $response->json('ok')) {
             throw new Exception('Không thể đọc transfer on-chain: ' . ($response->json('reason') ?? $response->body()));
         }
-        return $response->json();
+        $data = $response->json();
+        $data['exists'] = ! empty($data['transfer']);
+        return $data;
     }
 
     /** Lấy timeline event của một batch từ log on-chain. */
