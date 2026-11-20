@@ -134,7 +134,7 @@ class SignerClient
                     'role' => strtolower($roleHash),
                     'account' => $accountAddress,
                 ]);
-        } catch (\\Throwable $e) {
+        } catch (\Throwable $e) {
             throw new Exception('Không thể kết nối Signer khi kiểm tra role: ' . $e->getMessage(), 0, $e);
         }
 
