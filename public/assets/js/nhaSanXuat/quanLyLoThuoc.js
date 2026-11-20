@@ -318,7 +318,43 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // ================== 5. MỞ MODAL CHUYỂN GIAO ==================
-    window.moModalPhanPhoiDirect = function (id) {
+    async function taiDanhSachNhaPhanPhoi(select) {
+        if (!select) return;
+        select.innerHTML = '<option value="">Đang tải nhà phân phối đã xét duyệt...</option>';
+        select.disabled = true;
+        try {
+            const response = await fetch('/nha-san-xuat/api/nha-phan-phoi', {
+                headers: { 'Accept': 'application/json' }
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || 'Không tải được danh sách nhà phân phối.');
+            }
+
+            const items = Array.isArray(result.data) ? result.data : [];
+            select.innerHTML = '<option value="">-- Chọn nhà phân phối đã duyệt --</option>';
+            if (items.length === 0) {
+                select.innerHTML += '<option value="" disabled>Chưa có nhà phân phối đã duyệt và có ví hoạt động</option>';
+            } else {
+                items.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = String(item.id);
+                    option.textContent = item.maSoThue
+                        ? item.tenToChuc + ' (MST: ' + item.maSoThue + ')'
+                        : item.tenToChuc;
+                    select.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error(error);
+            select.innerHTML = '<option value="">Không tải được danh sách nhà phân phối</option>';
+            alert(error.message || 'Không thể tải danh sách nhà phân phối đã duyệt.');
+        } finally {
+            select.disabled = false;
+        }
+    }
+
+    window.moModalPhanPhoiDirect = async function (id) {
         const item = tatCaLoThuoc.find(l => Number(l.id) === Number(id));
         if (!item) {
             alert('Không tìm thấy thông tin lô thuốc.');
@@ -331,7 +367,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         if (item.coChuyenGiaoCho || item.co_chuyen_giao_cho) {
-            alert('Lô này đang có yêu cầu chuyển giao chờ Nhà phân phối xác nhận. Vui lòng đợi hoặc chờ bên nhận từ chối/nhận xong.');
+            alert('Lô này đang có yêu cầu chuyển giao chờ Nhà phân phối xác nhận.');
             return;
         }
 
@@ -342,21 +378,22 @@ document.addEventListener('DOMContentLoaded', function () {
         const loiSl = document.getElementById('loiSoLuongPhanPhoi');
         const modalPP = document.getElementById('modalPhanPhoiLo');
         const selectNpp = document.getElementById('chonNhaPhanPhoi');
-
         const khaDung = getKhaDung(item);
 
         if (textMaLo) textMaLo.innerText = item.maLoNghiepVu || '';
         if (textSoLuong) textSoLuong.innerText = khaDung.toLocaleString('vi-VN') + ' hộp';
         if (hid) hid.value = item.id;
         if (inputSl) {
-            inputSl.value = '';
+            inputSl.value = String(khaDung);
             inputSl.max = String(khaDung);
-            inputSl.min = '1';
+            inputSl.min = String(khaDung);
+            inputSl.readOnly = true;
         }
         if (loiSl) loiSl.classList.add('hidden');
         if (selectNpp) selectNpp.value = '';
 
         if (modalPP) modalPP.classList.remove('hidden');
+        await taiDanhSachNhaPhanPhoi(selectNpp);
     };
 
     // ================== 6. SUBMIT CHUYỂN GIAO (API THẬT) ==================
@@ -368,26 +405,13 @@ document.addEventListener('DOMContentLoaded', function () {
             const csrf = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
             const loThuocId = document.getElementById('phanPhoiLoThuocId')?.value;
             const benNhanId = document.getElementById('chonNhaPhanPhoi')?.value;
-            const soLuongRaw = document.getElementById('soLuongPhanPhoi')?.value;
-            const soLuong = Number(soLuongRaw);
-            const maxSl = Number(document.getElementById('soLuongPhanPhoi')?.max || 0);
+            const soLuong = Number(document.getElementById('soLuongPhanPhoi')?.value);
             const loiSl = document.getElementById('loiSoLuongPhanPhoi');
             const btn = formPP.querySelector('button[type="submit"]');
             const original = btn ? btn.innerHTML : '';
 
-            if (!loThuocId || !benNhanId || !soLuongRaw) {
-                alert('Vui lòng chọn nhà phân phối và nhập số lượng chuyển giao.');
-                return;
-            }
-
-            if (!Number.isFinite(soLuong) || soLuong < 1) {
-                alert('Số lượng chuyển giao không hợp lệ.');
-                return;
-            }
-
-            if (maxSl > 0 && soLuong > maxSl) {
-                if (loiSl) loiSl.classList.remove('hidden');
-                alert('Số lượng chuyển giao không được vượt quá số khả dụng!');
+            if (!loThuocId || !benNhanId || !Number.isInteger(soLuong) || soLuong < 1) {
+                alert('Vui lòng chọn nhà phân phối đã duyệt.');
                 return;
             }
             if (loiSl) loiSl.classList.add('hidden');
@@ -395,7 +419,7 @@ document.addEventListener('DOMContentLoaded', function () {
             try {
                 if (btn) {
                     btn.disabled = true;
-                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang gửi...';
+                    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin me-1"></i> Đang ký và chờ Sepolia xác nhận...';
                 }
 
                 const res = await fetch('/nha-san-xuat/api/chuyen-giao', {
@@ -414,15 +438,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 const json = await res.json();
                 if (!res.ok || !json.success) {
-                    throw new Error(json.message || 'Chuyển giao thất bại');
+                    throw new Error(json.message || 'Ký chuyển giao thất bại.');
                 }
 
-                alert(json.message || 'Đã khởi tạo chuyển giao thành công.');
+                const txHash = json.data?.txHash || '';
+                if (!/^0x[a-fA-F0-9]{64}$/.test(txHash)) {
+                    throw new Error('Máy chủ không trả về txHash Sepolia hợp lệ. Không thể xác nhận chuyển giao.');
+                }
+
+                const explorer = json.data?.explorerUrl || ('https://sepolia.etherscan.io/tx/' + txHash);
+                alert((json.message || 'Chuyển giao đã được xác nhận on-chain.')
+                    + '\nTxHash: ' + txHash
+                    + '\nEtherscan: ' + explorer);
                 document.getElementById('modalPhanPhoiLo')?.classList.add('hidden');
-                loadDataFromDB();
+                await loadDataFromDB();
             } catch (err) {
                 console.error(err);
-                alert(err.message || 'Lỗi kết nối máy chủ');
+                alert(err.message || 'Không thể hoàn tất ký chuyển giao. CSDL chưa ghi nhận chuyển giao.');
             } finally {
                 if (btn) {
                     btn.disabled = false;
