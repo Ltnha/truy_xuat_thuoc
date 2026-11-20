@@ -334,7 +334,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const items = Array.isArray(result.data) ? result.data : [];
             select.innerHTML = '<option value="">-- Chọn nhà phân phối đã duyệt --</option>';
             if (items.length === 0) {
-                select.innerHTML += '<option value="" disabled>Chưa có nhà phân phối đã duyệt và có ví hoạt động</option>';
+                select.innerHTML += '<option value="" disabled>Chưa có nhà phân phối nào được cơ quan quản lý xét duyệt</option>';
             } else {
                 items.forEach(item => {
                     const option = document.createElement('option');
