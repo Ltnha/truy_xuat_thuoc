@@ -247,7 +247,7 @@ app.get('/roles/check', authMiddleware, async (req, res) => {
     try {
         if (!ethers.isAddress(String(req.query.account || ''))) throw new Error('account không hợp lệ.');
         const role = requireBytes32(String(req.query.role || ''), 'role');
-        const hasRole = await contractFor(provider).hasRole(req.query.account, role);
+        const hasRole = await contractFor(provider).hasRole(role, req.query.account);
         return res.json({ ok: true, hasRole });
     } catch (err) {
         return res.status(400).json({ ok: false, hasRole: false, reason: err.message });
