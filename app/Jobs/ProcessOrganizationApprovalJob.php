@@ -15,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -83,7 +84,7 @@ class ProcessOrganizationApprovalJob implements ShouldQueue
 
         // 4. Cập nhật đồng bộ CSDL Off-chain
         DB::transaction(function () use ($toChuc, $identity, $txHash, $blockTimestamp) {
-            $blockTime = $blockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($blockTimestamp) : now();
+            $blockTime = $blockTimestamp ? Carbon::createFromTimestamp($blockTimestamp) : now();
             // Cập nhật trạng thái ví
             $identity->update(['trangThai' => 'ACTIVE']);
 

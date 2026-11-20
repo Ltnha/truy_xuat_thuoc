@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -34,7 +35,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
         $roleHash = RoleMap::cho($toChuc->loaiToChuc);
         $adminKeyId = config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
 
-        // 1. Tước quyền On-chain ví cũ (nếu có ví và ví đang nắm quyền On-chain)
+        // 1. TÆ°á»›c quyá»n On-chain vĂ­ cÅ© (náº¿u cĂ³ vĂ­ vĂ  vĂ­ Ä‘ang náº¯m quyá»n On-chain)
         $revokeBlockTimestamp = null;
         $viCu = BlockchainIdentity::where('toChucId', $toChuc->id)
             ->whereNotNull('diaChiVi')
@@ -50,7 +51,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                 ]);
 
                 if (empty($kqRevoke['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) ($kqRevoke['txHash'] ?? ''))) {
-                    throw new Exception("Không thể thu hồi role ví cũ; dừng đổi ví để tránh hai ví cùng có quyền. " . ($kqRevoke['reasonVi'] ?? $kqRevoke['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
+                    throw new Exception("KhĂ´ng thá»ƒ thu há»“i role vĂ­ cÅ©; dá»«ng Ä‘á»•i vĂ­ Ä‘á»ƒ trĂ¡nh hai vĂ­ cĂ¹ng cĂ³ quyá»n. " . ($kqRevoke['reasonVi'] ?? $kqRevoke['reason'] ?? 'Signer khĂ´ng tráº£ vá» txHash há»£p lá»‡.'));
                 }
 
                 $revokeBlockTimestamp = isset($kqRevoke['blockTimestamp']) ? (int) $kqRevoke['blockTimestamp'] : null;
@@ -62,13 +63,13 @@ class RotateOrganizationWalletJob implements ShouldQueue
                     'network'          => 'Ethereum Sepolia Testnet',
                     'trangThai'        => 'CONFIRMED',
                     'toChucId'         => $toChuc->id,
-                    'thoiGian'         => $revokeBlockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($revokeBlockTimestamp) : now(),
+                    'thoiGian'         => $revokeBlockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($revokeBlockTimestamp) : now(),
                 ]);
             }
             $viCu->update(['trangThai' => 'REVOKED']);
         }
 
-        // 2. Yêu cầu Signer Service sinh ví mới
+        // 2. YĂªu cáº§u Signer Service sinh vĂ­ má»›i
         $walletMoi = $signer->doiViMoi($toChuc->id);
 
         $viMoi = BlockchainIdentity::create([
@@ -79,7 +80,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
             'trangThai'   => 'KHOI_TAO',
         ]);
 
-        // 3. Nạp Gas và cấp quyền On-chain cho ví mới
+        // 3. Náº¡p Gas vĂ  cáº¥p quyá»n On-chain cho vĂ­ má»›i
         $signer->ensureGas($adminKeyId);
         $signer->ensureGas($viMoi->signerKeyId);
         $viMoi->update(['trangThai' => 'DA_NAP_GAS']);
@@ -90,13 +91,13 @@ class RotateOrganizationWalletJob implements ShouldQueue
         ]);
 
         if (empty($kqGrant['ok']) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) ($kqGrant['txHash'] ?? ''))) {
-            throw new Exception("Lỗi cấp quyền ví mới On-chain: " . ($kqGrant['reasonVi'] ?? $kqGrant['reason'] ?? 'Signer không trả về txHash hợp lệ.'));
+            throw new Exception("Lá»—i cáº¥p quyá»n vĂ­ má»›i On-chain: " . ($kqGrant['reasonVi'] ?? $kqGrant['reason'] ?? 'Signer khĂ´ng tráº£ vá» txHash há»£p lá»‡.'));
         }
         $grantBlockTimestamp = isset($kqGrant['blockTimestamp']) ? (int) $kqGrant['blockTimestamp'] : null;
 
-        // 4. Hoàn tất kích hoạt ví mới
+        // 4. HoĂ n táº¥t kĂ­ch hoáº¡t vĂ­ má»›i
         DB::transaction(function () use ($viMoi, $toChuc, $kqGrant, $grantBlockTimestamp) {
-            $blockTime = $grantBlockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($grantBlockTimestamp) : now();
+            $blockTime = $grantBlockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($grantBlockTimestamp) : now();
             $viMoi->update(['trangThai' => 'ACTIVE']);
 
             BlockchainTransaction::create([
@@ -116,7 +117,7 @@ class RotateOrganizationWalletJob implements ShouldQueue
                 'hanhDong'   => 'ROTATE_WALLET_ONCHAIN',
                 'ketQua'     => 'THANH_CONG',
                 'thoiGian'   => $blockTime,
-                'chiTiet'    => "Đổi ví mới thành công [{$viMoi->diaChiVi}] cho tổ chức [{$toChuc->tenToChuc}]. TxHash: {$kqGrant['txHash']}",
+                'chiTiet'    => "Äá»•i vĂ­ má»›i thĂ nh cĂ´ng [{$viMoi->diaChiVi}] cho tá»• chá»©c [{$toChuc->tenToChuc}]. TxHash: {$kqGrant['txHash']}",
             ]);
         });
     }

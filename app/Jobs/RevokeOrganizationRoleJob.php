@@ -13,6 +13,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Exception;
 
@@ -32,14 +33,14 @@ class RevokeOrganizationRoleJob implements ShouldQueue
     {
         $toChuc = ToChuc::findOrFail($this->toChucId);
 
-        // Lấy ví mới nhất có địa chỉ ví của tổ chức
+        // Láº¥y vĂ­ má»›i nháº¥t cĂ³ Ä‘á»‹a chá»‰ vĂ­ cá»§a tá»• chá»©c
         $identity = BlockchainIdentity::where('toChucId', $toChuc->id)
             ->whereNotNull('diaChiVi')
             ->latest('id')
             ->first();
 
         if (!$identity || empty($identity->diaChiVi)) {
-            \Illuminate\Support\Facades\Log::warning("Không tìm thấy thông tin ví của tổ chức [{$toChuc->tenToChuc}] để thu hồi.");
+            \Illuminate\Support\Facades\Log::warning("KhĂ´ng tĂ¬m tháº¥y thĂ´ng tin vĂ­ cá»§a tá»• chá»©c [{$toChuc->tenToChuc}] Ä‘á»ƒ thu há»“i.");
             return;
         }
 
@@ -48,7 +49,7 @@ class RevokeOrganizationRoleJob implements ShouldQueue
         $txHash = null;
         $blockTimestamp = null;
 
-        // Chỉ gọi revokeRole On-chain nếu trên hợp đồng ví vẫn đang sở hữu vai trò
+        // Chá»‰ gá»i revokeRole On-chain náº¿u trĂªn há»£p Ä‘á»“ng vĂ­ váº«n Ä‘ang sá»Ÿ há»¯u vai trĂ²
         if ($signer->hasRole($roleHash, $identity->diaChiVi)) {
             $signer->ensureGas($adminKeyId);
 
@@ -58,18 +59,18 @@ class RevokeOrganizationRoleJob implements ShouldQueue
             ]);
 
             if (!$kq['ok']) {
-                throw new Exception("Lỗi tước quyền On-chain: " . ($kq['reasonVi'] ?? $kq['reason'] ?? 'Unknown error'));
+                throw new Exception("Lá»—i tÆ°á»›c quyá»n On-chain: " . ($kq['reasonVi'] ?? $kq['reason'] ?? 'Unknown error'));
             }
 
             $txHash = $kq['txHash'] ?? null;
             $blockTimestamp = isset($kq['blockTimestamp']) ? (int) $kq['blockTimestamp'] : null;
         } else {
-            \Illuminate\Support\Facades\Log::info("Ví [{$identity->diaChiVi}] của tổ chức [{$toChuc->tenToChuc}] đã không còn quyền On-chain từ trước.");
+            \Illuminate\Support\Facades\Log::info("VĂ­ [{$identity->diaChiVi}] cá»§a tá»• chá»©c [{$toChuc->tenToChuc}] Ä‘Ă£ khĂ´ng cĂ²n quyá»n On-chain tá»« trÆ°á»›c.");
         }
 
-        // Cập nhật CSDL
+        // Cáº­p nháº­t CSDL
         DB::transaction(function () use ($identity, $toChuc, $txHash, $blockTimestamp) {
-            $blockTime = $blockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($blockTimestamp) : now();
+            $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
             $identity->update(['trangThai' => 'REVOKED']);
 
             if ($txHash) {
@@ -91,7 +92,7 @@ class RevokeOrganizationRoleJob implements ShouldQueue
                 'hanhDong'   => 'REVOKE_ROLE_ONCHAIN',
                 'ketQua'     => 'THANH_CONG',
                 'thoiGian'   => $blockTime,
-                'chiTiet'    => "Đã tước quyền On-chain thành công của tổ chức [{$toChuc->tenToChuc}]." . ($txHash ? " TxHash: {$txHash}" : " (Ví đã không còn quyền On-chain từ trước)"),
+                'chiTiet'    => "ÄĂ£ tÆ°á»›c quyá»n On-chain thĂ nh cĂ´ng cá»§a tá»• chá»©c [{$toChuc->tenToChuc}]." . ($txHash ? " TxHash: {$txHash}" : " (VĂ­ Ä‘Ă£ khĂ´ng cĂ²n quyá»n On-chain tá»« trÆ°á»›c)"),
             ]);
         });
     }

@@ -15,6 +15,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -38,7 +39,7 @@ class RestoreOrganizationRoleJob implements ShouldQueue
         $roleHash = RoleMap::cho($toChuc->loaiToChuc);
         $adminKeyId = config('truyXuat.blockchain.adminKeyId', 'ADMIN_MASTER_KEY');
 
-        // 1. Lấy ví mới nhất của tổ chức hoặc sinh mới nếu chưa có
+        // 1. Láº¥y vĂ­ má»›i nháº¥t cá»§a tá»• chá»©c hoáº·c sinh má»›i náº¿u chÆ°a cĂ³
         $identity = BlockchainIdentity::where('toChucId', $toChuc->id)
             ->whereNotNull('diaChiVi')
             ->latest('id')
@@ -56,14 +57,14 @@ class RestoreOrganizationRoleJob implements ShouldQueue
             ]);
         }
 
-        // 2. Nạp gas tự động cho ví Admin và ví Tổ chức
+        // 2. Náº¡p gas tá»± Ä‘á»™ng cho vĂ­ Admin vĂ  vĂ­ Tá»• chá»©c
         $signer->ensureGas($adminKeyId);
         if ($identity->signerKeyId) {
             $signer->ensureGas($identity->signerKeyId);
         }
         $identity->update(['trangThai' => 'DA_NAP_GAS']);
 
-        // 3. Cấp lại quyền On-chain nếu chưa sở hữu
+        // 3. Cáº¥p láº¡i quyá»n On-chain náº¿u chÆ°a sá»Ÿ há»¯u
         $txHash = null;
         $blockTimestamp = null;
         if (!$signer->hasRole($roleHash, $identity->diaChiVi)) {
@@ -73,18 +74,18 @@ class RestoreOrganizationRoleJob implements ShouldQueue
             ]);
 
             if (!$kq['ok']) {
-                throw new Exception("Lỗi cấp lại quyền On-chain: " . ($kq['reasonVi'] ?? $kq['reason'] ?? 'Unknown error'));
+                throw new Exception("Lá»—i cáº¥p láº¡i quyá»n On-chain: " . ($kq['reasonVi'] ?? $kq['reason'] ?? 'Unknown error'));
             }
 
             $txHash = $kq['txHash'] ?? null;
             $blockTimestamp = isset($kq['blockTimestamp']) ? (int) $kq['blockTimestamp'] : null;
         } else {
-            Log::info("Ví [{$identity->diaChiVi}] của tổ chức [{$toChuc->tenToChuc}] đã có sẵn vai trò On-chain.");
+            Log::info("VĂ­ [{$identity->diaChiVi}] cá»§a tá»• chá»©c [{$toChuc->tenToChuc}] Ä‘Ă£ cĂ³ sáºµn vai trĂ² On-chain.");
         }
 
-        // 4. Kích hoạt lại tổ chức và tài khoản trong CSDL
+        // 4. KĂ­ch hoáº¡t láº¡i tá»• chá»©c vĂ  tĂ i khoáº£n trong CSDL
         DB::transaction(function () use ($toChuc, $identity, $txHash, $blockTimestamp) {
-            $blockTime = $blockTimestamp ? \\Illuminate\\Support\\Carbon::createFromTimestamp($blockTimestamp) : now();
+            $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
             $identity->update(['trangThai' => 'ACTIVE']);
 
             $toChuc->update([
@@ -114,7 +115,7 @@ class RestoreOrganizationRoleJob implements ShouldQueue
                 'hanhDong'   => 'RESTORE_ROLE_ONCHAIN',
                 'ketQua'     => 'THANH_CONG',
                 'thoiGian'   => $blockTime,
-                'chiTiet'    => "Khôi phục quyền tổ chức [{$toChuc->tenToChuc}] thành công. Ví: [{$identity->diaChiVi}]." . ($txHash ? " TxHash: {$txHash}" : " (Quyền On-chain đã có sẵn)"),
+                'chiTiet'    => "KhĂ´i phá»¥c quyá»n tá»• chá»©c [{$toChuc->tenToChuc}] thĂ nh cĂ´ng. VĂ­: [{$identity->diaChiVi}]." . ($txHash ? " TxHash: {$txHash}" : " (Quyá»n On-chain Ä‘Ă£ cĂ³ sáºµn)"),
             ]);
         });
     }
