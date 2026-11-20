@@ -181,6 +181,8 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
                 ->name('nha-phan-phoi.api.tiep-nhan');
             Route::post('/api/tu-choi/{id}', [QuanLyLoHangController::class, 'tuChoi'])
                 ->name('nha-phan-phoi.api.tu-choi');
+            Route::get('/api/tu-choi/{id}/trang-thai', [QuanLyLoHangController::class, 'trangThaiTuChoi'])
+                ->name('nha-phan-phoi.api.tu-choi.trang-thai');
 
             Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])
                 ->name('nha-phan-phoi.bao-cao');
