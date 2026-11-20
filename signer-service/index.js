@@ -325,20 +325,47 @@ app.get('/products/check', authMiddleware, async (req, res) => {
     try {
         const productId = requireBytes32(String(req.query.productId || ''), 'productId');
         const contract = contractFor(provider);
+        // approvedProducts(bytes32) là mapping getter on-chain: dùng nó làm nguồn xác thực.
+        // Không phụ thuộc eth_getLogs để quyết định đã duyệt hay chưa vì RPC có thể prune lịch sử.
         const payloadHash = await contract.approvedProducts(productId);
+        const isApproved = payloadHash !== ethers.ZeroHash;
         let txHash = null, blockNumber = null, blockTimestamp = null;
-        if (payloadHash !== ethers.ZeroHash) {
-            const latest = await provider.getBlockNumber();
-            const logs = await contract.queryFilter(contract.filters.ProductApproved(productId), Math.max(0, latest - 40000), latest);
-            const found = logs.length ? logs[logs.length - 1] : null;
-            if (found) {
-                txHash = found.transactionHash;
-                blockNumber = Number(found.blockNumber);
-                const block = await provider.getBlock(found.blockNumber);
-                blockTimestamp = block ? Number(block.timestamp) : null;
+
+        // Metadata giao dịch chỉ là thông tin bổ sung; lỗi truy vấn lịch sử không được
+        // biến một sản phẩm đã duyệt thành chưa duyệt hoặc làm hỏng luồng đăng ký lô.
+        if (isApproved) {
+            try {
+                const latest = await provider.getBlockNumber();
+                const fromBlock = Math.max(0, latest - 40000);
+                const logs = await contract.queryFilter(
+                    contract.filters.ProductApproved(productId),
+                    fromBlock,
+                    latest
+                );
+                const found = logs.length ? logs[logs.length - 1] : null;
+                if (found) {
+                    txHash = found.transactionHash;
+                    blockNumber = Number(found.blockNumber);
+                    const block = await provider.getBlock(found.blockNumber);
+                    blockTimestamp = block ? Number(block.timestamp) : null;
+                }
+            } catch (historyError) {
+                logSigner('PRODUCT_APPROVAL_HISTORY_UNAVAILABLE', {
+                    productId,
+                    reason: historyError.shortMessage || historyError.message
+                });
             }
         }
-        return res.json({ ok: true, isApproved: payloadHash !== ethers.ZeroHash, payloadHash, txHash, blockNumber, blockTimestamp });
+
+        return res.json({
+            ok: true,
+            isApproved,
+            payloadHash,
+            txHash,
+            blockNumber,
+            blockTimestamp,
+            historyAvailable: !isApproved || Boolean(txHash)
+        });
     } catch (err) {
         return res.status(400).json({ ok: false, isApproved: false, reason: err.message });
     }
