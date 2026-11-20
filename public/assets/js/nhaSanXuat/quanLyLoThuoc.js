@@ -79,6 +79,18 @@ document.addEventListener('DOMContentLoaded', function () {
         return Number(item.soLuong || 0);
     }
 
+    const NPP_INTENT_PREFIX = 'pharmachain:npp-intent:';
+
+    function getNppIntent(item) {
+        try {
+            const key = NPP_INTENT_PREFIX + String(item.maLoNghiepVu || '');
+            const raw = sessionStorage.getItem(key);
+            return raw ? JSON.parse(raw) : null;
+        } catch (_) {
+            return null;
+        }
+    }
+
     function isTxPending(tx) {
         if (!tx) return false;
         const st = String(tx.trangThai || '').toUpperCase();
@@ -298,10 +310,10 @@ document.addEventListener('DOMContentLoaded', function () {
                             </a>
                             ${canTransfer ? `
                                 <button type="button"
-                                    onclick="moModalPhanPhoiDirect(${Number(item.id)})"
+                                    onclick="moModalPhanPhoiDirect(${Number(item.id)}, ${getNppIntent(item)?.id ? Number(getNppIntent(item).id) : 'null'})"
                                     class="px-2.5 py-1 bg-cyan-800 hover:bg-cyan-900 text-white rounded-lg text-[11px] font-bold shadow-sm transition-all"
                                     title="Khởi tạo chuyển giao lô">
-                                    <i class="fa-solid fa-truck-fast me-1"></i> Chuyển giao
+                                    <i class="fa-solid fa-truck-fast me-1"></i> ${getNppIntent(item)?.name ? 'Gửi đến ' + escapeHtml(getNppIntent(item).name) : 'Chuyển giao'}
                                 </button>
                             ` : ''}
                         </div>
@@ -354,7 +366,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    window.moModalPhanPhoiDirect = async function (id) {
+    window.moModalPhanPhoiDirect = async function (id, nppDuocChon = null) {
         const item = tatCaLoThuoc.find(l => Number(l.id) === Number(id));
         if (!item) {
             alert('Không tìm thấy thông tin lô thuốc.');
@@ -393,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (selectNpp) selectNpp.value = '';
 
         if (modalPP) modalPP.classList.remove('hidden');
-        await taiDanhSachNhaPhanPhoi(selectNpp);
+        await taiDanhSachNhaPhanPhoi(selectNpp);\n        if (selectNpp && nppDuocChon) selectNpp.value = String(nppDuocChon);
     };
 
     // ================== 6. SUBMIT CHUYỂN GIAO (API THẬT) ==================
@@ -446,6 +458,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error('Máy chủ không trả về txHash Sepolia hợp lệ. Không thể xác nhận chuyển giao.');
                 }
 
+                const loDangChuyen = tatCaLoThuoc.find(item => Number(item.id) === Number(loThuocId));
+                if (loDangChuyen?.maLoNghiepVu) {
+                    sessionStorage.removeItem(NPP_INTENT_PREFIX + String(loDangChuyen.maLoNghiepVu));
+                }
                 const explorer = json.data?.explorerUrl || ('https://sepolia.etherscan.io/tx/' + txHash);
                 alert((json.message || 'Chuyển giao đã được xác nhận on-chain.')
                     + '\nTxHash: ' + txHash
@@ -548,9 +564,10 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (nutMoModal && modalDangKy) {
-        nutMoModal.addEventListener('click', () => {
+        nutMoModal.addEventListener('click', async () => {
             resetModalView();
             modalDangKy.classList.remove('hidden');
+            await taiDanhSachNhaPhanPhoi(document.getElementById('chonNhaPhanPhoiKhiTaoLo'));
         });
     }
 
@@ -578,7 +595,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 maLoNghiepVu: document.getElementById('nhapMaLo')?.value,
                 soLuong: document.getElementById('nhapSoLuong')?.value,
                 ngaySanXuat: document.getElementById('nhapNgaySX')?.value,
-                hanSuDung: document.getElementById('nhapHanDung')?.value
+                hanSuDung: document.getElementById('nhapHanDung')?.value,
+                benNhanId: document.getElementById('chonNhaPhanPhoiKhiTaoLo')?.value || null
             };
 
             try {
@@ -605,9 +623,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(result.message || 'Không thể tạo yêu cầu lô thuốc!');
                 }
 
+                const maLoCuaYeuCau = result.data?.maLoNghiepVu || payload.maLoNghiepVu;
+                const selectNppTaoLo = document.getElementById('chonNhaPhanPhoiKhiTaoLo');
+                if (payload.benNhanId && selectNppTaoLo) {
+                    const selectedOption = selectNppTaoLo.options[selectNppTaoLo.selectedIndex];
+                    sessionStorage.setItem(NPP_INTENT_PREFIX + String(maLoCuaYeuCau), JSON.stringify({
+                        id: Number(payload.benNhanId),
+                        name: selectedOption?.textContent?.trim() || 'Nhà phân phối đã chọn'
+                    }));
+                }
                 const hienThiMaLo = document.getElementById('hienThiMaLoQR');
                 if (hienThiMaLo) {
-                    hienThiMaLo.textContent = result.data?.maLoNghiepVu || payload.maLoNghiepVu;
+                    hienThiMaLo.textContent = maLoCuaYeuCau;
                 }
 
                 if (manHinhForm) manHinhForm.classList.add('hidden');
