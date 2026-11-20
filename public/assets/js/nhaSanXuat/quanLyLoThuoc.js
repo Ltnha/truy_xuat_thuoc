@@ -405,7 +405,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (selectNpp) selectNpp.value = '';
 
         if (modalPP) modalPP.classList.remove('hidden');
-        await taiDanhSachNhaPhanPhoi(selectNpp);\n        if (selectNpp && nppDuocChon) selectNpp.value = String(nppDuocChon);
+        await taiDanhSachNhaPhanPhoi(selectNpp);
+        if (selectNpp && nppDuocChon) selectNpp.value = String(nppDuocChon);
     };
 
     // ================== 6. SUBMIT CHUYỂN GIAO (API THẬT) ==================
