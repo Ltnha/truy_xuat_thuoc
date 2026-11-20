@@ -31,11 +31,7 @@ class ChuyenGiaoController extends Controller
     }
 
     /**
-     * NSX khởi tạo chuyển giao lô → NPP
-     * 1. Validate quyền + tồn kho khả dụng
-     * 2. Tạo bản ghi chuyenGiao (PENDING / IN_TRANSIT)
-     * 3. Tạo blockchainTransaction PENDING
-     * 4. Dispatch job ký on-chain
+     * NSX gửi chuyển giao. Service chỉ ghi CSDL sau khi Signer xác nhận receipt thành công trên Sepolia.
      */
     public function store(Request $request)
     {
