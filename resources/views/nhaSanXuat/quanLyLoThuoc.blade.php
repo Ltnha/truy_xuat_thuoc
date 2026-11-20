@@ -216,18 +216,9 @@
                 <select id="chonNhaPhanPhoi" required
                     class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                     <option value="">-- Chọn nhà phân phối đã duyệt --</option>
-                    @forelse($danhSachNhaPhanPhoi ?? [] as $npp)
-                        <option value="{{ $npp->id }}">
-                            {{ $npp->tenToChuc }}
-                            @if(!empty($npp->maSoThue))
-                                (MST: {{ $npp->maSoThue }})
-                            @endif
-                        </option>
-                    @empty
-                        <option value="" disabled>Chưa có nhà phân phối nào được phê duyệt trong hệ thống</option>
-                    @endforelse
+                    <option value="" disabled>Đang tải danh sách nhà phân phối đã xét duyệt...</option>
                 </select>
-                <p class="text-[11px] text-slate-500">Danh sách lấy từ CSDL (tổ chức loại Nhà phân phối, trạng thái Đã duyệt).</p>
+                <p class="text-[11px] text-slate-500">Danh sách chỉ gồm nhà phân phối đã được xét duyệt và có ví Blockchain ACTIVE.</p>
             </div>
 
             <div class="space-y-1">
@@ -237,7 +228,7 @@
             </div>
 
             <div class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-[11px] text-amber-800 leading-relaxed">
-                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Giao dịch khởi tạo sẽ ở trạng thái <strong>PENDING</strong>. Số lượng này sẽ được trừ khỏi số khả dụng ngay lập tức.
+                <i class="fa-solid fa-triangle-exclamation text-amber-600 mr-1"></i> Hệ thống ký <strong>submitTransfer</strong> bằng ví Nhà sản xuất và chờ xác nhận trên Ethereum Sepolia. Chỉ khi có <strong>txHash thật</strong>, chuyển giao mới được lưu vào CSDL. Hợp đồng hiện tại chuyển toàn bộ lô, không hỗ trợ chuyển một phần.
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -245,7 +236,7 @@
                     Hủy
                 </button>
                 <button type="submit" class="px-6 py-2.5 bg-cyan-800 hover:bg-cyan-900 text-white font-bold rounded-xl shadow-md transition-all flex items-center gap-2">
-                    <i class="fa-solid fa-paper-plane"></i> Gửi Yêu Cầu Chuyển Giao
+                    <i class="fa-solid fa-paper-plane"></i> Ký & Gửi Chuyển Giao
                 </button>
             </div>
         </form>
