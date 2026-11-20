@@ -637,6 +637,14 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (hienThiMaLo) {
                     hienThiMaLo.textContent = maLoCuaYeuCau;
                 }
+                const boxNppDuKien = document.getElementById('hienThiNppDuKienTaoLo');
+                const tenNppDuKien = document.getElementById('tenNppDuKienTaoLo');
+                if (payload.benNhanId && selectNppTaoLo) {
+                    if (tenNppDuKien) tenNppDuKien.textContent = selectNppTaoLo.options[selectNppTaoLo.selectedIndex]?.textContent?.trim() || 'Nhà phân phối đã chọn';
+                    boxNppDuKien?.classList.remove('hidden');
+                } else {
+                    boxNppDuKien?.classList.add('hidden');
+                }
 
                 if (manHinhForm) manHinhForm.classList.add('hidden');
                 if (manHinhKetQua) manHinhKetQua.classList.remove('hidden');
