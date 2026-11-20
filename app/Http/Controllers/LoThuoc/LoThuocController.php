@@ -111,6 +111,7 @@ class LoThuocController extends Controller
             'soLuong'      => 'required|integer|min:1',
             'ngaySanXuat'  => 'required|date|before_or_equal:today',
             'hanSuDung'    => 'required|date|after:ngaySanXuat',
+            'benNhanId'    => 'nullable|integer|exists:toChuc,id',
         ], [
             'sanPhamId.required'          => 'Vui lòng chọn sản phẩm dược.',
             'sanPhamId.exists'            => 'Sản phẩm đã chọn không tồn tại.',
@@ -126,6 +127,22 @@ class LoThuocController extends Controller
 
         $user = Auth::user();
         $toChuc = $user->toChuc;
+
+        // Nếu NSX chọn trước NPP tại form tạo lô, xác minh đó là NPP đã được duyệt.
+        if ($request->filled('benNhanId')) {
+            $nppDuocChon = ToChuc::query()
+                ->whereKey($request->integer('benNhanId'))
+                ->where('loaiToChuc', OrganizationType::nhaPhanPhoi->value)
+                ->where('trangThaiDuyet', OrganizationApprovalStatus::daDuyet->value)
+                ->exists();
+
+            if (! $nppDuocChon) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Nhà phân phối được chọn không hợp lệ hoặc chưa được Cơ quan quản lý xét duyệt.',
+                ], 422);
+            }
+        }
 
         // 2. Kiểm tra tổ chức đang hoạt động
         $trangThaiToChuc = $toChuc?->trangThaiDuyet instanceof \BackedEnum 
