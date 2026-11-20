@@ -168,6 +168,9 @@
                     <span>Signer đang xử lý giao dịch đăng ký lô trên Ethereum Sepolia...</span>
                 </div>
                 <p class="text-xs text-slate-500 font-mono" id="hienThiTxHashTaoLo">Mã lô: <strong id="hienThiMaLoQR" class="text-emerald-700 font-bold"></strong></p>
+                <p id="hienThiNppDuKienTaoLo" class="hidden text-xs text-cyan-800 font-semibold">
+                    Nhà phân phối dự kiến nhận: <span id="tenNppDuKienTaoLo"></span>. Sau khi đăng ký lô on-chain thành công, chọn nút Chuyển giao trên danh sách lô để ký gửi.
+                </p>
             </div>
 
             <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
