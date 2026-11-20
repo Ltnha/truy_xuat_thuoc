@@ -109,6 +109,19 @@
                     </select>
                 </div>
 
+                <div class="space-y-1">
+                    <label for="chonNhaPhanPhoiKhiTaoLo" class="font-bold text-slate-700">
+                        Nhà phân phối dự kiến nhận lô <span class="text-slate-400 font-normal">(không bắt buộc)</span>
+                    </label>
+                    <select id="chonNhaPhanPhoiKhiTaoLo"
+                        class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                        <option value="">-- Chưa chọn, có thể chuyển giao sau --</option>
+                    </select>
+                    <p class="text-[11px] text-slate-500">
+                        Chỉ hiển thị Nhà phân phối đã được Cơ quan quản lý xét duyệt. Sau khi lô được đăng ký on-chain thành công, bạn có thể bấm Chuyển giao để ký gửi đến đơn vị đã chọn.
+                    </p>
+                </div>
+
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="space-y-1">
                         <label for="nhapMaLo" class="font-bold text-slate-700">Mã Lô Thuốc <span class="text-red-500">*</span></label>
@@ -130,7 +143,7 @@
 
                 <div class="p-3 bg-cyan-50 rounded-xl border border-cyan-800/15 text-[11px] text-cyan-900 flex items-start gap-2">
                     <i class="fa-solid fa-shield-halved text-cyan-800 mt-0.5 shrink-0"></i>
-                    <span>Hệ thống sử dụng kiến trúc <strong>Custodial Signer Service</strong>. Khi gửi yêu cầu, hệ thống sẽ tự động đưa vào hàng đợi xử lý ngầm (Queue Worker) để ký On-chain, tạo mã QR kép và khởi tạo kho mà không cần thao tác ví cá nhân MetaMask.</span>
+                    <span>Hệ thống sử dụng <strong>Custodial Signer Service</strong> để ký giao dịch đăng ký lô trên Ethereum Sepolia. Nếu đã chọn nhà phân phối, sau khi lô được xác nhận on-chain, nút Chuyển giao sẽ xuất hiện kèm đơn vị đã chọn để bạn tiếp tục ký giao dịch gửi lô.</span>
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -152,20 +165,20 @@
                 <h3 class="text-base font-bold text-slate-900">Đã Tiếp Nhận Yêu Cầu Tạo Lô!</h3>
                 <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
                     <i class="fa-solid fa-spinner fa-spin text-amber-600"></i>
-                    <span>Hàng đợi (Queue Job) đang thực hiện ký On-chain & sinh mã QR...</span>
+                    <span>Signer đang xử lý giao dịch đăng ký lô trên Ethereum Sepolia...</span>
                 </div>
                 <p class="text-xs text-slate-500 font-mono" id="hienThiTxHashTaoLo">Mã lô: <strong id="hienThiMaLoQR" class="text-emerald-700 font-bold"></strong></p>
             </div>
 
             <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
                 <div class="flex items-center gap-2 text-emerald-800 font-bold">
-                    <i class="fa-solid fa-circle-info"></i> Quy trình tự động đang được tiến hành ngầm:
+                    <i class="fa-solid fa-circle-info"></i> Trạng thái xử lý giao dịch:
                 </div>
                 <ul class="list-disc list-inside space-y-1 text-[11px] pl-1 text-slate-700">
-                    <li>Signer Service gọi Smart Contract đăng ký lô thuốc trên Sepolia.</li>
+                    <li>Signer Service ký và gửi registerBatch lên Ethereum Sepolia.</li>
                     <li>Khởi tạo mã QR kép (tem thùng và tem hộp).</li>
                     <li>Khởi tạo số lượng tồn kho ban đầu chính xác một lần.</li>
-                    <li>Ghi vết Audit Log và Transaction Hash vào hệ thống.</li>
+                    <li>Chỉ khi giao dịch được xác nhận và có txHash thật, hệ thống mới lưu trạng thái thành công.</li>
                 </ul>
             </div>
 
