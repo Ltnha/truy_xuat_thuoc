@@ -126,6 +126,9 @@ app.post('/wallets', authMiddleware, async (req, res) => {
 });
 
 app.post('/gas/ensure', authMiddleware, async (req, res) => {
+    const requestId = crypto.randomUUID();
+    const requestedTarget = String(req.body?.target || '');
+    logSigner('GAS_ENSURE_START', { requestId, target: requestedTarget });
     try {
         const target = String(req.body.target || '');
         let targetAddress = target;
@@ -153,8 +156,10 @@ app.post('/gas/ensure', authMiddleware, async (req, res) => {
             if (!receipt || receipt.status !== 1) throw new Error('Giao dịch nạp gas không thành công.');
             return res.json({ ok: true, txHash: receipt.hash, blockNumber: Number(receipt.blockNumber) });
         }
+        logSigner('GAS_ENSURE_READY', { requestId, target: targetAddress, balance: ethers.formatEther(balance) });
         return res.json({ ok: true, toppedUp: false, balance: ethers.formatEther(balance) });
     } catch (err) {
+        logSigner('GAS_ENSURE_FAILED', { requestId, target: requestedTarget, reason: err.shortMessage || err.message });
         return res.status(400).json({ ok: false, reason: err.shortMessage || err.message });
     }
 });
@@ -168,7 +173,38 @@ function logSigner(event, details = {}) {
     console.log('[SIGNER]', JSON.stringify(record));
 }
 
+function findRevertData(value, depth = 0) {
+    if (!value || depth > 5) return null;
+    if (typeof value === 'string' && /^0x[0-9a-fA-F]{8,}$/.test(value)) return value;
+    if (typeof value !== 'object') return null;
+    for (const key of ['data', 'result', 'return', 'originalError', 'error', 'info']) {
+        const found = findRevertData(value[key], depth + 1);
+        if (found) return found;
+    }
+    return null;
+}
+
+function describeContractError(contract, err) {
+    const data = findRevertData(err);
+    let decoded = null;
+    if (data) {
+        try {
+            const parsed = contract.interface.parseError(data);
+            if (parsed) decoded = parsed.name;
+        } catch (_) {
+            // ABI deployed có thể khác ABI đang dùng; vẫn trả selector để đối chiếu.
+        }
+    }
+    const selector = data ? data.slice(0, 10) : null;
+    return { data, selector, decoded };
+}
+
+
 app.post('/tx', authMiddleware, async (req, res) => {
+    logSigner('TX_REQUEST_RECEIVED', {
+        action: String(req.body?.action || 'UNKNOWN'),
+        keyId: String(req.body?.keyId || '')
+    });
     let actionName = 'UNKNOWN';
     let signerAddress = null;
     let txHash = null;
@@ -321,12 +357,23 @@ app.post('/tx', authMiddleware, async (req, res) => {
 
         return res.json(result);
     } catch (err) {
-        const reason = err.revert?.name || err.shortMessage || err.reason || err.message || 'Signer transaction failed';
+        const contractError = describeContractError(
+            contractFor(provider),
+            err
+        );
+        const reason = contractError.decoded
+            || err.revert?.name
+            || err.shortMessage
+            || err.reason
+            || err.message
+            || 'Signer transaction failed';
         logSigner('TX_FAILED', {
             action: actionName,
             signer: signerAddress,
             txHash,
-            reason
+            reason,
+            errorSelector: contractError.selector,
+            revertData: contractError.data
         });
         if (actionName === 'rejectTransfer') {
             logSigner('TRANSFER_REJECTION_FAILED', {
@@ -449,6 +496,9 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
 });
 
 app.get('/transfers/check', authMiddleware, async (req, res) => {
+    const requestId = crypto.randomUUID();
+    const requestedEvent = String(req.query.eventName || '');
+    logSigner('TRANSFER_EVENT_CHECK_START', { requestId, eventName: requestedEvent, transferId: String(req.query.transferId || '') });
     try {
         const transferId = requireBytes32(String(req.query.transferId || ''), 'transferId');
         const eventName = String(req.query.eventName || '');
@@ -460,6 +510,7 @@ app.get('/transfers/check', authMiddleware, async (req, res) => {
         const logs = await contract.queryFilter(filter, Math.max(0, latest - 40000), latest);
         const found = logs.length ? logs[logs.length - 1] : null;
         const block = found ? await provider.getBlock(found.blockNumber) : null;
+        logSigner('TRANSFER_EVENT_CHECK_COMPLETE', { requestId, eventName, transferId, found: Boolean(found) });
         return res.json({
             ok: true, isRecorded: Boolean(found),
             txHash: found ? found.transactionHash : null,
@@ -467,7 +518,8 @@ app.get('/transfers/check', authMiddleware, async (req, res) => {
             blockTimestamp: block ? Number(block.timestamp) : null
         });
     } catch (err) {
-        return res.status(400).json({ ok: false, isRecorded: false, txHash: null, blockNumber: null, reason: err.message });
+        logSigner('TRANSFER_EVENT_CHECK_FAILED', { requestId, eventName: requestedEvent, transferId: String(req.query.transferId || ''), reason: err.shortMessage || err.message });
+        return res.status(400).json({ ok: false, isRecorded: false, txHash: null, blockNumber: null, reason: err.shortMessage || err.message });
     }
 });
 
