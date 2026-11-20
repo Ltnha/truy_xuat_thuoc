@@ -24,13 +24,15 @@ class ChuyenGiaoController extends Controller
         $danhSach = ToChuc::query()
             ->where('loaiToChuc', OrganizationType::nhaPhanPhoi->value)
             ->where('trangThaiDuyet', OrganizationApprovalStatus::daDuyet->value)
+            ->whereHas('blockchainIdentities', function ($query) {
+                $query->where('trangThai', 'ACTIVE')
+                    ->whereNotNull('signerKeyId')
+                    ->whereNotNull('diaChiVi');
+            })
             ->orderBy('tenToChuc')
             ->get(['id', 'tenToChuc', 'maSoThue']);
 
-        return response()->json([
-            'success' => true,
-            'data' => $danhSach,
-        ]);
+        return response()->json(['success' => true, 'data' => $danhSach]);
     }
 
     /**
@@ -43,101 +45,82 @@ class ChuyenGiaoController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'loThuocId'   => 'required|integer|exists:loThuoc,id',
-            'benNhanId'   => 'required|integer|exists:toChuc,id',
-            'soLuong'     => 'required|integer|min:1',
-            'ghiChu'      => 'nullable|string|max:500',
+            'loThuocId' => 'required|integer|exists:loThuoc,id',
+            'benNhanId' => 'required|integer|exists:toChuc,id',
+            'soLuong' => 'required|integer|min:1',
         ], [
             'loThuocId.required' => 'Thiếu mã lô thuốc.',
-            'benNhanId.required' => 'Vui lòng chọn nhà phân phối tiếp nhận.',
-            'soLuong.required'   => 'Vui lòng nhập số lượng chuyển giao.',
-            'soLuong.min'        => 'Số lượng chuyển giao tối thiểu là 1.',
+            'benNhanId.required' => 'Vui lòng chọn nhà phân phối đã được xét duyệt.',
+            'soLuong.required' => 'Thiếu số lượng chuyển giao.',
+            'soLuong.min' => 'Số lượng chuyển giao tối thiểu là 1.',
         ]);
 
         $user = Auth::user();
-        $toChuc = $user->toChuc;
-
-        if (!$toChuc) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tài khoản chưa gắn với tổ chức.',
-            ], 403);
+        $toChuc = $user?->toChuc;
+        if (! $toChuc) {
+            return response()->json(['success' => false, 'message' => 'Tài khoản chưa gắn với tổ chức.'], 403);
         }
 
-        $loThuoc = LoThuoc::where('id', $request->loThuocId)
-            ->where('toChucId', $toChuc->id)
-            ->first();
-
-        if (!$loThuoc) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không tìm thấy lô thuốc hoặc lô không thuộc nhà sản xuất của bạn.',
-            ], 404);
-        }
-
-        // Chỉ cho chuyển khi đã có giao dịch on-chain (tránh chuyển lô chưa neo)
-        $txOk = BlockchainTransaction::where('loThuocId', $loThuoc->id)
-            ->where(function ($q) {
-                $q->whereIn('trangThai', ['CONFIRMED', 'SUCCESS'])
-                    ->orWhere(function ($q2) {
-                        $q2->whereNotNull('txHash')
-                            ->where('txHash', 'not like', 'PENDING_%');
-                    });
-            })
-            ->exists();
-
-        if (!$txOk) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Lô thuốc chưa được ghi nhận On-chain thành công. Vui lòng đợi đồng bộ xong trước khi chuyển giao.',
-            ], 422);
-        }
-
-        // Nhà phân phối thật, đã duyệt
-        $benNhan = ToChuc::where('id', $request->benNhanId)
+        $benNhan = ToChuc::query()
+            ->whereKey($request->integer('benNhanId'))
             ->where('loaiToChuc', OrganizationType::nhaPhanPhoi->value)
             ->where('trangThaiDuyet', OrganizationApprovalStatus::daDuyet->value)
+            ->whereHas('blockchainIdentities', function ($query) {
+                $query->where('trangThai', 'ACTIVE')
+                    ->whereNotNull('signerKeyId')
+                    ->whereNotNull('diaChiVi');
+            })
             ->first();
 
-        if (!$benNhan) {
+        if (! $benNhan) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nhà phân phối không hợp lệ hoặc chưa được phê duyệt.',
+                'message' => 'Nhà phân phối không tồn tại, chưa được xét duyệt hoặc chưa có ví Blockchain ACTIVE.',
             ], 422);
         }
 
-        if ($benNhan->id === $toChuc->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Không thể chuyển giao cho chính tổ chức của bạn.',
-            ], 422);
-        }
-
-        $soLuong = (int) $request->soLuong;
         try {
             $chuyenGiao = $this->chuyenGiaoService->tao($toChuc, [
-                'loThuocId' => (int) $loThuoc->id,
+                'loThuocId' => $request->integer('loThuocId'),
                 'benNhanId' => (int) $benNhan->id,
-                'soLuong' => $soLuong,
+                'soLuong' => $request->integer('soLuong'),
             ], $user, $request->ip());
+
+            $txHash = (string) BlockchainTransaction::query()
+                ->where('chuyenGiaoId', $chuyenGiao->id)
+                ->where('eventName', 'TransferSubmitted')
+                ->value('txHash');
+
+            if (! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+                throw new \RuntimeException('Thiếu txHash Sepolia hợp lệ sau khi tạo chuyển giao.');
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã ký và xác nhận chuyển giao trên Ethereum Sepolia. Dữ liệu chỉ được lưu sau khi có txHash thật.',
+                'data' => [
+                    'chuyenGiaoId' => $chuyenGiao->id,
+                    'trangThai' => $chuyenGiao->trangThai,
+                    'soLuong' => $chuyenGiao->soLuong,
+                    'benNhan' => [
+                        'id' => $benNhan->id,
+                        'tenToChuc' => $benNhan->tenToChuc,
+                    ],
+                    'txHash' => $txHash,
+                    'explorerUrl' => 'https://sepolia.etherscan.io/tx/' . $txHash,
+                ],
+            ]);
         } catch (\App\Exceptions\NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            report($e);
+            return response()->json([
+                'success' => false,
+                'message' => 'Không thể hoàn tất ký chuyển giao trên Sepolia. CSDL chưa ghi nhận chuyển giao.',
+            ], 502);
         }
-
-        return response()->json([
-            'success' => true,
-            'message' => 'Đã khởi tạo chuyển giao. Hệ thống đang gửi giao dịch submitTransfer lên Ethereum Sepolia.',
-            'data' => [
-                'chuyenGiaoId' => $chuyenGiao->id,
-                'trangThai'    => $chuyenGiao->trangThai,
-                'soLuong'      => $chuyenGiao->soLuong,
-                'benNhan'      => [
-                    'id' => $benNhan->id,
-                    'tenToChuc' => $benNhan->tenToChuc,
-                ],
-            ],
-        ]);
     }
+
     /** Bên gửi yêu cầu hủy lệnh chuyển giao đang PENDING. */
     public function huy(Request $request, int $id)
     {
