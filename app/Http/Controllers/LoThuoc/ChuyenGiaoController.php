@@ -24,11 +24,6 @@ class ChuyenGiaoController extends Controller
         $danhSach = ToChuc::query()
             ->where('loaiToChuc', OrganizationType::nhaPhanPhoi->value)
             ->where('trangThaiDuyet', OrganizationApprovalStatus::daDuyet->value)
-            ->whereHas('blockchainIdentities', function ($query) {
-                $query->where('trangThai', 'ACTIVE')
-                    ->whereNotNull('signerKeyId')
-                    ->whereNotNull('diaChiVi');
-            })
             ->orderBy('tenToChuc')
             ->get(['id', 'tenToChuc', 'maSoThue']);
 
@@ -65,11 +60,6 @@ class ChuyenGiaoController extends Controller
             ->whereKey($request->integer('benNhanId'))
             ->where('loaiToChuc', OrganizationType::nhaPhanPhoi->value)
             ->where('trangThaiDuyet', OrganizationApprovalStatus::daDuyet->value)
-            ->whereHas('blockchainIdentities', function ($query) {
-                $query->where('trangThai', 'ACTIVE')
-                    ->whereNotNull('signerKeyId')
-                    ->whereNotNull('diaChiVi');
-            })
             ->first();
 
         if (! $benNhan) {
