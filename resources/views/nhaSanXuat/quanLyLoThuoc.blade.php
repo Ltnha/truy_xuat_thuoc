@@ -218,7 +218,7 @@
                     <option value="">-- Chọn nhà phân phối đã duyệt --</option>
                     <option value="" disabled>Đang tải danh sách nhà phân phối đã xét duyệt...</option>
                 </select>
-                <p class="text-[11px] text-slate-500">Danh sách chỉ gồm nhà phân phối đã được xét duyệt và có ví Blockchain ACTIVE.</p>
+                <p class="text-[11px] text-slate-500">Danh sách gồm các tổ chức Nhà phân phối đã được Cơ quan quản lý xét duyệt.</p>
             </div>
 
             <div class="space-y-1">
