@@ -161,8 +161,18 @@ class TiepNhanLoHangController extends Controller
             return response()->json(['success' => false, 'message' => 'Không tìm thấy giao dịch.'], 404);
         }
 
+        Log::info('[TiepNhanLoHangController] Nhận request xác nhận tiếp nhận lô.', [
+            'chuyenGiaoId' => $chuyenGiao->id,
+            'toChucNhanId' => $toChuc->id,
+            'taiKhoanId' => $user->id,
+        ]);
+
         try {
             $this->chuyenGiaoService->nhan($chuyenGiao, $toChuc, $user, $request->ip());
+            Log::info('[TiepNhanLoHangController] TransferReceived đã xử lý xong; trả kết quả cho trình duyệt.', [
+                'chuyenGiaoId' => $chuyenGiao->id,
+                'toChucNhanId' => $toChuc->id,
+            ]);
 
             return response()->json([
                 'success' => true,
