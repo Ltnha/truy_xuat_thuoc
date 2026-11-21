@@ -4,34 +4,52 @@ pragma solidity ^0.8.24;
 contract BatchTraceability {
 
     // =====================================================
-    // 1. OWNER
+    // 1. OWNER & ADMIN MANAGEMENT
     // =====================================================
 
     address public owner;
+
+    bytes32 public constant ROLE_ADMIN     = keccak256("ADMIN");
+    bytes32 public constant ROLE_CO_QUAN   = keccak256("CO_QUAN_QUAN_LY");
+    bytes32 public constant ROLE_NSX       = keccak256("NHA_SAN_XUAT");
+    bytes32 public constant ROLE_NPP       = keccak256("NHA_PHAN_PHOI");
+    bytes32 public constant ROLE_NHA_THUOC = keccak256("NHA_THUOC");
+
+    mapping(address => mapping(bytes32 => bool)) private roles;
 
     modifier onlyOwner() {
         if (msg.sender != owner) revert Unauthorized();
         _;
     }
 
+    modifier onlyAdmin() {
+        if (msg.sender != owner && !roles[msg.sender][ROLE_ADMIN]) revert Unauthorized();
+        _;
+    }
+
     constructor() {
         owner = msg.sender;
 
+        _grantRole(msg.sender, ROLE_ADMIN);
         _grantRole(msg.sender, ROLE_CO_QUAN);
 
         emit OwnershipTransferred(address(0), msg.sender);
     }
 
-    /// @notice Chuyển quyền owner. Role CO_QUAN được chuyển theo owner mới.
+    /// @notice Chuyển quyền owner cao nhất. Cấp ROLE_ADMIN và ROLE_CO_QUAN cho owner mới.
     function transferOwnership(address newOwner) external onlyOwner {
         if (newOwner == address(0)) revert InvalidAddress();
 
         address previousOwner = owner;
         owner = newOwner;
 
+        if (!roles[newOwner][ROLE_ADMIN]) {
+            _grantRole(newOwner, ROLE_ADMIN);
+        }
         if (!roles[newOwner][ROLE_CO_QUAN]) {
             _grantRole(newOwner, ROLE_CO_QUAN);
         }
+
         if (roles[previousOwner][ROLE_CO_QUAN]) {
             roles[previousOwner][ROLE_CO_QUAN] = false;
             emit RoleRevoked(previousOwner, ROLE_CO_QUAN, msg.sender);
@@ -41,18 +59,7 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 2. ROLES
-    // =====================================================
-
-    bytes32 public constant ROLE_CO_QUAN   = keccak256("CO_QUAN_QUAN_LY");
-    bytes32 public constant ROLE_NSX       = keccak256("NHA_SAN_XUAT");
-    bytes32 public constant ROLE_NPP       = keccak256("NHA_PHAN_PHOI");
-    bytes32 public constant ROLE_NHA_THUOC = keccak256("NHA_THUOC");
-
-    mapping(address => mapping(bytes32 => bool)) private roles;
-
-    // =====================================================
-    // 3. BATCH & EVENTS STORAGE
+    // 2. BATCH & EVENTS STORAGE
     // =====================================================
 
     struct BatchInfo {
@@ -77,7 +84,7 @@ contract BatchTraceability {
     bytes32 public constant EVENT_RECALL_BATCH = keccak256("RECALL_BATCH");
 
     // =====================================================
-    // 4. TRANSFERS
+    // 3. TRANSFERS
     // =====================================================
 
     enum TransferStatus {
@@ -102,7 +109,7 @@ contract BatchTraceability {
     mapping(bytes32 => TransferRecord) public transfers;
 
     // =====================================================
-    // 5. ERRORS
+    // 4. ERRORS
     // =====================================================
 
     error Unauthorized();
@@ -124,7 +131,7 @@ contract BatchTraceability {
     error ProductAlreadyApproved();
 
     // =====================================================
-    // 6. EVENTS
+    // 5. EVENTS
     // =====================================================
 
     event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
@@ -141,7 +148,7 @@ contract BatchTraceability {
     event TransferCancelled(bytes32 indexed transferId, bytes32 indexed batchId, address indexed sender, uint256 timestamp);
 
     // =====================================================
-    // 7. MODIFIERS
+    // 6. MODIFIERS
     // =====================================================
 
     modifier onlyManufacturer() {
@@ -150,20 +157,23 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 8. ROLE MANAGEMENT
+    // 7. ROLE MANAGEMENT
     // =====================================================
 
     function hasRole(address account, bytes32 role) public view returns (bool) {
         return roles[account][role];
     }
 
-    function grantRole(address account, bytes32 role) external onlyOwner {
+    /// @notice Cấp quyền cho một tài khoản (chỉ owner hoặc các tài khoản giữ ROLE_ADMIN).
+    function grantRole(address account, bytes32 role) external onlyAdmin {
         if (account == address(0)) revert InvalidAddress();
         if (roles[account][role]) revert RoleAlreadyGranted();
         _grantRole(account, role);
     }
 
-    function revokeRole(address account, bytes32 role) external onlyOwner {
+    /// @notice Thu hồi quyền của một tài khoản. Bảo vệ không cho tự thu hồi ROLE_ADMIN của owner gốc.
+    function revokeRole(address account, bytes32 role) external onlyAdmin {
+        if (account == owner && role == ROLE_ADMIN) revert Unauthorized();
         if (!roles[account][role]) revert RoleNotGranted();
         roles[account][role] = false;
         emit RoleRevoked(account, role, msg.sender);
@@ -175,14 +185,10 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 9A. PRODUCT APPROVAL
+    // 8A. PRODUCT APPROVAL
     // =====================================================
 
     /// @notice Cơ quan quản lý ký duyệt sản phẩm và ghi dấu vết lên chain.
-    /// @dev Chỉ ghi nhận (lưu hash + phát event), KHÔNG ép buộc trong registerBatch.
-    ///      Việc chỉ cho tạo lô từ sản phẩm đã duyệt do backend kiểm soát.
-    /// @param productId   định danh sản phẩm (hash tính ở off-chain)
-    /// @param payloadHash hash của hồ sơ sản phẩm lúc được duyệt
     function approveProduct(bytes32 productId, bytes32 payloadHash) external {
         if (!hasRole(msg.sender, ROLE_CO_QUAN)) revert Unauthorized();
         if (productId == bytes32(0) || payloadHash == bytes32(0)) revert InvalidData();
@@ -198,11 +204,9 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 9. BATCH REGISTRATION & EVENTS
+    // 8B. BATCH REGISTRATION & EVENTS
     // =====================================================
 
-    /// @dev Việc chỉ cho phép đăng ký lô từ sản phẩm đã được duyệt
-    ///      được kiểm soát ở off-chain (backend).
     function registerBatch(bytes32 batchId) external onlyManufacturer {
         if (batchId == bytes32(0)) revert InvalidData();
         if (batches[batchId].exists) revert BatchAlreadyExists();
@@ -218,11 +222,6 @@ contract BatchTraceability {
         emit BatchRegistered(batchId, msg.sender, block.timestamp);
     }
 
-    /// @notice Ghi sự kiện của lô.
-    ///  - NSX tạo ra lô được ghi sự kiện cho lô của mình.
-    ///  - NPP / Nhà thuốc được ghi khi đang là chủ hiện tại của lô.
-    ///  - Không ghi được khi lô đã bị thu hồi.
-    ///  - Sự kiện thu hồi phải đi qua recallBatch.
     function recordBatchEvent(
         bytes32 batchId,
         bytes32 businessId,
@@ -257,7 +256,6 @@ contract BatchTraceability {
         );
     }
 
-    /// @notice Thu hồi lô: chỉ NSX tạo lô hoặc Cơ quan quản lý.
     function recallBatch(bytes32 batchId, bytes32 payloadHash) external {
         BatchInfo storage b = batches[batchId];
         if (!b.exists) revert BatchNotFound();
@@ -275,10 +273,9 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 10. TRANSFER MANAGEMENT
+    // 9. TRANSFER MANAGEMENT
     // =====================================================
 
-    /// @dev Tuyến hợp lệ: NSX -> NPP, NPP -> Nhà thuốc.
     function _checkRoute(address sender, address receiver) internal view {
         if (hasRole(sender, ROLE_NSX)) {
             if (!hasRole(receiver, ROLE_NPP)) revert Unauthorized();
@@ -329,7 +326,6 @@ contract BatchTraceability {
         if (b.recalled) revert BatchAlreadyRecalled();
         if (b.currentOwner != tr.sender) revert NotCurrentOwner();
 
-        // Người nhận phải còn role phù hợp tại thời điểm nhận
         _checkRoute(tr.sender, msg.sender);
 
         address oldOwner = b.currentOwner;
@@ -370,7 +366,7 @@ contract BatchTraceability {
     }
 
     // =====================================================
-    // 11. VIEW FUNCTIONS
+    // 10. VIEW FUNCTIONS
     // =====================================================
 
     function getBatchOwner(bytes32 batchId) external view returns (address) {
@@ -381,7 +377,6 @@ contract BatchTraceability {
         return batchTransfers[batchId].length;
     }
 
-    /// @notice Trả về toàn bộ transferId của lô theo thứ tự thời gian.
     function getBatchTransfers(bytes32 batchId) external view returns (bytes32[] memory) {
         return batchTransfers[batchId];
     }
