@@ -9,6 +9,8 @@ class SignerClient
 {
     protected string $baseUrl;
     protected string $apiToken;
+    protected int $txTimeout;
+    protected int $readTimeout;
 
     public function __construct()
     {
@@ -18,6 +20,10 @@ class SignerClient
         }
         $this->baseUrl = rtrim($baseUrl, '/');
         $this->apiToken = (string) config('truyXuat.blockchain.signerApiToken', env('SIGNER_API_TOKEN', ''));
+
+        // Timeout 120s cho các giao dịch ghi lên Sepolia (tránh lỗi cURL error 28 khi mạng chậm)
+        $this->txTimeout = (int) config('truyXuat.blockchain.signerTxTimeout', env('SIGNER_TX_TIMEOUT', 120));
+        $this->readTimeout = (int) config('truyXuat.blockchain.signerReadTimeout', env('SIGNER_READ_TIMEOUT', 30));
     }
 
     /**
@@ -26,9 +32,12 @@ class SignerClient
     public function taoVi(int $toChucId): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/wallets", [
-            'toChucId' => $toChucId,
-        ]);
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->txTimeout)
+            ->post("{$this->baseUrl}/wallets", [
+                'toChucId' => $toChucId,
+            ]);
 
         if ($response->failed() || !$response->json('ok')) {
             throw new Exception("Lỗi Signer [taoVi]: " . ($response->json('reason') ?? $response->body()));
@@ -55,12 +64,15 @@ class SignerClient
             throw new Exception('Địa chỉ ví hoặc Signer keyId không hợp lệ: ' . $targetAddress);
         }
 
-        $response = Http::withToken($this->apiToken)->post(
-            "{$this->baseUrl}/gas/ensure",
-            [
-                'target' => $targetAddress,
-            ]
-        );
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->txTimeout)
+            ->post(
+                "{$this->baseUrl}/gas/ensure",
+                [
+                    'target' => $targetAddress,
+                ]
+            );
 
         if ($response->failed() || ! $response->json('ok')) {
             throw new Exception(
@@ -76,11 +88,14 @@ class SignerClient
     public function tx(string $keyId, string $action, array $params): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/tx", [
-            'keyId'  => $keyId,
-            'action' => $action,
-            'params' => $params,
-        ]);
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->txTimeout)
+            ->post("{$this->baseUrl}/tx", [
+                'keyId'  => $keyId,
+                'action' => $action,
+                'params' => $params,
+            ]);
 
         if ($response->failed()) {
             $rawReason = (string) ($response->json('reason') ?? 'Signer Service không phản hồi');
@@ -129,7 +144,8 @@ class SignerClient
         try {
             $response = Http::withToken($this->apiToken)
                 ->acceptJson()
-                ->timeout(15)
+                ->connectTimeout(10)
+                ->timeout($this->readTimeout)
                 ->get("{$this->baseUrl}/roles/check", [
                     'role' => strtolower($roleHash),
                     'account' => $accountAddress,
@@ -160,9 +176,12 @@ class SignerClient
     public function doiViMoi(int $toChucId): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->post("{$this->baseUrl}/wallets/rotate", [
-            'toChucId' => $toChucId,
-        ]);
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->txTimeout)
+            ->post("{$this->baseUrl}/wallets/rotate", [
+                'toChucId' => $toChucId,
+            ]);
 
         if ($response->failed() || !$response->json('ok')) {
             throw new \Exception("Lỗi Signer [doiViMoi]: " . ($response->json('reason') ?? $response->body()));
@@ -180,11 +199,14 @@ class SignerClient
     public function isBatchEventRecorded(string $batchId, string $businessId, string $eventType): bool
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/events/check-batch", [
-            'batchId'    => $batchId,
-            'businessId' => $businessId,
-            'eventType'  => $eventType,
-        ]);
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->readTimeout)
+            ->get("{$this->baseUrl}/events/check-batch", [
+                'batchId'    => $batchId,
+                'businessId' => $businessId,
+                'eventType'  => $eventType,
+            ]);
 
         return $response->successful() && $response->json('isRecorded') === true;
     }
@@ -193,11 +215,14 @@ class SignerClient
     public function findBatchEvent(string $batchId, string $businessId, string $eventType): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/events/check-batch", [
-            'batchId' => $batchId,
-            'businessId' => $businessId,
-            'eventType' => $eventType,
-        ]);
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->readTimeout)
+            ->get("{$this->baseUrl}/events/check-batch", [
+                'batchId' => $batchId,
+                'businessId' => $businessId,
+                'eventType' => $eventType,
+            ]);
         if ($response->failed() || ! $response->json('ok')) {
             throw new Exception('Không thể đối soát event trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
         }
@@ -208,10 +233,13 @@ class SignerClient
     public function findTransferEvent(string $maChuyenGiao, string $eventName): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/transfers/check", [
-            'transferId' => $maChuyenGiao,
-            'eventName' => $eventName,
-        ]);
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->readTimeout)
+            ->get("{$this->baseUrl}/transfers/check", [
+                'transferId' => $maChuyenGiao,
+                'eventName' => $eventName,
+            ]);
         // Không gửi lại giao dịch nếu chưa đối soát được event: tránh duplicate/revert khi RPC lỗi.
         if ($response->failed() || ! $response->json('ok')) {
             throw new Exception('Không thể đối soát transfer event trên Sepolia: ' . ($response->json('reason') ?? $response->body()));
@@ -223,7 +251,10 @@ class SignerClient
     public function getTransferState(string $transferId): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/transfers/{$transferId}");
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->readTimeout)
+            ->get("{$this->baseUrl}/transfers/{$transferId}");
         if ($response->status() === 404) {
             return ['ok' => true, 'exists' => false, 'transfer' => null];
         }
@@ -239,33 +270,40 @@ class SignerClient
     public function getBatchHistory(string $batchId): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/batches/{$batchId}/history");
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->readTimeout)
+            ->get("{$this->baseUrl}/batches/{$batchId}/history");
         if ($response->failed() || ! $response->json('ok')) {
             throw new Exception('Không thể đọc lịch sử batch on-chain: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
     }
 
-
     /** Kiểm tra sản phẩm đã được Cơ quan quản lý duyệt trực tiếp trên contract. */
     public function isProductApproved(string $productId): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/products/check", [
-            'productId' => $productId,
-        ]);
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->readTimeout)
+            ->get("{$this->baseUrl}/products/check", [
+                'productId' => $productId,
+            ]);
         if ($response->failed() || ! $response->json('ok')) {
             throw new Exception('Không thể kiểm tra trạng thái duyệt sản phẩm on-chain: ' . ($response->json('reason') ?? $response->body()));
         }
         return $response->json();
     }
 
-
     /** Đọc trạng thái lô và txHash BatchRegistered đã mined để phục hồi job retry. */
     public function getBatchState(string $batchId): array
     {
         $this->assertConfigured();
-        $response = Http::withToken($this->apiToken)->get("{$this->baseUrl}/batches/{$batchId}");
+        $response = Http::withToken($this->apiToken)
+            ->connectTimeout(10)
+            ->timeout($this->readTimeout)
+            ->get("{$this->baseUrl}/batches/{$batchId}");
         if ($response->failed() || ! $response->json('ok')) {
             throw new Exception('Không thể đọc trạng thái batch on-chain: ' . ($response->json('reason') ?? $response->body()));
         }
@@ -309,5 +347,4 @@ class SignerClient
             throw new Exception('Thiếu BLOCKCHAIN_SIGNER_URL hoặc SIGNER_API_TOKEN trong .env.');
         }
     }
-
 }
