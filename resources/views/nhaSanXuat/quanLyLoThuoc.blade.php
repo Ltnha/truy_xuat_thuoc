@@ -81,8 +81,8 @@
 
 </div>
 
-<!-- MODAL 1: ĐĂNG KÝ LÔ MỚI & SINH MÃ QR THEO LÔ -->
-<div id="modalDangKyLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+<!-- MODAL 1: ĐĂNG KÝ LÔ MỚI -->
+<div id="modalDangKyLo" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 bong-xanh max-h-[90vh] overflow-y-auto">
 
         <div id="manHinhFormDangKyLo" class="space-y-5">
@@ -164,31 +164,22 @@
         </div>
 
         <div id="manHinhKetQuaSinhQR" class="hidden space-y-5">
-            <div class="text-center space-y-2">
-                <div class="w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl">
-                    <i class="fa-solid fa-circle-check"></i>
+            <div class="text-center space-y-2.5 py-2">
+                <div id="iconTrangThaiTaoLo" class="w-12 h-12 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-2xl">
+                    <i class="fa-solid fa-spinner fa-spin"></i>
                 </div>
-                <h3 class="text-base font-bold text-slate-900">Đã Tiếp Nhận Yêu Cầu Tạo Lô!</h3>
-                <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
+                <h3 id="tieuDeTrangThaiTaoLo" class="text-base font-bold text-slate-900">Đang Xử Lý Đăng Ký Lô Thuốc...</h3>
+                <div id="badgeTrangThaiTaoLo" class="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold">
                     <i class="fa-solid fa-spinner fa-spin text-amber-600"></i>
-                    <span>Signer đang xử lý giao dịch đăng ký lô trên Ethereum Sepolia...</span>
+                    <span>Đang ký và xác nhận giao dịch trên Ethereum Sepolia...</span>
                 </div>
-                <p class="text-xs text-slate-500 font-mono" id="hienThiTxHashTaoLo">Mã lô: <strong id="hienThiMaLoQR" class="text-emerald-700 font-bold"></strong></p>
+                <p class="text-xs text-slate-500 font-mono">Mã lô: <strong id="hienThiMaLoQR" class="text-emerald-700 font-bold"></strong></p>
+                <p id="boxTxHashTaoLo" class="hidden text-xs text-slate-600 font-mono">
+                    TxHash: <a id="linkTxHashTaoLo" href="#" target="_blank" rel="noopener" class="text-cyan-800 hover:underline font-semibold"></a>
+                </p>
                 <p id="hienThiNppDuKienTaoLo" class="hidden text-xs text-cyan-800 font-semibold">
                     Nhà phân phối dự kiến nhận: <span id="tenNppDuKienTaoLo"></span>. Sau khi đăng ký lô on-chain thành công, chọn nút Chuyển giao trên danh sách lô để ký gửi.
                 </p>
-            </div>
-
-            <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-600">
-                <div class="flex items-center gap-2 text-emerald-800 font-bold">
-                    <i class="fa-solid fa-circle-info"></i> Trạng thái xử lý giao dịch:
-                </div>
-                <ul class="list-disc list-inside space-y-1 text-[11px] pl-1 text-slate-700">
-                    <li>Signer Service ký và gửi registerBatch lên Ethereum Sepolia.</li>
-                    <li>Khởi tạo mã QR kép (tem thùng và tem hộp).</li>
-                    <li>Khởi tạo số lượng tồn kho ban đầu chính xác một lần.</li>
-                    <li>Chỉ khi giao dịch được xác nhận và có txHash thật, hệ thống mới lưu trạng thái thành công.</li>
-                </ul>
             </div>
 
             <div class="pt-2">
@@ -202,7 +193,7 @@
 </div>
 
 <!-- MODAL 2: PHÂN PHỐI LÔ THUỐC -->
-<div id="modalPhanPhoiLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+<div id="modalPhanPhoiLo" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-lg w-full p-6 sm:p-8 space-y-5 bong-xanh">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
@@ -228,7 +219,6 @@
                 </div>
             </div>
 
-            <!-- ID lô thuốc ẩn để gửi API -->
             <input type="hidden" id="phanPhoiLoThuocId" value="">
 
             <div class="space-y-1">
@@ -266,7 +256,7 @@
 </div>
 
 <!-- MODAL 3: XEM CHI TIẾT LÔ THUỐC -->
-<div id="modalChiTietLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
+<div id="modalChiTietLo" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 bong-xanh max-h-[90vh] overflow-y-auto">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
             <div class="flex items-center gap-2">
@@ -339,7 +329,7 @@
     </div>
 </div>
 @endsection
-
+s
 @push('scripts')
 <script src="{{ asset('assets/js/nhaSanXuat/quanLyLoThuoc.js') }}"></script>
 @endpush

@@ -13,10 +13,11 @@ document.addEventListener('DOMContentLoaded', function () {
     let danhSachDaLoc = [];
     let trangHienTai = 1;
     const soDongTrenTrang = 10;
-    const SO_COT = 8; // Khớp bảng Blade
+    const SO_COT = 8;
 
     let pollingInterval = null;
     const batchSigningStates = new Map();
+    let dangTheoDoiLoTaoId = null;
 
     function showPopup(message, type = 'info', title = 'Thông báo', txHash = null) {
         window.PharmaPopup?.show({ type, title, message, txHash });
@@ -34,10 +35,6 @@ document.addEventListener('DOMContentLoaded', function () {
         return [...list].sort((a, b) => (b.id || 0) - (a.id || 0))[0];
     }
 
-    /**
-     * Lấy giao dịch ghi nhận LÔ (Batch Registration) – không lấy giao dịch chuyển giao.
-     * Ưu tiên eventName chứa Batch / Registration / không gắn chuyenGiaoId.
-     */
     function getBatchRegistrationTx(item) {
         const list = getTxList(item);
         if (list.length === 0) return null;
@@ -65,23 +62,97 @@ document.addEventListener('DOMContentLoaded', function () {
         return null;
     }
 
+    function capNhatTrangThaiModalTaoLo(trangThai, item = null, tx = null) {
+        const iconBox = document.getElementById('iconTrangThaiTaoLo');
+        const tieuDe = document.getElementById('tieuDeTrangThaiTaoLo');
+        const badge = document.getElementById('badgeTrangThaiTaoLo');
+        const boxTx = document.getElementById('boxTxHashTaoLo');
+        const linkTx = document.getElementById('linkTxHashTaoLo');
+
+        if (!iconBox || !tieuDe || !badge) return;
+
+        if (trangThai === 'CONFIRMED' || trangThai === 'SUCCESS') {
+            iconBox.className = 'w-12 h-12 mx-auto rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-2xl';
+            iconBox.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+
+            tieuDe.textContent = 'Đăng Ký Lô Thuốc Thành Công!';
+
+            badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-xs font-semibold';
+            badge.innerHTML = '<i class="fa-solid fa-check-circle text-emerald-600"></i><span>Đã xác nhận giao dịch thành công trên Ethereum Sepolia</span>';
+
+            const hash = String(tx?.txHash || '');
+            if (boxTx && linkTx && /^0x[a-fA-F0-9]{64}$/.test(hash)) {
+                linkTx.href = `https://sepolia.etherscan.io/tx/${hash}`;
+                linkTx.textContent = `${hash.substring(0, 10)}...${hash.substring(hash.length - 8)}`;
+                boxTx.classList.remove('hidden');
+            }
+        } else if (['FAILED', 'REJECTED', 'CANCELLED'].includes(trangThai)) {
+            iconBox.className = 'w-12 h-12 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-2xl';
+            iconBox.innerHTML = '<i class="fa-solid fa-circle-xmark"></i>';
+
+            tieuDe.textContent = 'Đăng Ký Lô Thuốc Thất Bại';
+
+            badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-xs font-semibold';
+            badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-600"></i><span>${escapeHtml(tx?.loiCuoi || 'Giao dịch trên Blockchain không thành công.')}</span>`;
+
+            boxTx?.classList.add('hidden');
+        } else {
+            iconBox.className = 'w-12 h-12 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-2xl';
+            iconBox.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+            tieuDe.textContent = 'Đang Xử Lý Đăng Ký Lô Thuốc...';
+
+            badge.className = 'inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-full text-xs font-semibold';
+            badge.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-amber-600"></i><span>Đang ký và xác nhận giao dịch trên Ethereum Sepolia...</span>';
+
+            boxTx?.classList.add('hidden');
+        }
+    }
+
     function watchBatchRegistration(items) {
+        const modalDangKy = document.getElementById('modalDangKyLo');
+        const dangMoModal = modalDangKy && !modalDangKy.classList.contains('hidden');
+
         (items || []).forEach(item => {
             const tx = getBatchRegistrationTx(item);
             if (!tx) return;
             const id = Number(item.id);
             const status = String(tx.trangThai || '').toUpperCase();
             const previous = batchSigningStates.get(id);
+            const hasValidHash = /^0x[a-fA-F0-9]{64}$/.test(String(tx.txHash || ''));
 
-            if (previous === 'PENDING' && (status === 'CONFIRMED' || status === 'SUCCESS')
-                && /^0x[a-fA-F0-9]{64}$/.test(String(tx.txHash || ''))) {
+            // Cập nhật trực tiếp màn hình thông báo ngay khi job terminal hoàn tất
+            if (dangTheoDoiLoTaoId === id) {
+                if ((status === 'CONFIRMED' || status === 'SUCCESS') && hasValidHash) {
+                    capNhatTrangThaiModalTaoLo('CONFIRMED', item, tx);
+                    dangTheoDoiLoTaoId = null;
+                    if (!dangMoModal) {
+                        showPopup(
+                            `Lô thuốc ${item.maLoNghiepVu || ''} đã được ký và xác nhận thành công trên Ethereum Sepolia. QR của lô đã sẵn sàng.`,
+                            'success',
+                            'Đăng ký lô thuốc thành công',
+                            tx.txHash
+                        );
+                    }
+                } else if (['FAILED', 'REJECTED', 'CANCELLED'].includes(status)) {
+                    capNhatTrangThaiModalTaoLo('FAILED', item, tx);
+                    dangTheoDoiLoTaoId = null;
+                    if (!dangMoModal) {
+                        showPopup(
+                            tx.loiCuoi || 'Giao dịch đăng ký lô không thể hoàn tất trên Blockchain.',
+                            'error',
+                            'Đăng ký lô thất bại'
+                        );
+                    }
+                }
+            } else if (previous === 'PENDING' && (status === 'CONFIRMED' || status === 'SUCCESS') && hasValidHash) {
                 showPopup(
                     `Lô thuốc ${item.maLoNghiepVu || ''} đã được ký và xác nhận thành công trên Ethereum Sepolia. QR của lô đã sẵn sàng.`,
                     'success',
                     'Đăng ký lô thuốc thành công',
                     tx.txHash
                 );
-            } else if (previous === 'PENDING' && ['FAILED', 'REJECTED'].includes(status)) {
+            } else if (previous === 'PENDING' && ['FAILED', 'REJECTED', 'CANCELLED'].includes(status)) {
                 showPopup(
                     tx.loiCuoi || 'Giao dịch đăng ký lô không thể hoàn tất trên Blockchain.',
                     'error',
@@ -93,9 +164,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /**
-     * Giao dịch chuyển giao gần nhất (có chuyenGiaoId)
-     */
     function getLatestTransferTx(item) {
         const list = getTxList(item).filter(tx =>
             tx.chuyenGiaoId != null || tx.chuyen_giao_id != null
@@ -164,7 +232,10 @@ document.addEventListener('DOMContentLoaded', function () {
     // ================== 2. TẢI DỮ LIỆU TỪ CSDL ==================
     async function loadDataFromDB() {
         try {
-            const response = await fetch('/nha-san-xuat/api/danh-sach-lo-thuoc');
+            const response = await fetch('/nha-san-xuat/api/danh-sach-lo-thuoc', {
+                cache: 'no-store',
+                headers: { 'Accept': 'application/json' }
+            });
             const result = await response.json();
 
             if (result.success) {
@@ -172,11 +243,13 @@ document.addEventListener('DOMContentLoaded', function () {
                 watchBatchRegistration(tatCaLoThuoc);
                 apDungBoLocVaphanTrang();
 
-                const coPending = tatCaLoThuoc.some(item => isTxPending(getLatestTx(item)));
+                const coPending = dangTheoDoiLoTaoId !== null || tatCaLoThuoc.some(item =>
+                    isTxPending(getLatestTx(item)) || isTxPending(getBatchRegistrationTx(item))
+                );
 
                 if (coPending) {
                     if (!pollingInterval) {
-                        pollingInterval = setInterval(loadDataFromDB, 5000);
+                        pollingInterval = setInterval(loadDataFromDB, 1500);
                     }
                 } else if (pollingInterval) {
                     clearInterval(pollingInterval);
@@ -658,7 +731,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 const maLoCuaYeuCau = result.data?.maLoNghiepVu || payload.maLoNghiepVu;
-                if (result.data?.id) batchSigningStates.set(Number(result.data.id), 'PENDING');
+                if (result.data?.id) {
+                    dangTheoDoiLoTaoId = Number(result.data.id);
+                    batchSigningStates.set(dangTheoDoiLoTaoId, 'PENDING');
+                }
+                capNhatTrangThaiModalTaoLo('PENDING');
+
                 const selectNppTaoLo = document.getElementById('chonNhaPhanPhoiKhiTaoLo');
                 if (payload.benNhanId && selectNppTaoLo) {
                     const selectedOption = selectNppTaoLo.options[selectNppTaoLo.selectedIndex];
@@ -684,7 +762,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (manHinhKetQua) manHinhKetQua.classList.remove('hidden');
 
                 formDangKyLo.reset();
-                loadDataFromDB();
+                await loadDataFromDB();
             } catch (error) {
                 console.error('Lỗi khi gửi yêu cầu tạo lô:', error);
                 showPopup('Thao tác thất bại: ' + (error.message || 'Đã xảy ra lỗi kết nối!'), 'error', 'Không thể tạo lô thuốc');

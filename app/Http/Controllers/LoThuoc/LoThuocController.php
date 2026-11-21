@@ -13,7 +13,6 @@ use App\Models\ToChuc;
 use App\Enums\OrganizationApprovalStatus;
 use App\Enums\OrganizationType;
 use Illuminate\Http\Request;
-use App\Services\ChuoiCungUng\TonKhoService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -39,38 +38,38 @@ class LoThuocController extends Controller
     public function getDanhSachAPI()
     {
         $user = Auth::user();
-
         $toChucId = (int) ($user->toChucId ?? 0);
 
-        // Lô vẫn thuộc kho NSX khi có tồn kho vật lý hoặc còn lệnh chuyển giao PENDING.
-        // Không lọc theo số lượng khả dụng vì lô đang giữ chỗ vẫn phải xuất hiện.
+        // Lấy các lô đang có tồn kho, đang chờ chuyển giao, hoặc vừa khởi tạo (PENDING/FAILED) chưa vào tồn kho
         $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc', 'tonKhoLos'])
             ->where(function ($query) use ($toChucId) {
                 $query->whereHas('tonKhoLos', fn($tonKho) => $tonKho->where('toChucId', $toChucId))
                     ->orWhereHas('chuyenGiao', fn($chuyenGiao) => $chuyenGiao
                         ->where('benGuiId', $toChucId)
-                        ->where('trangThai', 'PENDING'));
+                        ->where('trangThai', 'PENDING'))
+                    ->orWhere(function ($q) use ($toChucId) {
+                        $q->where('toChucId', $toChucId)
+                            ->whereHas('blockchainTransactions', fn($tx) => $tx
+                                ->where('eventName', 'BatchRegistered')
+                                ->whereIn('trangThai', ['PENDING', 'FAILED']));
+                    });
             })
             ->orderBy('id', 'desc')
             ->get()
             ->map(function ($lo) use ($toChucId) {
-                // Số lượng đang giữ chỗ bởi lệnh NSX -> NPP chưa được xử lý.
                 $tongDangChuyen = (int) ChuyenGiao::where('loThuocId', $lo->id)
                     ->where('benGuiId', $toChucId)
                     ->where('trangThai', 'PENDING')
                     ->sum('soLuong');
 
-                // SubmitTransfer không trừ tồn kho vật lý; chỉ TransferReceived mới đổi chủ.
                 $dongTonKho = DB::table('tonKhoLo')
                     ->where('loThuocId', $lo->id)
                     ->where('toChucId', $toChucId)
                     ->first();
 
-                // Tương thích dữ liệu cũ: nếu dòng tồn kho bị thiếu nhưng còn lệnh PENDING,
-                // snapshot số lượng chuyển giao vẫn giúp giữ lô trong danh sách với khả dụng = 0.
                 $hienCo = $dongTonKho
                     ? (int) $dongTonKho->soLuong
-                    : $tongDangChuyen;
+                    : ($tongDangChuyen > 0 ? $tongDangChuyen : (int) $lo->soLuong);
 
                 $lo->soLuongHienCo = $hienCo;
                 $lo->soLuongDangChuyenGiao = $tongDangChuyen;
@@ -105,18 +104,8 @@ class LoThuocController extends Controller
         ]);
     }
 
-    /**
-     * Quy trình tạo lô thuốc mới theo kiến trúc Microservice Custodial Signer:
-     * 1. Kiểm tra sản phẩm đã được duyệt.
-     * 2. Kiểm tra tổ chức đang hoạt động và ví đang ACTIVE.
-     * 3. Kiểm tra ngày sản xuất, hạn sử dụng, số lượng và đơn vị tính.
-     * 4. Tạo maBusinessId cho lô.
-     * 5. Lưu yêu cầu tạo lô ở trạng thái chờ blockchain (DB transaction).
-     * 6. Dispatch Job sau commit.
-     */
     public function store(Request $request)
     {
-        // 3. Kiểm tra ngày sản xuất, hạn sử dụng, số lượng và đơn vị tính
         $request->validate([
             'sanPhamId'    => 'required|integer|exists:sanPham,id',
             'maLoNghiepVu' => 'required|string|max:50|unique:loThuoc,maLoNghiepVu',
@@ -143,7 +132,6 @@ class LoThuocController extends Controller
         $user = Auth::user();
         $toChuc = $user->toChuc;
 
-        // Nếu NSX chọn trước NPP tại form tạo lô, xác minh đó là NPP đã được duyệt.
         if ($request->filled('benNhanId')) {
             $nppDuocChon = ToChuc::query()
                 ->whereKey($request->integer('benNhanId'))
@@ -159,7 +147,6 @@ class LoThuocController extends Controller
             }
         }
 
-        // 2. Kiểm tra tổ chức đang hoạt động
         $trangThaiToChuc = $toChuc?->trangThaiDuyet instanceof \BackedEnum
             ? $toChuc->trangThaiDuyet->value
             : (string) $toChuc?->trangThaiDuyet;
@@ -171,7 +158,6 @@ class LoThuocController extends Controller
             ], 403);
         }
 
-        // 2b. Kiểm tra ví blockchain của tổ chức đang ACTIVE
         $identity = BlockchainIdentity::where('toChucId', $toChuc->id)->where('trangThai', 'ACTIVE')->first();
         if (!$identity || $identity->trangThai !== 'ACTIVE') {
             return response()->json([
@@ -180,7 +166,6 @@ class LoThuocController extends Controller
             ], 403);
         }
 
-        // 1. Kiểm tra sản phẩm đã được duyệt và thuộc tổ chức
         $sanPham = SanPham::where('id', $request->sanPhamId)
             ->where('nhaSanXuatId', $toChuc->id)
             ->first();
@@ -192,10 +177,8 @@ class LoThuocController extends Controller
             ], 422);
         }
 
-        // 4. Tạo maBusinessId cho lô (UUID v4)
         $maBusinessId = (string) Str::uuid();
 
-        // 5. Lưu yêu cầu tạo lô ở trạng thái chờ blockchain trong MySQL
         $loThuoc = DB::transaction(function () use ($request, $toChuc, $sanPham, $maBusinessId) {
             $lo = LoThuoc::create([
                 'maLo'         => $maBusinessId,
@@ -226,7 +209,6 @@ class LoThuocController extends Controller
             return $lo;
         });
 
-        // 6. Dispatch Job sau commit
         ProcessBatchRegistrationJob::dispatch($loThuoc->id, $user->id)->afterCommit();
 
         return response()->json([
