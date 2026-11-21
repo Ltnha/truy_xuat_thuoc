@@ -80,24 +80,46 @@
         </div>
     </div>
 
-    <!-- {{-- 3. MÃ QR & TẢI VỀ --}}
+    {{-- 3. MÃ QR ĐẠI DIỆN CHO LÔ THUỐC --}}
     <div class="bg-white p-6 rounded-2xl border border-emerald-900/10 bong-xanh">
         <h3 class="text-xs font-bold uppercase tracking-wide text-slate-700 border-b border-slate-100 pb-3 mb-4 flex items-center gap-2">
-            <i class="fa-solid fa-qrcode text-emerald-700"></i> Mã QR & Tải về
+            <i class="fa-solid fa-qrcode text-emerald-700"></i> Mã QR truy xuất nguồn gốc
         </h3>
-        <div class="flex flex-wrap gap-3">
-            <button type="button" class="px-4 py-2.5 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center gap-2 opacity-60 cursor-not-allowed" disabled>
-                <i class="fa-solid fa-qrcode"></i> Tải QR Lô (Thùng)
-            </button>
-            <button type="button" class="px-4 py-2.5 bg-cyan-800 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-2 opacity-60 cursor-not-allowed" disabled>
-                <i class="fa-solid fa-file-zipper"></i> Xuất bộ QR đơn vị (.ZIP)
-            </button>
-            <button type="button" class="px-4 py-2.5 bg-white border border-cyan-300 text-cyan-900 font-bold text-xs rounded-xl transition-all flex items-center gap-2 opacity-60 cursor-not-allowed" disabled>
-                <i class="fa-solid fa-file-csv"></i> Xuất danh sách serial (.CSV)
-            </button>
-        </div>
-        <p class="text-[11px] text-slate-500 mt-3">Chức năng tải QR sẽ được kích hoạt sau khi lô đã được ghi nhận On-chain thành công.</p>
-    </div> -->
+        @if($qrDaSanSang)
+            <div class="flex flex-col sm:flex-row items-center gap-5">
+                <div class="shrink-0 rounded-2xl border border-emerald-100 bg-white p-3 shadow-sm">
+                    <img
+                        src="{{ route('nha-san-xuat.lo-thuoc.qr', $loThuoc->id) }}"
+                        alt="Mã QR lô {{ $loThuoc->maLoNghiepVu }}"
+                        class="w-52 h-52 object-contain"
+                    >
+                </div>
+                <div class="flex-1 space-y-3 text-xs">
+                    <div>
+                        <p class="font-bold text-slate-900">Mã QR đã sẵn sàng</p>
+                        <p class="mt-1 text-slate-500 leading-relaxed">
+                            Đây là mã QR duy nhất đại diện cho toàn bộ lô thuốc. Khi quét, hệ thống mở trang tra cứu nguồn gốc và kiểm tra dữ liệu lô trên Ethereum Sepolia.
+                        </p>
+                    </div>
+                    <div class="font-mono text-[11px] text-slate-600 break-all">
+                        Mã lô: {{ $loThuoc->maLoNghiepVu }}
+                    </div>
+                    <a
+                        href="{{ route('nha-san-xuat.lo-thuoc.qr', ['id' => $loThuoc->id, 'download' => 1]) }}"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold transition-all"
+                    >
+                        <i class="fa-solid fa-download"></i> Tải mã QR về máy (.SVG)
+                    </a>
+                    <p class="text-[11px] text-slate-400">Có thể in ảnh SVG để dán lên bao bì hoặc tem đại diện của lô.</p>
+                </div>
+            </div>
+        @else
+            <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 flex items-start gap-2">
+                <i class="fa-solid fa-clock mt-0.5"></i>
+                <span>Mã QR sẽ hiển thị và cho phép tải xuống sau khi giao dịch đăng ký lô được xác nhận thành công trên Ethereum Sepolia.</span>
+            </div>
+        @endif
+    </div>
 
     {{-- 4. LỊCH SỬ SỰ KIỆN --}}
     <div class="bg-white p-6 rounded-2xl border border-emerald-900/10 bong-xanh">

@@ -53,9 +53,32 @@
             </div>
 
             <button type="button" id="nutQuetQRNhanHang" class="px-4 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 shrink-0">
-                <i class="fa-solid fa-qrcode text-sm"></i> Quét QR Thùng
+                <i class="fa-solid fa-cloud-arrow-up text-sm"></i> Tải ảnh QR lên kiểm tra
             </button>
+            <input type="file" id="tepAnhQRNhanHang" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
         </div>
+
+        <!-- KHU VỰC TẢI ẢNH VÀ KIỂM TRA QR LÔ THUỐC -->
+        <section id="khungKetQuaQRNhanHang" class="hidden bg-white rounded-2xl border border-cyan-200 bong-xanh p-5 space-y-4">
+            <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+                <img id="anhQRNhanHangPreview" src="" alt="Ảnh mã QR được tải lên" class="hidden w-28 h-28 object-contain rounded-xl border border-slate-200 bg-slate-50 p-1">
+                <div class="flex-1 min-w-0 space-y-1">
+                    <p class="text-sm font-bold text-slate-900">Ảnh mã QR đã chọn</p>
+                    <p id="tenTepQRNhanHang" class="text-xs text-slate-500 break-all">Chưa chọn ảnh</p>
+                    <p class="text-[11px] text-slate-500">Mã giải mã: <span id="maQRNhanHangDaGiaiMa" class="font-mono font-bold text-cyan-800">—</span></p>
+                    <p class="text-[11px] text-slate-400">Ảnh chỉ được đọc trên trình duyệt, không lưu lên máy chủ.</p>
+                </div>
+                <div class="flex flex-wrap gap-2 shrink-0">
+                    <button type="button" id="nutKiemTraQRNhanHang" disabled class="px-4 py-2.5 rounded-xl bg-cyan-700 hover:bg-cyan-800 text-white text-xs font-bold disabled:opacity-40 disabled:cursor-not-allowed">
+                        <i class="fa-solid fa-shield-halved mr-1"></i> Kiểm tra mã QR
+                    </button>
+                    <button type="button" id="nutXoaQRNhanHang" class="px-3 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-bold">
+                        Chọn ảnh khác
+                    </button>
+                </div>
+            </div>
+            <div id="ketQuaXacThucQRNhanHang" class="hidden border-t border-slate-100 pt-4" aria-live="polite"></div>
+        </section>
 
         <!-- Bảng danh sách chờ nhận -->
         <div class="bg-white rounded-2xl border border-emerald-900/10 bong-xanh overflow-hidden">
@@ -478,5 +501,6 @@
 @endsection
 
 @push('scripts')
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
     <script src="{{ asset('assets/js/nhaThuoc/tiepNhanLoHang.js') }}"></script>
 @endpush

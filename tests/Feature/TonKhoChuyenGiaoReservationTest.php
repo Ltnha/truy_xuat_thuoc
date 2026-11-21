@@ -62,6 +62,34 @@ class TonKhoChuyenGiaoReservationTest extends TestCase
         ]);
     }
 
+    public function test_manufacturer_to_distributor_pending_transfer_keeps_physical_stock_and_reserves_availability(): void
+    {
+        // 10 đại diện Nhà sản xuất; 20 đại diện Nhà phân phối.
+        DB::table('tonKhoLo')->insert([
+            'loThuocId' => 102,
+            'toChucId' => 10,
+            'soLuong' => 500,
+        ]);
+        DB::table('chuyenGiao')->insert([
+            'loThuocId' => 102,
+            'benGuiId' => 10,
+            'benNhanId' => 20,
+            'soLuong' => 500,
+            'trangThai' => 'PENDING',
+        ]);
+
+        $service = app(TonKhoService::class);
+
+        $this->assertSame(500, $service->soLuongHienCo(102, 10));
+        $this->assertSame(500, $service->soLuongDangChuyenGiao(102, 10));
+        $this->assertSame(0, $service->soLuongKhaDung(102, 10));
+        $this->assertDatabaseHas('tonKhoLo', [
+            'loThuocId' => 102,
+            'toChucId' => 10,
+            'soLuong' => 500,
+        ]);
+    }
+
     public function test_rejected_transfer_restores_available_quantity_and_received_transfer_moves_ownership(): void
     {
         DB::table('tonKhoLo')->insert([

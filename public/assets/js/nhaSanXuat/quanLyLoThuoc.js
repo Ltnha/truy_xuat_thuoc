@@ -315,7 +315,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const tenSp = item.san_pham?.tenSanPham || item.sanPham?.tenSanPham || 'N/A';
             const soDk = item.san_pham?.soDangKy || item.sanPham?.soDangKy || 'N/A';
-            const soLuong = Number(item.soLuong || 0);
+            // Tổng trong kho là số lượng vật lý; khả dụng đã trừ phần PENDING.
+            const soLuong = Number(item.soLuongHienCo ?? item.soLuong ?? 0);
+            const soLuongDangChuyenGiao = Number(item.soLuongDangChuyenGiao || 0);
             const khaDung = getKhaDung(item);
 
             // Nút Chuyển giao: lô on-chain + còn khả dụng + không thu hồi + không còn đơn PENDING
@@ -333,7 +335,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     </td>
                     <td class="py-3 px-2 text-center font-mono text-slate-700 whitespace-nowrap">${formatDate(item.hanSuDung)}</td>
                     <td class="py-3 px-2 text-right font-mono font-bold text-slate-800 whitespace-nowrap">${soLuong.toLocaleString('vi-VN')}</td>
-                    <td class="py-3 px-2 text-right font-mono font-bold text-emerald-700 whitespace-nowrap">${khaDung.toLocaleString('vi-VN')}</td>
+                    <td class="py-3 px-2 text-right font-mono whitespace-nowrap">
+                        <div class="font-bold ${soLuongDangChuyenGiao > 0 ? 'text-amber-700' : 'text-emerald-700'}">${khaDung.toLocaleString('vi-VN')}</div>
+                        ${soLuongDangChuyenGiao > 0 ? `<div class="mt-0.5 text-[10px] font-semibold text-amber-600">Đang giữ: ${soLuongDangChuyenGiao.toLocaleString('vi-VN')}</div>` : ''}
+                    </td>
                     <td class="py-3 px-2 text-center whitespace-nowrap">${badgeStatusHtml}</td>
                     <td class="py-3 px-2.5 text-center whitespace-nowrap">
                         <div class="flex items-center justify-center gap-1.5">
