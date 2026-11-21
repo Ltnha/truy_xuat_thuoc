@@ -40,28 +40,43 @@ class LoThuocController extends Controller
     {
         $user = Auth::user();
 
+        $toChucId = (int) ($user->toChucId ?? 0);
+
+        // Lô vẫn thuộc kho NSX khi có tồn kho vật lý hoặc còn lệnh chuyển giao PENDING.
+        // Không lọc theo số lượng khả dụng vì lô đang giữ chỗ vẫn phải xuất hiện.
         $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc', 'tonKhoLos'])
-            ->whereHas('tonKhoLos', fn ($query) => $query->where('toChucId', $user->toChucId ?? null)->where('soLuong', '>', 0))
+            ->where(function ($query) use ($toChucId) {
+                $query->whereHas('tonKhoLos', fn ($tonKho) => $tonKho->where('toChucId', $toChucId))
+                    ->orWhereHas('chuyenGiao', fn ($chuyenGiao) => $chuyenGiao
+                        ->where('benGuiId', $toChucId)
+                        ->where('trangThai', 'PENDING'));
+            })
             ->orderBy('id', 'desc')
             ->get()
-            ->map(function ($lo) use ($user) {
-                $toChucId = (int) ($user->toChucId ?? 0);
-
-                // Số lượng đang giữ chỗ (PENDING) do NSX gửi đi
+            ->map(function ($lo) use ($toChucId) {
+                // Số lượng đang giữ chỗ bởi lệnh NSX -> NPP chưa được xử lý.
                 $tongDangChuyen = (int) ChuyenGiao::where('loThuocId', $lo->id)
                     ->where('benGuiId', $toChucId)
                     ->where('trangThai', 'PENDING')
                     ->sum('soLuong');
 
-                // Ưu tiên tồn kho thật (tonKhoLo) — đã trừ khi NPP tiếp nhận
-                $tonKhoService = app(TonKhoService::class);
-                $hienCo = $tonKhoService->soLuongHienCo($lo->id, $toChucId);
+                // SubmitTransfer không trừ tồn kho vật lý; chỉ TransferReceived mới đổi chủ.
+                $dongTonKho = DB::table('tonKhoLo')
+                    ->where('loThuocId', $lo->id)
+                    ->where('toChucId', $toChucId)
+                    ->first();
 
-
+                // Tương thích dữ liệu cũ: nếu dòng tồn kho bị thiếu nhưng còn lệnh PENDING,
+                // snapshot số lượng chuyển giao vẫn giúp giữ lô trong danh sách với khả dụng = 0.
+                $hienCo = $dongTonKho
+                    ? (int) $dongTonKho->soLuong
+                    : $tongDangChuyen;
 
                 $lo->soLuongHienCo = $hienCo;
+                $lo->soLuongDangChuyenGiao = $tongDangChuyen;
                 $lo->soLuongKhaDung = max(0, $hienCo - $tongDangChuyen);
                 $lo->coChuyenGiaoCho = $tongDangChuyen > 0;
+                $lo->trangThaiKho = $tongDangChuyen > 0 ? 'DANG_CHUYEN_GIAO' : 'SAN_SANG';
 
                 $cgGanNhat = ChuyenGiao::where('loThuocId', $lo->id)
                     ->where('benGuiId', $toChucId)
@@ -69,7 +84,7 @@ class LoThuocController extends Controller
                     ->first();
 
                 if ($cgGanNhat) {
-                    $st = $cgGanNhat->trangThai instanceof \App\Enums\TransferStatus
+                    $st = $cgGanNhat->trangThai instanceof \\App\\Enums\\TransferStatus
                         ? $cgGanNhat->trangThai->value
                         : (string) $cgGanNhat->trangThai;
                     $lo->chuyenGiaoGanNhat = [
