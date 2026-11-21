@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('modalChiTietThanhPhan').textContent = sp.thanhPhan || '---';
                 document.getElementById('modalChiTietHamLuong').textContent = sp.hamLuong || '---';
                 document.getElementById('modalChiTietDangBaoChe').textContent = sp.dangBaoChe || '---';
-
+                document.getElementById('modalChiTietQuyCachDongGoi').textContent = sp.quyCachDongGoi || '---';
                 const elTrangThai = document.getElementById('modalChiTietTrangThai');
                 if (sp.trangThaiDuyet === 'DA_DUYET') {
                     elTrangThai.innerHTML = `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold text-[10px]">Đã duyệt</span>`;
@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 document.getElementById('nhapThanhPhan').value = sp.thanhPhan || '';
                 document.getElementById('nhapHamLuong').value = sp.hamLuong || '';
                 document.getElementById('nhapDangBaoChe').value = sp.dangBaoChe || '';
-
+                document.getElementById('quyCachDongGoi').value = sp.quyCachDongGoi || '';
                 if (sp.yeu_cau_dang_ky_san_phams && sp.yeu_cau_dang_ky_san_phams.length > 0) {
                     const lanCu = sp.yeu_cau_dang_ky_san_phams[sp.yeu_cau_dang_ky_san_phams.length - 1];
                     if (lanCu.lyDoTuChoi) {

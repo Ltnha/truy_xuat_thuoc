@@ -100,9 +100,10 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
         Route::post('/khoi-phuc-quyen/{toChuc}', [DuyetHoSoController::class, 'khoiPhucQuyenToChuc'])->name('co-quan.khoi-phuc-quyen');
         Route::post('/doi-vi-moi/{toChuc}', [DuyetHoSoController::class, 'doiViMoi'])->name('co-quan.doi-vi-moi');
 
-        // Xét duyệt sản phẩm lưu hành
+        // Xét duyệt sản phẩm lưu hành & Polling kiểm tra trạng thái On-chain
         Route::get('/xet-duyet-san-pham', [DuyetSanPhamController::class, 'index'])->name('co-quan.xet-duyet-san-pham');
         Route::post('/xet-duyet-san-pham/{yeuCau}/phe-duyet', [DuyetSanPhamController::class, 'pheDuyet'])->name('co-quan.xet-duyet-san-pham.phe-duyet');
+        Route::get('/xet-duyet-san-pham/{sanPham}/trang-thai-blockchain', [DuyetSanPhamController::class, 'trangThaiBlockchain'])->name('co-quan.xet-duyet-san-pham.trang-thai-blockchain');
         Route::post('/xet-duyet-san-pham/{yeuCau}/tu-choi', [DuyetSanPhamController::class, 'tuChoi'])->name('co-quan.xet-duyet-san-pham.tu-choi');
 
         // Quản lý Thống kê & Báo cáo giám sát
@@ -231,5 +232,4 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
 
             Route::get('/nhat-ky-he-thong', [NhatKyController::class, 'index'])->name('quan-tri.nhat-ky');
         });
-
 });

@@ -43,7 +43,7 @@ class DuyetSanPhamController extends Controller
         $user = $request->user();
 
         if ($yeuCau->trangThai !== 'CHO_DUYET') {
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => 'Hồ sơ này không ở trạng thái chờ duyệt.'], 400);
             }
             return back()->with('loi', 'Hồ sơ này không ở trạng thái chờ duyệt.');
@@ -57,7 +57,7 @@ class DuyetSanPhamController extends Controller
 
         if (! $toChucCoQuan) {
             $thongBaoLoi = 'Không tìm thấy thông tin Tổ chức Cơ quan Quản lý trong CSDL.';
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->wantsJson()) {
                 return response()->json(['success' => false, 'message' => $thongBaoLoi], 400);
             }
             return back()->with('loi', $thongBaoLoi);
@@ -105,17 +105,18 @@ class DuyetSanPhamController extends Controller
             // BƯỚC 3: ĐẨY JOB VÀO HÀNG ĐỢI QUEUE
             ProcessProductRegistrationJob::dispatch($sanPham->id, $yeuCau->id, $user->id);
 
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => true,
-                    'message' => "Đã phê duyệt hồ sơ! Hệ thống đang ghi nhận On-Chain trong hàng đợi...",
+                    'message' => 'Đã phê duyệt hồ sơ! Hệ thống đang ghi nhận On-Chain trong hàng đợi...',
+                    'sanPhamId' => $sanPham->id,
                     'tenSanPham' => $sanPham->tenSanPham,
                 ]);
             }
 
             return back()->with('thanhCong', "Đã phê duyệt sản phẩm [{$sanPham->tenSanPham}] và đẩy vào hàng đợi ghi Blockchain.");
         } catch (\Throwable $e) {
-            if ($request->ajax()) {
+            if ($request->ajax() || $request->wantsJson()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Lỗi phê duyệt hồ sơ: ' . $e->getMessage(),
@@ -124,6 +125,32 @@ class DuyetSanPhamController extends Controller
 
             return back()->with('loi', 'Lỗi phê duyệt sản phẩm: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Kiểm tra trạng thái đồng bộ Blockchain (ProductApproved) của sản phẩm
+     */
+    public function trangThaiBlockchain(SanPham $sanPham)
+    {
+        $tx = BlockchainTransaction::query()
+            ->where('sanPhamId', $sanPham->id)
+            ->where('eventName', 'ProductApproved')
+            ->latest('id')
+            ->first();
+
+        if (! $tx) {
+            return response()->json([
+                'trangThai' => 'PENDING',
+                'txHash' => null,
+                'tenSanPham' => $sanPham->tenSanPham,
+            ]);
+        }
+
+        return response()->json([
+            'trangThai' => $tx->trangThai,
+            'txHash' => $tx->txHash,
+            'tenSanPham' => $sanPham->tenSanPham,
+        ]);
     }
 
     /**

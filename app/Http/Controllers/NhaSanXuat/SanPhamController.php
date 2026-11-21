@@ -43,7 +43,7 @@ class SanPhamController extends Controller
             'thanhPhan' => ['required', 'string', 'max:255'],
             'hamLuong' => ['required', 'string', 'max:50'],
             'dangBaoChe' => ['required', 'string', 'max:100'],
-            'quyCachDongGoi' => ['nullable', 'string', 'max:255'],
+            'quyCachDongGoi' => ['required', 'string', 'max:255'],
         ]);
 
         DB::transaction(function () use ($duLieu, $toChucId, $user): void {
@@ -56,7 +56,7 @@ class SanPhamController extends Controller
                 'thanhPhan' => $duLieu['thanhPhan'],
                 'hamLuong' => $duLieu['hamLuong'],
                 'dangBaoChe' => $duLieu['dangBaoChe'],
-                'quyCachDongGoi' => $duLieu['quyCachDongGoi'] ?? null,
+                'quyCachDongGoi' => $duLieu['quyCachDongGoi'],
                 'nhaSanXuatId' => $toChucId,
                 'trangThaiDuyet' => 'CHO_DUYET',
             ]);
@@ -68,7 +68,7 @@ class SanPhamController extends Controller
                 'thanhPhan' => $duLieu['thanhPhan'],
                 'hamLuong' => $duLieu['hamLuong'],
                 'dangBaoChe' => $duLieu['dangBaoChe'],
-                'quyCachDongGoi' => $duLieu['quyCachDongGoi'] ?? null,
+                'quyCachDongGoi' => $duLieu['quyCachDongGoi'],
                 'versionHoSo' => 1,
                 'ngayGui' => now(),
                 'trangThai' => 'CHO_DUYET',
@@ -98,7 +98,7 @@ class SanPhamController extends Controller
             'thanhPhan' => ['required', 'string', 'max:255'],
             'hamLuong' => ['required', 'string', 'max:50'],
             'dangBaoChe' => ['required', 'string', 'max:100'],
-            'quyCachDongGoi' => ['nullable', 'string', 'max:255'],
+            'quyCachDongGoi' => ['required', 'string', 'max:255'],
         ]);
 
         DB::transaction(function () use ($sanPham, $duLieu, $user): void {
@@ -111,7 +111,7 @@ class SanPhamController extends Controller
                 'thanhPhan' => $duLieu['thanhPhan'],
                 'hamLuong' => $duLieu['hamLuong'],
                 'dangBaoChe' => $duLieu['dangBaoChe'],
-                'quyCachDongGoi' => $duLieu['quyCachDongGoi'] ?? null,
+                'quyCachDongGoi' => $duLieu['quyCachDongGoi'],
                 'trangThaiDuyet' => 'CHO_DUYET',
             ]);
 
@@ -122,7 +122,7 @@ class SanPhamController extends Controller
                 'thanhPhan' => $duLieu['thanhPhan'],
                 'hamLuong' => $duLieu['hamLuong'],
                 'dangBaoChe' => $duLieu['dangBaoChe'],
-                'quyCachDongGoi' => $duLieu['quyCachDongGoi'] ?? null,
+                'quyCachDongGoi' => $duLieu['quyCachDongGoi'],
                 'versionHoSo' => $newVersion,
                 'ngayGui' => now(),
                 'trangThai' => 'CHO_DUYET',

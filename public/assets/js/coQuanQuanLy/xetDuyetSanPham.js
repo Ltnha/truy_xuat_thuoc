@@ -11,7 +11,7 @@
             hoatChat: yc.thanhPhan,
             hamLuong: yc.hamLuong,
             dangBaoChe: yc.dangBaoChe,
-            quyCachDongGoi: yc.quyCachDongGoi,
+            quyCachDongGoi: yc.quyCachDongGoi || sp.quyCachDongGoi || '',
             tenNSX: nsx.tenToChuc || '--',
             mstNSX: nsx.maSoThue || '--',
             giayPhepNSX: nsx.soGiayPhepDuoc || '--',
@@ -37,6 +37,7 @@
             hoatChat: sp.thanhPhan,
             hamLuong: sp.hamLuong,
             dangBaoChe: sp.dangBaoChe,
+            quyCachDongGoi: sp.quyCachDongGoi || '',
             tenNSX: nsx.tenToChuc || '--',
             nsxId: nsx.id || null,
             maSanPham: sp.maSanPham || '--',
@@ -241,7 +242,7 @@
         if (badgeTab1) badgeTab1.textContent = `Hiển thị: ${tongSo} hồ sơ`;
 
         if (tongSo === 0) {
-            thanBangYeuCau.innerHTML = `<tr><td colspan="10" class="text-center py-8 text-slate-400 italic">Không tìm thấy hồ sơ đăng ký nào phù hợp.</td></tr>`;
+            thanBangYeuCau.innerHTML = `<tr><td colspan="11" class="text-center py-8 text-slate-400 italic">Không tìm thấy hồ sơ đăng ký nào phù hợp.</td></tr>`;
             if (txtPhanTrangTab1) txtPhanTrangTab1.textContent = 'Trang 0 / 0';
             if (cumNutPhanTrangTab1) cumNutPhanTrangTab1.innerHTML = '';
             return;
@@ -273,6 +274,7 @@
                 <td class="py-3 px-3 text-slate-700 leading-tight">${item.hoatChat}</td>
                 <td class="py-3 px-2.5 text-slate-600 font-mono whitespace-nowrap">${item.hamLuong}</td>
                 <td class="py-3 px-2.5 text-slate-600 whitespace-nowrap">${item.dangBaoChe}</td>
+                <td class="py-3 px-2.5 text-slate-600 whitespace-nowrap">${item.quyCachDongGoi || '--'}</td>
                 <td class="py-3 px-2.5 text-center font-mono text-[11px] text-slate-600 whitespace-nowrap">${item.ngayNop}</td>
                 <td class="py-3 px-2.5 text-center whitespace-nowrap">
                     <span class="font-mono font-bold ${item.versionHoSo > 1 ? 'text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200' : 'text-slate-600'}">Lần ${item.versionHoSo}</span>
@@ -309,7 +311,7 @@
         if (badgeTab2) badgeTab2.textContent = `Hiển thị: ${tongSo} sản phẩm`;
 
         if (tongSo === 0) {
-            thanBangDaDuyet.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 italic">Chưa có sản phẩm nào được phê duyệt lưu hành.</td></tr>`;
+            thanBangDaDuyet.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-slate-400 italic">Chưa có sản phẩm nào được phê duyệt lưu hành.</td></tr>`;
             if (txtPhanTrangTab2) txtPhanTrangTab2.textContent = 'Trang 0 / 0';
             if (cumNutPhanTrangTab2) cumNutPhanTrangTab2.innerHTML = '';
             return;
@@ -354,6 +356,7 @@
                 <td class="py-3 px-3 text-slate-700 leading-tight">${sp.hoatChat}</td>
                 <td class="py-3 px-2.5 text-slate-600 font-mono whitespace-nowrap">${sp.hamLuong}</td>
                 <td class="py-3 px-2.5 text-slate-600 whitespace-nowrap">${sp.dangBaoChe}</td>
+                <td class="py-3 px-2.5 text-slate-600 whitespace-nowrap">${sp.quyCachDongGoi || '--'}</td>
                 <td class="py-3 px-3 text-slate-800 font-semibold leading-tight">${sp.tenNSX}</td>
                 <td class="py-3 px-3 whitespace-nowrap">${txHtml}</td>
                 <td class="py-3 px-3 text-center whitespace-nowrap">
@@ -393,6 +396,7 @@
         document.getElementById("dtHamLuong").textContent = sp.hamLuong || '---';
         document.getElementById("dtDangBaoChe").textContent = sp.dangBaoChe || '---';
         document.getElementById("dtTenNSX").textContent = sp.tenNSX || '---';
+        document.getElementById("dtQuyCachDongGoi").textContent = sp.quyCachDongGoi || '---';
 
         const linkEl = document.getElementById("dtTxLink");
         const btnCopy = document.getElementById("btnSaoChepModalTx");
@@ -428,6 +432,7 @@
                 item.tenThuoc.toLowerCase().includes(tuKhoa) ||
                 item.soDangKy.toLowerCase().includes(tuKhoa) ||
                 item.hoatChat.toLowerCase().includes(tuKhoa) ||
+                item.quyCachDongGoi.toLowerCase().includes(tuKhoa) ||
                 item.tenNSX.toLowerCase().includes(tuKhoa);
 
             const matchNSX = nsxChon === 'TAT_CA' || String(item.nsxId) === nsxChon;
@@ -449,6 +454,7 @@
                 sp.tenThuoc.toLowerCase().includes(tuKhoa) ||
                 sp.soDangKy.toLowerCase().includes(tuKhoa) ||
                 sp.hoatChat.toLowerCase().includes(tuKhoa) ||
+                sp.quyCachDongGoi.toLowerCase().includes(tuKhoa) ||
                 sp.tenNSX.toLowerCase().includes(tuKhoa);
 
             const matchNSX = nsxChon === 'TAT_CA' || String(sp.nsxId) === nsxChon;
@@ -485,6 +491,7 @@
         el("panelHoatChat").textContent = item.hoatChat || "--";
         el("panelHamLuong").textContent = item.hamLuong || "--";
         el("panelDangBaoChe").textContent = item.dangBaoChe || "--";
+        el("panelQuyCachDongGoi").textContent = item.quyCachDongGoi || "--";
         el("panelTenNSX").textContent = item.tenNSX || "--";
         el("panelMstNSX").textContent = item.mstNSX || "--";
         el("panelGiayPhepNSX").textContent = item.giayPhepNSX || "--";
@@ -522,7 +529,7 @@
 
     document.querySelectorAll(".dong-modal-hoso-sp").forEach(b => b.addEventListener("click", () => modalXemHoSoSP.classList.add("hidden")));
 
-    // 11. PHÊ DUYỆT (BẤT ĐỒNG BỘ QUA QUEUE)
+    // 11. PHÊ DUYỆT (2 TRẠNG THÁI: ĐANG ĐỢI XÁC NHẬN BLOCKCHAIN -> KẾT QUẢ)
     const nutMoDuyet = document.getElementById("panelNutMoModalDuyetSP");
     if (nutMoDuyet) {
         nutMoDuyet.addEventListener("click", function () {
@@ -536,17 +543,101 @@
     }
     document.querySelectorAll(".dong-modal-duyet-sp").forEach(b => b.addEventListener("click", () => modalDuyet.classList.add("hidden")));
 
+    function setTrangThaiDangDoi(tieuDe, noiDungHtml) {
+        iconTienTrinh.className = "text-4xl text-indigo-600 animate-spin mx-auto";
+        iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-notch"></i>`;
+        tieuDeTienTrinh.textContent = tieuDe;
+        noiDungTienTrinh.innerHTML = noiDungHtml;
+        cumNutDongTienTrinh.classList.add("hidden");
+    }
+
+    function setTrangThaiKetQua(loai, tieuDe, noiDungHtml) {
+        if (loai === "thanhCong") {
+            iconTienTrinh.className = "text-5xl text-emerald-600 mx-auto animate-bounce";
+            iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
+        } else {
+            iconTienTrinh.className = "text-5xl text-red-600 mx-auto";
+            iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
+        }
+        tieuDeTienTrinh.textContent = tieuDe;
+        noiDungTienTrinh.innerHTML = noiDungHtml;
+        cumNutDongTienTrinh.classList.remove("hidden");
+    }
+
+    function choXacNhanBlockchain(sanPhamId, tenThuoc) {
+        const statusUrl = `/co-quan/xet-duyet-san-pham/${sanPhamId}/trang-thai-blockchain`;
+        const batDau = Date.now();
+        const toiDaMs = 90000;
+
+        const kiemTra = () => {
+            fetch(statusUrl, {
+                headers: {
+                    "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json"
+                }
+            })
+            .then(res => res.json())
+            .then(st => {
+                if (st.trangThai === "CONFIRMED" && st.txHash) {
+                    setTrangThaiKetQua(
+                        "thanhCong",
+                        "Phê Duyệt & Ghi On-Chain Thành Công!",
+                        `Thuốc <strong>${tenThuoc}</strong> đã được xác nhận lưu hành trên Ethereum Sepolia.<br>
+                         <a href="https://sepolia.etherscan.io/tx/${st.txHash}" target="_blank" class="font-mono text-[11px] text-cyan-800 hover:underline block pt-1.5 font-bold break-all">
+                            TxHash: ${st.txHash}
+                         </a>`
+                    );
+                    return;
+                }
+
+                if (st.trangThai === "FAILED") {
+                    setTrangThaiKetQua(
+                        "loi",
+                        "Ghi Blockchain Thất Bại!",
+                        `<span class="text-red-600 font-semibold">Giao dịch ghi sản phẩm <strong>${tenThuoc}</strong> lên Blockchain không thành công. Vui lòng kiểm tra hàng đợi Queue.</span>`
+                    );
+                    return;
+                }
+
+                if (Date.now() - batDau >= toiDaMs) {
+                    setTrangThaiKetQua(
+                        "loi",
+                        "Hết Thời Gian Chờ Xác Nhận!",
+                        `Giao dịch cho <strong>${tenThuoc}</strong> vẫn đang xử lý trên mạng Sepolia. Vui lòng bấm tải lại trang sau ít giây để xem TxHash.`
+                    );
+                    return;
+                }
+
+                setTimeout(kiemTra, 2000);
+            })
+            .catch(() => {
+                if (Date.now() - batDau >= toiDaMs) {
+                    setTrangThaiKetQua(
+                        "loi",
+                        "Không Thể Kiểm Tra Trạng Thái!",
+                        `Vui lòng tải lại trang để kiểm tra kết quả đồng bộ của <strong>${tenThuoc}</strong>.`
+                    );
+                    return;
+                }
+                setTimeout(kiemTra, 2500);
+            });
+        };
+
+        setTimeout(kiemTra, 1500);
+    }
+
     if (formDuyet) {
         formDuyet.addEventListener("submit", function (e) {
             e.preventDefault();
             modalDuyet.classList.add("hidden");
             if (modalXemHoSoSP) modalXemHoSoSP.classList.add("hidden");
 
-            iconTienTrinh.className = "text-4xl text-indigo-600 animate-spin mx-auto";
-            iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-notch"></i>`;
-            tieuDeTienTrinh.textContent = "Đang tiếp nhận phê duyệt...";
-            noiDungTienTrinh.innerHTML = `Đang lưu trạng thái phê duyệt và đẩy tác vụ ký Blockchain vào hàng đợi...`;
-            cumNutDongTienTrinh.classList.add("hidden");
+            const tenThuocHienTai = hoSoDangChon?.tenThuoc || "";
+            setTrangThaiDangDoi(
+                "Đang chờ xác nhận Blockchain...",
+                `Đã tiếp nhận phê duyệt cho thuốc <strong>${tenThuocHienTai}</strong>.<br>
+                 <span class="text-slate-500 text-[11px] block pt-1">Vui lòng đợi Queue Worker ký và xác nhận giao dịch trên Ethereum Sepolia...</span>`
+            );
             modalTienTrinh.classList.remove("hidden");
 
             const formData = new FormData(formDuyet);
@@ -556,34 +647,28 @@
                 body: formData,
                 headers: {
                     "X-Requested-With": "XMLHttpRequest",
+                    "Accept": "application/json",
                     "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                 }
             })
             .then(res => res.json())
             .then(data => {
-                if (data.success) {
-                    iconTienTrinh.className = "text-5xl text-emerald-600 mx-auto animate-bounce";
-                    iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
-                    tieuDeTienTrinh.textContent = "Đã Phê Duyệt & Đẩy Vào Hàng Đợi!";
-                    noiDungTienTrinh.innerHTML = `
-                        Thuốc <strong>${data.tenSanPham}</strong> đã được phê duyệt lưu hành.<br>
-                        <span class="text-slate-600 text-[11px] block pt-1">Giao dịch Ethereum Sepolia đang được Queue Worker xử lý ngầm. Vui lòng tải lại trang sau vài giây để xem TxHash.</span>
-                    `;
-                    cumNutDongTienTrinh.classList.remove("hidden");
+                if (data.success && data.sanPhamId) {
+                    choXacNhanBlockchain(data.sanPhamId, data.tenSanPham || tenThuocHienTai);
                 } else {
-                    iconTienTrinh.className = "text-5xl text-red-600 mx-auto";
-                    iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
-                    tieuDeTienTrinh.textContent = "Phê Duyệt Thất Bại!";
-                    noiDungTienTrinh.innerHTML = `<span class="text-red-600 font-semibold">${data.message}</span>`;
-                    cumNutDongTienTrinh.classList.remove("hidden");
+                    setTrangThaiKetQua(
+                        "loi",
+                        "Phê Duyệt Thất Bại!",
+                        `<span class="text-red-600 font-semibold">${data.message || "Không thể phê duyệt hồ sơ."}</span>`
+                    );
                 }
             })
             .catch(err => {
-                iconTienTrinh.className = "text-5xl text-red-600 mx-auto";
-                iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
-                tieuDeTienTrinh.textContent = "Lỗi Kết Nối Máy Chủ!";
-                noiDungTienTrinh.textContent = err.message || "Không thể kết nối đến máy chủ.";
-                cumNutDongTienTrinh.classList.remove("hidden");
+                setTrangThaiKetQua(
+                    "loi",
+                    "Lỗi Kết Nối Máy Chủ!",
+                    err.message || "Không thể kết nối đến máy chủ."
+                );
             });
         });
     }

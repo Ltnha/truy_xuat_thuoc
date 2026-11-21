@@ -130,6 +130,15 @@
                     <label for="nhapDangBaoChe" class="font-bold text-slate-700">Dạng Bào Chế <span class="text-red-500">*</span></label>
                     <input type="text" name="dangBaoChe" id="nhapDangBaoChe" required placeholder="VD: Viên nén bao phim" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 outline-none">
                 </div>
+
+                <div class="col-span-2 space-y-1">
+                    <label for="quyCachDongGoi" class="font-bold text-slate-700 text-xs block">
+                        Quy Cách Đóng Gói <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="quyCachDongGoi" name="quyCachDongGoi" required maxlength="255"
+                        placeholder="VD: Hộp 10 vỉ x 10 viên nén"
+                        class="w-full px-3.5 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                </div>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -186,6 +195,10 @@
                 <div>
                     <span class="text-slate-500 block">Dạng bào chế:</span>
                     <span id="modalChiTietDangBaoChe" class="font-semibold text-slate-800"></span>
+                </div>
+                <div class="col-span-2 sm:col-span-3">
+                    <span class="text-slate-500 block">Quy cách đóng gói:</span>
+                    <span id="modalChiTietQuyCachDongGoi" class="font-semibold text-slate-800"></span>
                 </div>
             </div>
 

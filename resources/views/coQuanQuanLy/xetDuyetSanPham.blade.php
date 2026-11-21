@@ -78,6 +78,7 @@
                             <th class="py-3.5 px-3 font-bold">Hoạt Chất</th>
                             <th class="py-3.5 px-2.5 font-bold whitespace-nowrap">Hàm Lượng</th>
                             <th class="py-3.5 px-2.5 font-bold whitespace-nowrap">Dạng Bào Chế</th>
+                            <th class="py-3.5 px-2.5 font-bold whitespace-nowrap">Quy Cách Đóng Gói</th>
                             <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Ngày Nộp</th>
                             <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Lần Nộp</th>
                             <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Trạng Thái</th>
@@ -139,6 +140,7 @@
                             <th class="py-3.5 px-3 font-bold">Hoạt Chất</th>
                             <th class="py-3.5 px-2.5 font-bold whitespace-nowrap">Hàm Lượng</th>
                             <th class="py-3.5 px-2.5 font-bold whitespace-nowrap">Dạng Bào Chế</th>
+                            <th class="py-3.5 px-2.5 font-bold whitespace-nowrap">Quy Cách Đóng Gói</th>
                             <th class="py-3.5 px-3 font-bold">Nhà Sản Xuất</th>
                             <th class="py-3.5 px-3 font-bold whitespace-nowrap">Mã Giao Dịch Blockchain</th>
                             <th class="py-3.5 px-3 font-bold text-center whitespace-nowrap">Hành Động</th>
@@ -200,6 +202,10 @@
                         <div class="p-2 rounded-lg bg-white border border-slate-100">
                             <span class="text-slate-500 block text-[11px]">Dạng bào chế:</span>
                             <span id="panelDangBaoChe" class="font-semibold text-slate-800"></span>
+                        </div>
+                        <div class="col-span-2 p-2 rounded-lg bg-white border border-slate-100">
+                            <span class="text-slate-500 block text-[11px]">Quy cách đóng gói:</span>
+                            <span id="panelQuyCachDongGoi" class="font-semibold text-slate-800"></span>
                         </div>
                     </div>
                 </div>
@@ -288,6 +294,7 @@
                 <div><span class="text-slate-500 block">Hàm lượng:</span> <span id="dtHamLuong" class="font-mono font-semibold text-slate-800"></span></div>
                 <div><span class="text-slate-500 block">Dạng bào chế:</span> <span id="dtDangBaoChe" class="font-semibold text-slate-800"></span></div>
                 <div><span class="text-slate-500 block">Nhà sản xuất:</span> <span id="dtTenNSX" class="font-semibold text-slate-900"></span></div>
+                <div class="col-span-2"><span class="text-slate-500 block">Quy cách đóng gói:</span> <span id="dtQuyCachDongGoi" class="font-semibold text-slate-800"></span></div>
             </div>
 
             <!-- Khung Mã Giao Dịch Blockchain + Nút Sao Chép -->
