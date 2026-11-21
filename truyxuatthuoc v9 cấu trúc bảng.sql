@@ -291,7 +291,7 @@ CREATE TABLE blockchainIdentity (
 -- 20. Bảng blockchainTransaction (chỉ lưu txHash thật do Signer trả về; NULL khi chưa submit thành công)
 CREATE TABLE blockchainTransaction (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    txHash CHAR(66) NULL,
+    txHash VARCHAR(255) NULL,
     blockNumber BIGINT NULL,
     eventName VARCHAR(100) NOT NULL,
     doiTuongToChucId BIGINT NULL,
