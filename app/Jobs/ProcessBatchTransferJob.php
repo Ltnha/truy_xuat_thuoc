@@ -36,6 +36,13 @@ class ProcessBatchTransferJob implements ShouldQueue
 
     public function handle(SignerClient $signer, TonKhoService $tonKhoService): void
     {
+        Log::info('[ProcessBatchTransferJob] Job bắt đầu xử lý chuyển giao.', [
+            'chuyenGiaoId' => $this->chuyenGiaoId,
+            'eventName' => $this->eventName,
+            'blockchainTransactionId' => $this->blockchainTransactionId,
+            'queueConnection' => config('queue.default'),
+        ]);
+
         $cg = ChuyenGiao::with(['loThuoc', 'benGui', 'benNhan'])->findOrFail($this->chuyenGiaoId);
         if (! $cg->loThuoc || ! $cg->benGui || ! $cg->benNhan) {
             throw new Exception("Chuyển giao #{$cg->id} thiếu lô thuốc hoặc tổ chức gửi/nhận.");
