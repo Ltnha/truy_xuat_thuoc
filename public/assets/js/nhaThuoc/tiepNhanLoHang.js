@@ -140,18 +140,43 @@ document.addEventListener('DOMContentLoaded', function () {
             tbody.querySelectorAll('.btn-xac-nhan').forEach(btn => {
                 btn.addEventListener('click', async function () {
                     if (!confirm('Xác nhận tiếp nhận lô hàng này vào kho?')) return;
+
+                    const modal = document.getElementById('modalLoadingBlockchain');
+                    const loading = document.getElementById('khungLoadingIcon');
+                    const success = document.getElementById('khungSuccessIcon');
+                    const failure = document.getElementById('khungFailureIcon');
+                    const title = loading?.querySelector('h4');
+                    const detail = loading?.querySelector('p');
+                    const failText = document.getElementById('failureMessageDetail');
+
                     btn.disabled = true;
-                    btn.textContent = 'Đang xử lý...';
+                    btn.textContent = 'Đang ký...';
+                    if (loading) loading.classList.remove('hidden');
+                    if (success) success.classList.add('hidden');
+                    if (failure) failure.classList.add('hidden');
+                    if (title) title.textContent = 'Đang ký giao dịch tiếp nhận...';
+                    if (detail) detail.textContent = 'Đang gửi yêu cầu đến Laravel và Signer Service. Vui lòng không đóng cửa sổ này.';
+                    modal?.classList.remove('hidden');
+
                     try {
-                        await fetchJSON(`/nha-thuoc/api/xac-nhan/${btn.dataset.id}`, {
+                        const result = await fetchJSON(`/nha-thuoc/api/xac-nhan/${btn.dataset.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
-                        toast('Đã gửi yêu cầu tiếp nhận. Đang chờ xác nhận giao dịch trên blockchain.');
+
+                        // API trả thành công sau dispatchSync + receipt CONFIRMED.
+                        if (loading) loading.classList.add('hidden');
+                        if (failure) failure.classList.add('hidden');
+                        if (success) success.classList.remove('hidden');
+                        const successDetail = document.getElementById('successMessageDetail');
+                        if (successDetail) successDetail.textContent = result.message || 'TransferReceived đã được xác nhận trên Ethereum Sepolia.';
                         loadChoXacNhan(currentPageCho);
-                        // Cập nhật badge lịch sử nếu đang mở
+                        loadDaTiepNhan(1);
                     } catch (err) {
-                        toast(err.message, 'error');
+                        if (loading) loading.classList.add('hidden');
+                        if (success) success.classList.add('hidden');
+                        if (failure) failure.classList.remove('hidden');
+                        if (failText) failText.textContent = err.message || 'Không thể hoàn tất giao dịch tiếp nhận.';
                         btn.disabled = false;
                         btn.textContent = 'Xác nhận nhận hàng';
                     }
@@ -272,6 +297,16 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('oTimKiemNhan')?.addEventListener('input', debounce(() => loadChoXacNhan(1), 400));
     document.getElementById('oTimKiemDaNhan')?.addEventListener('input', debounce(() => loadDaTiepNhan(1), 400));
+
+    document.getElementById('nutDongModalSuccess')?.addEventListener('click', () => {
+        document.getElementById('modalLoadingBlockchain')?.classList.add('hidden');
+        loadChoXacNhan(currentPageCho);
+        loadDaTiepNhan(1);
+    });
+
+    document.getElementById('nutDongModalFailure')?.addEventListener('click', () => {
+        document.getElementById('modalLoadingBlockchain')?.classList.add('hidden');
+    });
 
     showTab('cho');
 
