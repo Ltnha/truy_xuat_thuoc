@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     let currentPageCho = 1;
     let currentPageDa = 1;
+    let danhSachChoXacNhanHienTai = [];
+    let maQRNhanHangDaGiaiMa = '';
+    let urlAnhQRNhanHang = null;
 
     function dinhDangNgay(ngayYMD) {
         if (!ngayYMD) return '--';
@@ -92,6 +95,7 @@ document.addEventListener('DOMContentLoaded', function () {
         try {
             const res = await fetchJSON(`/nha-thuoc/api/cho-xac-nhan?page=${page}&per_page=10&q=${encodeURIComponent(q)}`);
             const list = res.data || [];
+            danhSachChoXacNhanHienTai = list;
             const meta = res.meta || {};
 
             const badge = document.getElementById('badgeSoLuongChoXacNhan');
@@ -345,6 +349,204 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('nutDongModalFailure')?.addEventListener('click', () => {
         document.getElementById('modalLoadingBlockchain')?.classList.add('hidden');
     });
+
+
+    // ========== TẢI ẢNH QR VÀ ĐỐI CHIẾU NGUỒN GỐC ==========
+    const nutTaiQR = document.getElementById('nutQuetQRNhanHang');
+    const tepQR = document.getElementById('tepAnhQRNhanHang');
+    const khungQR = document.getElementById('khungKetQuaQRNhanHang');
+    const anhQR = document.getElementById('anhQRNhanHangPreview');
+    const tenTepQR = document.getElementById('tenTepQRNhanHang');
+    const maQRText = document.getElementById('maQRNhanHangDaGiaiMa');
+    const nutKiemTraQR = document.getElementById('nutKiemTraQRNhanHang');
+    const nutXoaQR = document.getElementById('nutXoaQRNhanHang');
+    const ketQuaQR = document.getElementById('ketQuaXacThucQRNhanHang');
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+        })[char]);
+    }
+
+    function chuanHoaMaQR(rawValue) {
+        const raw = String(rawValue || '').trim();
+        if (!raw) return '';
+        try {
+            const parsed = new URL(raw);
+            const token = parsed.searchParams.get('maDinhDanh');
+            if (token) return token.trim();
+            const parts = parsed.pathname.split('/').filter(Boolean);
+            const traceIndex = parts.lastIndexOf('tra-cuu-nguon-goc');
+            if (traceIndex >= 0 && parts[traceIndex + 1]) {
+                return decodeURIComponent(parts[traceIndex + 1]).trim();
+            }
+        } catch (error) {
+            // QR có thể chứa trực tiếp mã định danh thay vì URL.
+        }
+        return raw;
+    }
+
+    function xoaAnhQRNhanHang() {
+        if (urlAnhQRNhanHang) {
+            URL.revokeObjectURL(urlAnhQRNhanHang);
+            urlAnhQRNhanHang = null;
+        }
+        if (tepQR) tepQR.value = '';
+        if (anhQR) {
+            anhQR.removeAttribute('src');
+            anhQR.classList.add('hidden');
+        }
+        if (tenTepQR) tenTepQR.textContent = 'Chưa chọn ảnh';
+        if (maQRText) maQRText.textContent = '—';
+        if (ketQuaQR) {
+            ketQuaQR.innerHTML = '';
+            ketQuaQR.classList.add('hidden');
+        }
+        maQRNhanHangDaGiaiMa = '';
+        if (nutKiemTraQR) nutKiemTraQR.disabled = true;
+        khungQR?.classList.add('hidden');
+    }
+
+    async function docMaQRTuAnh(file) {
+        if (!file || !file.type.startsWith('image/')) {
+            throw new Error('Vui lòng chọn tệp ảnh PNG, JPG, WEBP hoặc GIF.');
+        }
+        if (file.size > 10 * 1024 * 1024) {
+            throw new Error('Ảnh QR vượt quá 10 MB. Vui lòng chọn ảnh nhỏ hơn.');
+        }
+        if (typeof window.jsQR !== 'function') {
+            throw new Error('Không tải được thư viện giải mã QR. Kiểm tra kết nối Internet rồi tải lại trang.');
+        }
+
+        const imageUrl = URL.createObjectURL(file);
+        const image = new Image();
+        try {
+            await new Promise((resolve, reject) => {
+                image.onload = resolve;
+                image.onerror = () => reject(new Error('Không thể đọc tệp ảnh đã chọn.'));
+                image.src = imageUrl;
+            });
+
+            const maxSide = 1800;
+            const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const context = canvas.getContext('2d', { willReadFrequently: true });
+            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+            const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+            const decoded = window.jsQR(pixels.data, canvas.width, canvas.height, {
+                inversionAttempts: 'attemptBoth'
+            });
+            if (!decoded || !decoded.data) {
+                throw new Error('Không tìm thấy mã QR đọc được trong ảnh. Hãy chụp rõ, đủ sáng và không cắt mất viền QR.');
+            }
+            return { ma: chuanHoaMaQR(decoded.data), url: imageUrl };
+        } catch (error) {
+            URL.revokeObjectURL(imageUrl);
+            throw error;
+        }
+    }
+
+    async function kiemTraNguonGocQR() {
+        if (!maQRNhanHangDaGiaiMa) return;
+        if (nutKiemTraQR) {
+            nutKiemTraQR.disabled = true;
+            nutKiemTraQR.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang kiểm tra...';
+        }
+        if (ketQuaQR) {
+            ketQuaQR.classList.remove('hidden');
+            ketQuaQR.innerHTML = '<p class="text-xs text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tra cứu dữ liệu lô và đối chiếu trạng thái Blockchain...</p>';
+        }
+
+        try {
+            const response = await fetch('/api/tra-cuu-nguon-goc/' + encodeURIComponent(maQRNhanHangDaGiaiMa), {
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Không thể kiểm tra mã QR.');
+
+            const status = String(data.trangThai || 'UNKNOWN').toUpperCase();
+            const statusMap = {
+                VALID: ['HỢP LỆ', 'bg-emerald-100 text-emerald-800 border-emerald-200'],
+                RECALLED: ['ĐÃ THU HỒI', 'bg-rose-100 text-rose-800 border-rose-200'],
+                EXPIRED: ['ĐÃ HẾT HẠN', 'bg-amber-100 text-amber-800 border-amber-200'],
+                INVALID: ['THÔNG TIN KHÔNG HỢP LỆ', 'bg-rose-100 text-rose-800 border-rose-200'],
+                NOT_FOUND: ['KHÔNG TÌM THẤY LÔ', 'bg-slate-100 text-slate-700 border-slate-200'],
+                NOT_REGISTERED_ON_CHAIN: ['CHƯA GHI NHẬN ON-CHAIN', 'bg-amber-100 text-amber-800 border-amber-200'],
+                UNAVAILABLE: ['CHƯA ĐỌC ĐƯỢC BLOCKCHAIN', 'bg-amber-100 text-amber-800 border-amber-200']
+            };
+            const [statusLabel, statusClass] = statusMap[status] || ['KHÔNG XÁC ĐỊNH', 'bg-slate-100 text-slate-700 border-slate-200'];
+            const maLo = String(data.maLo || '').trim();
+            const khopDonCho = maLo && danhSachChoXacNhanHienTai.some(item =>
+                String(item.maLo || '').trim().toLowerCase() === maLo.toLowerCase()
+            );
+            const doiChieuDon = khopDonCho
+                ? '<p class="mt-2 text-xs font-semibold text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i> Mã QR khớp với lô đang chờ Nhà thuốc xác nhận.</p>'
+                : '<p class="mt-2 text-xs font-semibold text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i> Không tìm thấy lô này trong danh sách chuyển giao đang chờ Nhà thuốc xác nhận.</p>';
+            const txHash = /^0x[a-fA-F0-9]{64}$/.test(String(data.txHash || '')) ? data.txHash : '';
+            const txHtml = txHash
+                ? '<a class="mt-2 inline-block break-all text-[11px] font-mono text-cyan-800 underline" target="_blank" rel="noopener" href="https://sepolia.etherscan.io/tx/' + encodeURIComponent(txHash) + '">' + escapeHtml(txHash) + '</a>'
+                : '<p class="mt-2 text-[11px] text-slate-500">Chưa có txHash đăng ký lô được xác nhận.</p>';
+
+            const typeClass = status === 'VALID' ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50';
+            ketQuaQR.innerHTML = `
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="rounded-full border px-3 py-1 text-[11px] font-extrabold ${statusClass}">${statusLabel}</span>
+                    <span class="text-[11px] text-slate-500">Trạng thái đối chiếu Blockchain: ${escapeHtml(data.chainReadStatus || 'N/A')}</span>
+                </div>
+                <div class="mt-3 rounded-xl border ${typeClass} p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                    <div><span class="block text-slate-500">Tên thuốc</span><strong class="text-slate-900">${escapeHtml(data.tenThuoc || 'Không có dữ liệu')}</strong></div>
+                    <div><span class="block text-slate-500">Mã lô</span><strong class="font-mono text-slate-900">${escapeHtml(maLo || 'Không xác định')}</strong></div>
+                    <div><span class="block text-slate-500">Nhà sản xuất</span><strong class="text-slate-900">${escapeHtml(data.nhaSanXuat || 'Không có dữ liệu')}</strong></div>
+                    <div><span class="block text-slate-500">Hạn sử dụng</span><strong class="font-mono text-slate-900">${escapeHtml(dinhDangNgay(data.hanSuDung || ''))}</strong></div>
+                    <div><span class="block text-slate-500">Toàn vẹn hồ sơ sản phẩm</span><strong class="text-slate-900">${escapeHtml(data.productIntegrity || 'N/A')}</strong></div>
+                    <div><span class="block text-slate-500">Lô đã tồn tại trên Blockchain</span><strong class="text-slate-900">${data.batchExistsOnChain ? 'Có' : 'Chưa xác nhận'}</strong></div>
+                </div>
+                ${doiChieuDon}
+                ${txHtml}
+                <p class="mt-3 text-[11px] text-slate-500">Kết quả kiểm tra chỉ phục vụ đối chiếu. Nhà thuốc vẫn phải kiểm tra hàng thực tế và bấm xác nhận tiếp nhận riêng.</p>
+            `;
+        } catch (error) {
+            ketQuaQR.classList.remove('hidden');
+            ketQuaQR.innerHTML = '<p class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">' + escapeHtml(error.message || 'Không thể kiểm tra mã QR.') + '</p>';
+        } finally {
+            if (nutKiemTraQR) {
+                nutKiemTraQR.disabled = !maQRNhanHangDaGiaiMa;
+                nutKiemTraQR.innerHTML = '<i class="fa-solid fa-shield-halved mr-1"></i> Kiểm tra mã QR';
+            }
+        }
+    }
+
+    nutTaiQR?.addEventListener('click', () => tepQR?.click());
+    tepQR?.addEventListener('change', async () => {
+        const file = tepQR.files?.[0];
+        if (!file) return;
+        xoaAnhQRNhanHang();
+        khungQR?.classList.remove('hidden');
+        if (tenTepQR) tenTepQR.textContent = 'Đang đọc ảnh...';
+        try {
+            const decoded = await docMaQRTuAnh(file);
+            urlAnhQRNhanHang = decoded.url;
+            maQRNhanHangDaGiaiMa = decoded.ma;
+            if (!maQRNhanHangDaGiaiMa) throw new Error('Mã QR không chứa mã định danh hợp lệ.');
+            if (anhQR) {
+                anhQR.src = urlAnhQRNhanHang;
+                anhQR.classList.remove('hidden');
+            }
+            if (tenTepQR) tenTepQR.textContent = file.name;
+            if (maQRText) maQRText.textContent = maQRNhanHangDaGiaiMa;
+            if (nutKiemTraQR) nutKiemTraQR.disabled = false;
+        } catch (error) {
+            if (tenTepQR) tenTepQR.textContent = error.message || 'Không thể đọc mã QR.';
+            if (ketQuaQR) {
+                ketQuaQR.classList.remove('hidden');
+                ketQuaQR.innerHTML = '<p class="rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs font-semibold text-rose-700">' + escapeHtml(error.message) + '</p>';
+            }
+        }
+    });
+    nutKiemTraQR?.addEventListener('click', kiemTraNguonGocQR);
+    nutXoaQR?.addEventListener('click', xoaAnhQRNhanHang);
 
     showTab('cho');
 

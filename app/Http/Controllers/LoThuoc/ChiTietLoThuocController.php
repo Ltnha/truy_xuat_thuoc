@@ -8,6 +8,8 @@ use App\Models\BlockchainTransaction;
 use App\Models\LoThuoc;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class ChiTietLoThuocController extends Controller
 {
@@ -18,12 +20,25 @@ class ChiTietLoThuocController extends Controller
     {
         $user = Auth::user();
 
-        $loThuoc = LoThuoc::with(['sanPham', 'blockchainTransactions'])
+        $loThuoc = LoThuoc::with(['sanPham', 'blockchainTransactions', 'qrCode'])
             ->where('id', $id)
             ->where('toChucId', $user->toChucId ?? 0)
             ->firstOrFail();
 
-        return view('nhaSanXuat.chiTietLoThuoc', compact('loThuoc'));
+        $batchTx = BlockchainTransaction::query()
+            ->where('loThuocId', $loThuoc->id)
+            ->where('eventName', 'BatchRegistered')
+            ->where('trangThai', 'CONFIRMED')
+            ->whereNotNull('txHash')
+            ->latest('id')
+            ->first();
+
+        $qrDaSanSang = $batchTx
+            && preg_match('/^0x[a-fA-F0-9]{64}$/', (string) $batchTx->txHash)
+            && $loThuoc->qrCode
+            && $loThuoc->qrCode->trangThai === 'ACTIVE';
+
+        return view('nhaSanXuat.chiTietLoThuoc', compact('loThuoc', 'qrDaSanSang'));
     }
 
     /**
@@ -172,4 +187,56 @@ class ChiTietLoThuocController extends Controller
             'message' => 'Đã đưa yêu cầu gửi Blockchain vào hàng đợi.',
         ]);
     }
+
+    /**
+     * Hiển thị hoặc tải xuống mã QR duy nhất của lô thuốc.
+     * Chỉ nhà sản xuất sở hữu lô và lô đã được xác nhận BatchRegistered mới được xuất QR.
+     */
+    public function taiMaQR(Request $request, int $id)
+    {
+        $user = Auth::user();
+
+        $loThuoc = LoThuoc::query()
+            ->whereKey($id)
+            ->where('toChucId', $user->toChucId ?? 0)
+            ->firstOrFail();
+
+        $batchTx = BlockchainTransaction::query()
+            ->where('loThuocId', $loThuoc->id)
+            ->where('eventName', 'BatchRegistered')
+            ->where('trangThai', 'CONFIRMED')
+            ->whereNotNull('txHash')
+            ->latest('id')
+            ->first();
+
+        if (! $batchTx || ! preg_match('/^0x[a-fA-F0-9]{64}$/', (string) $batchTx->txHash)) {
+            abort(409, 'Lô thuốc chưa được xác nhận đăng ký trên Ethereum Sepolia.');
+        }
+
+        $qr = DB::table('qrCode')
+            ->where('loThuocId', $loThuoc->id)
+            ->where('trangThai', 'ACTIVE')
+            ->first();
+
+        if (! $qr || ! is_string($qr->giaTriQR) || trim($qr->giaTriQR) === '') {
+            abort(404, 'Lô thuốc chưa có mã QR hoạt động.');
+        }
+
+        $urlTraCuu = route('tra-cuu', ['maDinhDanh' => $qr->giaTriQR]);
+        $svg = QrCode::format('svg')
+            ->size(420)
+            ->margin(2)
+            ->errorCorrection('H')
+            ->generate($urlTraCuu);
+
+        $maFile = preg_replace('/[^A-Za-z0-9_-]+/', '-', (string) $loThuoc->maLoNghiepVu);
+        $cheDo = $request->boolean('download') ? 'attachment' : 'inline';
+
+        return response($svg, 200, [
+            'Content-Type' => 'image/svg+xml; charset=UTF-8',
+            'Content-Disposition' => $cheDo . '; filename="QR-' . $maFile . '.svg"',
+            'Cache-Control' => 'private, no-store',
+        ]);
+    }
+
 }

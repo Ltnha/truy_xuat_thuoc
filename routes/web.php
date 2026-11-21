@@ -151,6 +151,7 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             // Chi Tiết Lô Thuốc & APIs On-chain
             Route::get('/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'show'])->name('lo-thuoc.chi-tiet');
             Route::get('/api/lo-thuoc/{id}/chi-tiet', [ChiTietLoThuocController::class, 'getChiTietAPI'])->name('lo-thuoc.api.chi-tiet');
+            Route::get('/lo-thuoc/{id}/qr', [ChiTietLoThuocController::class, 'taiMaQR'])->name('lo-thuoc.qr');
             Route::post('/api/lo-thuoc/{id}/gui-blockchain', [ChiTietLoThuocController::class, 'guiBlockchain'])->name('lo-thuoc.api.gui-blockchain');
 
             // Báo cáo nghi vấn của Nhà sản xuất
