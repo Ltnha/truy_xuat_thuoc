@@ -277,7 +277,26 @@ class ChuyenGiaoService
             return $tx;
         });
 
-        ProcessBatchTransferJob::dispatch($chuyenGiao->id, $taiKhoan->id, $blockchainTransaction->id, 'TransferReceived', 'TRANSFER_RECEIVED')->afterCommit();
+        \\Illuminate\\Support\\Facades\\Log::info('[ChuyenGiaoService] Nhà thuốc bắt đầu xử lý ký TransferReceived đồng bộ.', [
+            'chuyenGiaoId' => $chuyenGiao->id,
+            'blockchainTransactionId' => $blockchainTransaction->id,
+            'benNhanId' => $benNhan->id,
+        ]);
+
+        // Chạy đồng bộ giống luồng từ chối: request chỉ hoàn tất sau khi Job ký,
+        // nhận receipt CONFIRMED và cập nhật txHash thật. Không phụ thuộc queue worker.
+        ProcessBatchTransferJob::dispatchSync(
+            $chuyenGiao->id,
+            $taiKhoan->id,
+            $blockchainTransaction->id,
+            'TransferReceived',
+            'TRANSFER_RECEIVED'
+        );
+
+        \\Illuminate\\Support\\Facades\\Log::info('[ChuyenGiaoService] TransferReceived đã ký và xác nhận thành công.', [
+            'chuyenGiaoId' => $chuyenGiao->id,
+            'blockchainTransactionId' => $blockchainTransaction->id,
+        ]);
     }
 
     public function tuChoi(ChuyenGiao $chuyenGiao, ToChuc $benNhan, TaiKhoan $taiKhoan, ?string $ip, ?string $lyDo = null): void
