@@ -460,6 +460,19 @@
                 </button>
             </div>
         </div>
+
+        <div id="khungFailureIcon" class="hidden space-y-2">
+            <div class="w-14 h-14 mx-auto rounded-full bg-red-100 text-red-700 flex items-center justify-center text-2xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h4 class="text-base font-bold text-slate-900">Giao Dịch Chưa Hoàn Tất</h4>
+            <p class="text-xs text-red-700" id="failureMessageDetail"></p>
+            <div class="pt-2">
+                <button type="button" id="nutDongModalFailure" class="w-full py-2.5 bg-slate-700 hover:bg-slate-800 text-white text-xs font-bold rounded-xl transition-all">
+                    Đóng
+                </button>
+            </div>
+        </div>
     </div>
 </div>
 @endsection
