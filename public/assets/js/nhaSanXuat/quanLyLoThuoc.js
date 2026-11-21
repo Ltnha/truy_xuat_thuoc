@@ -45,7 +45,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const reg = list.filter(tx => {
             const ev = String(tx.eventName || tx.event_name || '').toUpperCase();
             const hasCg = tx.chuyenGiaoId != null || tx.chuyen_giao_id != null;
-            // Giao dịch đăng ký lô: không gắn chuyenGiao, hoặc event là batch registration
             if (hasCg) return false;
             if (ev.includes('TRANSFER')) return false;
             return true;
@@ -55,7 +54,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return [...reg].sort((a, b) => (b.id || 0) - (a.id || 0))[0];
         }
 
-        // Fallback: lấy tx CONFIRMED có transaction hash thật
         const confirmed = list.filter(tx => {
             const st = String(tx.trangThai || '').toUpperCase();
             const hash = String(tx.txHash || '');
@@ -65,7 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
             return [...confirmed].sort((a, b) => (a.id || 0) - (b.id || 0))[0];
         }
         return null;
-    } 
+    }
 
     function watchBatchRegistration(items) {
         (items || []).forEach(item => {
@@ -127,7 +125,6 @@ document.addEventListener('DOMContentLoaded', function () {
     function isTxPending(tx) {
         if (!tx) return false;
         const st = String(tx.trangThai || '').toUpperCase();
-        // Chỉ trạng thái PENDING mới được xem là đang chờ; txHash có thể NULL.
         if (['FAILED', 'REJECTED', 'CANCELLED', 'CONFIRMED', 'SUCCESS'].includes(st)) {
             return false;
         }
@@ -259,7 +256,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const danhSachTrang = danhSachDaLoc.slice(batDau, ketThuc);
 
         thanBang.innerHTML = danhSachTrang.map(item => {
-            // Tx đăng ký lô (để quyết định có được chuyển giao) vs tx chuyển giao gần nhất (để hiển thị)
             const batchTx = getBatchRegistrationTx(item);
             const transferTx = getLatestTransferTx(item);
             const latestTx = getLatestTx(item);
@@ -267,7 +263,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const batchConfirmed = isTxConfirmed(batchTx);
             const batchPending = isTxPending(batchTx);
 
-            // Ưu tiên trạng thái nghiệp vụ từ API (chuyenGiao), không chỉ dựa blockchain tx
             const cgInfo = item.chuyenGiaoGanNhat || item.chuyen_giao_gan_nhat || null;
             const cgStatus = cgInfo ? String(cgInfo.trangThai || '').toUpperCase() : '';
             const coChuyenGiaoCho = !!(item.coChuyenGiaoCho || item.co_chuyen_giao_cho);
@@ -275,7 +270,6 @@ document.addEventListener('DOMContentLoaded', function () {
             const transferFailed = ['CANCELLED', 'REJECTED', 'FAILED'].includes(cgStatus)
                 || isTxFailedOrRejected(transferTx);
 
-            // Cột mã On-chain: ưu tiên hiển thị tx đăng ký lô; nếu đang chuyển thì ghi chú thêm
             let txHtml = `<span class="text-slate-400 italic text-[11px]">Chưa gửi</span>`;
             const displayTx = batchTx || latestTx;
             const displayHash = displayTx ? displayTx.txHash : null;
@@ -302,25 +296,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 txHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[11px] font-semibold">CG bị từ chối</span>`;
             }
 
-            // Cột trạng thái nghiệp vụ lô
             let badgeStatusHtml = renderBadgeTrangThai(item.trangThai);
             if (batchPending) {
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">Chờ On-chain</span>`;
             } else if (transferPending) {
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-full text-[10px] font-bold">Đang chờ NPP nhận</span>`;
             } else if (transferFailed && getKhaDung(item) > 0) {
-                // NPP từ chối → hàng đã hoàn về, hiển thị trạng thái sẵn sàng chuyển lại
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold">Sẵn sàng chuyển</span>`;
             }
 
             const tenSp = item.san_pham?.tenSanPham || item.sanPham?.tenSanPham || 'N/A';
             const soDk = item.san_pham?.soDangKy || item.sanPham?.soDangKy || 'N/A';
-            // Tổng trong kho là số lượng vật lý; khả dụng đã trừ phần PENDING.
+            const dvt = item.donViTinh || item.don_vi_tinh || 'Hộp';
             const soLuong = Number(item.soLuongHienCo ?? item.soLuong ?? 0);
             const soLuongDangChuyenGiao = Number(item.soLuongDangChuyenGiao || 0);
             const khaDung = getKhaDung(item);
 
-            // Nút Chuyển giao: lô on-chain + còn khả dụng + không thu hồi + không còn đơn PENDING
             const canTransfer = batchConfirmed && khaDung > 0
                 && item.trangThai !== 'RECALLED'
                 && !coChuyenGiaoCho;
@@ -334,10 +325,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         <div class="text-[10px] text-slate-400 font-mono">SĐK: ${escapeHtml(soDk)}</div>
                     </td>
                     <td class="py-3 px-2 text-center font-mono text-slate-700 whitespace-nowrap">${formatDate(item.hanSuDung)}</td>
-                    <td class="py-3 px-2 text-right font-mono font-bold text-slate-800 whitespace-nowrap">${soLuong.toLocaleString('vi-VN')}</td>
+                    <td class="py-3 px-2 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                        ${soLuong.toLocaleString('vi-VN')} <span class="text-[11px] font-normal text-slate-500">${escapeHtml(dvt)}</span>
+                    </td>
                     <td class="py-3 px-2 text-right font-mono whitespace-nowrap">
-                        <div class="font-bold ${soLuongDangChuyenGiao > 0 ? 'text-amber-700' : 'text-emerald-700'}">${khaDung.toLocaleString('vi-VN')}</div>
-                        ${soLuongDangChuyenGiao > 0 ? `<div class="mt-0.5 text-[10px] font-semibold text-amber-600">Đang giữ: ${soLuongDangChuyenGiao.toLocaleString('vi-VN')}</div>` : ''}
+                        <div class="font-bold ${soLuongDangChuyenGiao > 0 ? 'text-amber-700' : 'text-emerald-700'}">
+                            ${khaDung.toLocaleString('vi-VN')} <span class="text-[11px] font-normal text-slate-500">${escapeHtml(dvt)}</span>
+                        </div>
+                        ${soLuongDangChuyenGiao > 0 ? `<div class="mt-0.5 text-[10px] font-semibold text-amber-600">Đang giữ: ${soLuongDangChuyenGiao.toLocaleString('vi-VN')} ${escapeHtml(dvt)}</div>` : ''}
                     </td>
                     <td class="py-3 px-2 text-center whitespace-nowrap">${badgeStatusHtml}</td>
                     <td class="py-3 px-2.5 text-center whitespace-nowrap">
@@ -430,9 +425,10 @@ document.addEventListener('DOMContentLoaded', function () {
         const modalPP = document.getElementById('modalPhanPhoiLo');
         const selectNpp = document.getElementById('chonNhaPhanPhoi');
         const khaDung = getKhaDung(item);
+        const dvt = item.donViTinh || item.don_vi_tinh || 'Hộp';
 
         if (textMaLo) textMaLo.innerText = item.maLoNghiepVu || '';
-        if (textSoLuong) textSoLuong.innerText = khaDung.toLocaleString('vi-VN') + ' hộp';
+        if (textSoLuong) textSoLuong.innerText = khaDung.toLocaleString('vi-VN') + ' ' + dvt;
         if (hid) hid.value = item.id;
         if (inputSl) {
             inputSl.value = String(khaDung);
@@ -502,7 +498,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (loDangChuyen?.maLoNghiepVu) {
                     sessionStorage.removeItem(NPP_INTENT_PREFIX + String(loDangChuyen.maLoNghiepVu));
                 }
-                const explorer = json.data?.explorerUrl || ('https://sepolia.etherscan.io/tx/' + txHash);
                 showPopup(json.message || 'Chuyển giao đã được xác nhận on-chain.', 'success', 'Đã ký chuyển giao thành công', txHash);
                 document.getElementById('modalPhanPhoiLo')?.classList.add('hidden');
                 await loadDataFromDB();
@@ -632,6 +627,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 sanPhamId: document.getElementById('chonSanPhamDaDuyet')?.value,
                 maLoNghiepVu: document.getElementById('nhapMaLo')?.value,
                 soLuong: document.getElementById('nhapSoLuong')?.value,
+                donViTinh: document.getElementById('nhapDonViTinh')?.value,
                 ngaySanXuat: document.getElementById('nhapNgaySX')?.value,
                 hanSuDung: document.getElementById('nhapHanDung')?.value,
                 benNhanId: document.getElementById('chonNhaPhanPhoiKhiTaoLo')?.value || null

@@ -49,10 +49,10 @@ class ChiTietLoThuocController extends Controller
         $user = Auth::user();
 
         $loThuoc = LoThuoc::with([
-                'sanPham',
-                'blockchainTransactions',
-                'chuyenGiao.benNhan',
-            ])
+            'sanPham',
+            'blockchainTransactions',
+            'chuyenGiao.benNhan',
+        ])
             ->where('id', $id)
             ->where('toChucId', $user->toChucId ?? 0)
             ->first();
@@ -74,12 +74,12 @@ class ChiTietLoThuocController extends Controller
         if ($loThuoc->relationLoaded('chuyenGiao') && $loThuoc->chuyenGiao) {
             foreach ($loThuoc->chuyenGiao as $cg) {
                 $danhSachChuyenGiao[] = [
-                    'id'            => $cg->id,
-                    'soLuong'       => $cg->soLuong ?? null,
-                    'trangThai'     => $cg->trangThai?->value ?? (string) $cg->trangThai,
+                    'id'              => $cg->id,
+                    'soLuong'         => $cg->soLuong ?? null,
+                    'trangThai'       => $cg->trangThai?->value ?? (string) $cg->trangThai,
                     'thoiGianKhoiTao' => $cg->thoiGianKhoiTao,
                     'thoiGianXacNhan' => $cg->thoiGianXacNhan,
-                    'benNhan'       => $cg->benNhan ? [
+                    'benNhan'         => $cg->benNhan ? [
                         'id'        => $cg->benNhan->id,
                         'tenToChuc' => $cg->benNhan->tenToChuc ?? 'N/A',
                     ] : null,
@@ -94,10 +94,11 @@ class ChiTietLoThuocController extends Controller
                 'maLo'                   => $loThuoc->maLo,
                 'maLoNghiepVu'           => $loThuoc->maLoNghiepVu,
                 'soLuong'                => $loThuoc->soLuong,
+                'donViTinh'              => $loThuoc->donViTinh ?? 'Hộp',
                 'ngaySanXuat'            => $loThuoc->ngaySanXuat,
                 'hanSuDung'              => $loThuoc->hanSuDung,
                 'trangThai'              => $loThuoc->trangThai,
-                'created_at'             => $loThuoc->thoiGianTao ?? null, // bảng không có timestamps
+                'created_at'             => $loThuoc->thoiGianTao ?? null,
                 'san_pham'               => $loThuoc->sanPham ? [
                     'id'          => $loThuoc->sanPham->id,
                     'tenSanPham'  => $loThuoc->sanPham->tenSanPham,
@@ -238,5 +239,4 @@ class ChiTietLoThuocController extends Controller
             'Cache-Control' => 'private, no-store',
         ]);
     }
-
 }

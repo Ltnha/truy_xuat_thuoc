@@ -46,8 +46,8 @@ class LoThuocController extends Controller
         // Không lọc theo số lượng khả dụng vì lô đang giữ chỗ vẫn phải xuất hiện.
         $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc', 'tonKhoLos'])
             ->where(function ($query) use ($toChucId) {
-                $query->whereHas('tonKhoLos', fn ($tonKho) => $tonKho->where('toChucId', $toChucId))
-                    ->orWhereHas('chuyenGiao', fn ($chuyenGiao) => $chuyenGiao
+                $query->whereHas('tonKhoLos', fn($tonKho) => $tonKho->where('toChucId', $toChucId))
+                    ->orWhereHas('chuyenGiao', fn($chuyenGiao) => $chuyenGiao
                         ->where('benGuiId', $toChucId)
                         ->where('trangThai', 'PENDING'));
             })
@@ -109,18 +109,19 @@ class LoThuocController extends Controller
      * Quy trình tạo lô thuốc mới theo kiến trúc Microservice Custodial Signer:
      * 1. Kiểm tra sản phẩm đã được duyệt.
      * 2. Kiểm tra tổ chức đang hoạt động và ví đang ACTIVE.
-     * 3. Kiểm tra ngày sản xuất, hạn sử dụng và số lượng.
+     * 3. Kiểm tra ngày sản xuất, hạn sử dụng, số lượng và đơn vị tính.
      * 4. Tạo maBusinessId cho lô.
      * 5. Lưu yêu cầu tạo lô ở trạng thái chờ blockchain (DB transaction).
      * 6. Dispatch Job sau commit.
      */
     public function store(Request $request)
     {
-        // 3. Kiểm tra ngày sản xuất, hạn sử dụng và số lượng
+        // 3. Kiểm tra ngày sản xuất, hạn sử dụng, số lượng và đơn vị tính
         $request->validate([
             'sanPhamId'    => 'required|integer|exists:sanPham,id',
             'maLoNghiepVu' => 'required|string|max:50|unique:loThuoc,maLoNghiepVu',
             'soLuong'      => 'required|integer|min:1',
+            'donViTinh'    => 'required|string|max:50',
             'ngaySanXuat'  => 'required|date|before_or_equal:today',
             'hanSuDung'    => 'required|date|after:ngaySanXuat',
             'benNhanId'    => 'nullable|integer|exists:toChuc,id',
@@ -131,6 +132,8 @@ class LoThuocController extends Controller
             'maLoNghiepVu.unique'         => 'Mã lô thuốc nghiệp vụ này đã tồn tại trên hệ thống.',
             'soLuong.required'            => 'Vui lòng nhập số lượng sản xuất.',
             'soLuong.min'                 => 'Số lượng sản xuất tối thiểu là 1 đơn vị.',
+            'donViTinh.required'          => 'Vui lòng chọn hoặc nhập đơn vị tính.',
+            'donViTinh.max'               => 'Đơn vị tính không được vượt quá 50 ký tự.',
             'ngaySanXuat.required'        => 'Ngày sản xuất không được để trống.',
             'ngaySanXuat.before_or_equal' => 'Ngày sản xuất không thể lớn hơn ngày hiện tại.',
             'hanSuDung.required'          => 'Hạn sử dụng không được để trống.',
@@ -157,8 +160,8 @@ class LoThuocController extends Controller
         }
 
         // 2. Kiểm tra tổ chức đang hoạt động
-        $trangThaiToChuc = $toChuc?->trangThaiDuyet instanceof \BackedEnum 
-            ? $toChuc->trangThaiDuyet->value 
+        $trangThaiToChuc = $toChuc?->trangThaiDuyet instanceof \BackedEnum
+            ? $toChuc->trangThaiDuyet->value
             : (string) $toChuc?->trangThaiDuyet;
 
         if (!$toChuc || $trangThaiToChuc !== 'DA_DUYET') {
@@ -200,6 +203,7 @@ class LoThuocController extends Controller
                 'sanPhamId'    => $sanPham->id,
                 'toChucId'     => $toChuc->id,
                 'soLuong'      => (int) $request->soLuong,
+                'donViTinh'    => trim($request->donViTinh),
                 'ngaySanXuat'  => $request->ngaySanXuat,
                 'hanSuDung'    => $request->hanSuDung,
                 'trangThai'    => 'CREATED',

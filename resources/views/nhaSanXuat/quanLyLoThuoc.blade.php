@@ -3,7 +3,7 @@
 @section('title', 'Quản lý lô thuốc - PharmaChain')
 
 @push('styles')
-    <link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLyLoThuoc.css') }}">
+<link rel="stylesheet" href="{{ asset('assets/css/nhaSanXuat/quanLyLoThuoc.css') }}">
 @endpush
 
 @section('content')
@@ -102,34 +102,45 @@
                     <select id="chonSanPhamDaDuyet" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                         <option value="">-- Chọn sản phẩm dược hợp lệ --</option>
                         @if(isset($danhSachSanPham) && count($danhSachSanPham) > 0)
-                            @foreach($danhSachSanPham as $sp)
-                                <option value="{{ $sp->id }}" data-ten="{{ $sp->tenSanPham }}">{{ $sp->tenSanPham }} (SĐK: {{ $sp->soDangKy }}) – [Đã duyệt]</option>
-                            @endforeach
+                        @foreach($danhSachSanPham as $sp)
+                        <option value="{{ $sp->id }}" data-ten="{{ $sp->tenSanPham }}">{{ $sp->tenSanPham }} (SĐK: {{ $sp->soDangKy }}) – [Đã duyệt]</option>
+                        @endforeach
                         @endif
                     </select>
                 </div>
 
                 <div class="space-y-1">
                     <label for="chonNhaPhanPhoiKhiTaoLo" class="font-bold text-slate-700">
-                        Nhà phân phối dự kiến nhận lô <span class="text-slate-400 font-normal">(không bắt buộc)</span>
+                        Nhà phân phối dự kiến nhận lô
                     </label>
                     <select id="chonNhaPhanPhoiKhiTaoLo"
                         class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                         <option value="">-- Chưa chọn, có thể chuyển giao sau --</option>
                     </select>
-                    <p class="text-[11px] text-slate-500">
-                        Chỉ hiển thị Nhà phân phối đã được Cơ quan quản lý xét duyệt. Sau khi lô được đăng ký on-chain thành công, bạn có thể bấm Chuyển giao để ký gửi đến đơn vị đã chọn.
-                    </p>
+                </div>
+
+                <div class="space-y-1">
+                    <label for="nhapMaLo" class="font-bold text-slate-700">Mã Lô Thuốc <span class="text-red-500">*</span></label>
+                    <input type="text" id="nhapMaLo" required placeholder="VD: LOT-PARA-2026-03" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono uppercase font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                 </div>
 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div class="space-y-1">
-                        <label for="nhapMaLo" class="font-bold text-slate-700">Mã Lô Thuốc <span class="text-red-500">*</span></label>
-                        <input type="text" id="nhapMaLo" required placeholder="VD: LOT-PARA-2026-03" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono uppercase font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                        <label for="nhapSoLuong" class="font-bold text-slate-700">Tổng Số Lượng <span class="text-red-500">*</span></label>
+                        <input type="number" id="nhapSoLuong" required min="1" placeholder="VD: 5000" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                     </div>
                     <div class="space-y-1">
-                        <label for="nhapSoLuong" class="font-bold text-slate-700">Tổng Số Lượng (hộp) <span class="text-red-500">*</span></label>
-                        <input type="number" id="nhapSoLuong" required min="10" placeholder="VD: 5000" class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                        <label for="nhapDonViTinh" class="font-bold text-slate-700">Đơn Vị Tính <span class="text-red-500">*</span></label>
+                        <input type="text" id="nhapDonViTinh" list="goiYDonViTinh" required maxlength="50" autocomplete="off" placeholder="Chọn hoặc nhập đơn vị..." class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
+                        <datalist id="goiYDonViTinh">
+                            <option value="Hộp"></option>
+                            <option value="Thùng"></option>
+                            <option value="Lọ"></option>
+                            <option value="Chai"></option>
+                            <option value="Ống"></option>
+                            <option value="Vỉ"></option>
+                            <option value="Gói"></option>
+                        </datalist>
                     </div>
                     <div class="space-y-1">
                         <label for="nhapNgaySX" class="font-bold text-slate-700">Ngày Sản Xuất <span class="text-red-500">*</span></label>
@@ -139,11 +150,6 @@
                         <label for="nhapHanDung" class="font-bold text-slate-700">Hạn Sử Dụng <span class="text-red-500">*</span></label>
                         <input type="date" id="nhapHanDung" required class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                     </div>
-                </div>
-
-                <div class="p-3 bg-cyan-50 rounded-xl border border-cyan-800/15 text-[11px] text-cyan-900 flex items-start gap-2">
-                    <i class="fa-solid fa-shield-halved text-cyan-800 mt-0.5 shrink-0"></i>
-                    <span>Hệ thống sử dụng <strong>Custodial Signer Service</strong> để ký giao dịch đăng ký lô trên Ethereum Sepolia. Nếu đã chọn nhà phân phối, sau khi lô được xác nhận on-chain, nút Chuyển giao sẽ xuất hiện kèm đơn vị đã chọn để bạn tiếp tục ký giao dịch gửi lô.</span>
                 </div>
 
                 <div class="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
@@ -335,5 +341,5 @@
 @endsection
 
 @push('scripts')
-    <script src="{{ asset('assets/js/nhaSanXuat/quanLyLoThuoc.js') }}"></script>
+<script src="{{ asset('assets/js/nhaSanXuat/quanLyLoThuoc.js') }}"></script>
 @endpush

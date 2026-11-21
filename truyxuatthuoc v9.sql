@@ -139,6 +139,7 @@ CREATE TABLE loThuoc (
     sanPhamId BIGINT NOT NULL,
     toChucId BIGINT NOT NULL COMMENT 'To chuc san xuat tao lo; chu so huu hien tai duoc quan ly tai tonKhoLo',
     soLuong INT NOT NULL COMMENT 'Tong so luong ban dau cua lo',
+    donViTinh VARCHAR(50) NOT NULL DEFAULT 'Hộp',
     ngaySanXuat DATE NOT NULL,
     hanSuDung DATE NOT NULL,
     trangThai ENUM('CREATED','IN_TRANSIT','RECALLED') NOT NULL DEFAULT 'CREATED',
@@ -684,14 +685,13 @@ VALUES
 
 -- 8. Bảng loThuoc
 INSERT INTO loThuoc
-    (id, maLo, maLoNghiepVu, sanPhamId, toChucId, soLuong, ngaySanXuat, hanSuDung, trangThai)
+    (id, maLo, maLoNghiepVu, sanPhamId, toChucId, soLuong, donViTinh, ngaySanXuat, hanSuDung, trangThai)
 VALUES
-    (1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'AK-PARA-2026-001', 1, 1, 20, '2026-08-01', '2028-07-31', 'CREATED'),
-    (2, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'AK-AMOX-2026-002', 2, 1, 6, '2026-09-01', '2028-08-31', 'RECALLED'),
-    (3, '264cdb4f-7a26-4390-a18d-b57bfbb4dafb', 'DEMO-EXP-2026-B001', 54, 1, 16, '2026-09-01', '2028-08-31', 'CREATED'),
-    (4, 'e060159a-c060-4a7f-837c-dc509fc4acac', 'DEMO-EXP-2026-B002', 89, 6, 10, '2026-09-05', '2028-09-04', 'IN_TRANSIT'),
-    (5, 'bf546894-2af5-476e-93a0-9f96183a2b11', 'DEMO-EXP-2026-B003', 90, 6, 8, '2026-08-15', '2028-08-14', 'RECALLED');
-
+    (1, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'AK-PARA-2026-001', 1, 1, 20, 'Hộp', '2026-08-01', '2028-07-31', 'CREATED'),
+    (2, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'AK-AMOX-2026-002', 2, 1, 6, 'Hộp', '2026-09-01', '2028-08-31', 'RECALLED'),
+    (3, '264cdb4f-7a26-4390-a18d-b57bfbb4dafb', 'DEMO-EXP-2026-B001', 54, 1, 16, 'Hộp', '2026-09-01', '2028-08-31', 'CREATED'),
+    (4, 'e060159a-c060-4a7f-837c-dc509fc4acac', 'DEMO-EXP-2026-B002', 89, 6, 10, 'Hộp', '2026-09-05', '2028-09-04', 'IN_TRANSIT'),
+    (5, 'bf546894-2af5-476e-93a0-9f96183a2b11', 'DEMO-EXP-2026-B003', 90, 6, 8, 'Hộp', '2026-08-15', '2028-08-14', 'RECALLED');
 -- 9. Bảng qrCode (Điều chỉnh theo v10: 01 mã QR/Lô hàng, bỏ cột loaiQR và donViSanPhamId)
 INSERT INTO qrCode
     (id, giaTriQR, loThuocId, ngayTao, trangThai)

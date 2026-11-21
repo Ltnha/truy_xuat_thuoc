@@ -139,6 +139,7 @@ CREATE TABLE loThuoc (
     sanPhamId BIGINT NOT NULL,
     toChucId BIGINT NOT NULL COMMENT 'To chuc san xuat tao lo; chu so huu hien tai duoc quan ly tai tonKhoLo',
     soLuong INT NOT NULL COMMENT 'Tong so luong ban dau cua lo',
+    donViTinh VARCHAR(50) NOT NULL DEFAULT 'Hộp',
     ngaySanXuat DATE NOT NULL,
     hanSuDung DATE NOT NULL,
     trangThai ENUM('CREATED','IN_TRANSIT','RECALLED') NOT NULL DEFAULT 'CREATED',
