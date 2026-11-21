@@ -73,6 +73,16 @@ class LoThuoc extends Model
         return $this->hasMany(ChuyenGiao::class, 'loThuocId');
     }
 
+    public function qrCode(): HasOne
+    {
+        return $this->hasOne(QRCode::class, 'loThuocId');
+    }
+
+    public function qrCodes(): HasMany
+    {
+        return $this->hasMany(QRCode::class, 'loThuocId');
+    }
+
     public function thuHoiLoHang(): HasOne
     {
         return $this->hasOne(ThuHoiLoHang::class, 'loThuocId');

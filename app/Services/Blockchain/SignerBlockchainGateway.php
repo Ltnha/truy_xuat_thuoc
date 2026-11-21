@@ -5,6 +5,7 @@ namespace App\Services\Blockchain;
 use App\Exceptions\NghiepVuException;
 use App\Models\BlockchainIdentity;
 use App\Models\ToChuc;
+use kornrunner\Keccak;
 use App\Services\Blockchain\SignerClient;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -75,7 +76,7 @@ class SignerBlockchainGateway implements BlockchainGateway
             if ($payloadJson === false) {
                 throw new RuntimeException('Không thể chuẩn hóa payload sự kiện.');
             }
-            $payloadHash = '0x' . hash('sha256', $payloadJson);
+            $payloadHash = '0x' . Keccak::hash($payloadJson, 256);
 
             $existingEvent = $this->signer->findBatchEvent($batchId, $businessId, $eventType);
             if (! empty($existingEvent['isRecorded'])) {
@@ -87,6 +88,7 @@ class SignerBlockchainGateway implements BlockchainGateway
                     'txHash' => $existingHash,
                     'blockNumber' => $existingEvent['blockNumber'] ?? null,
                     'status' => 'confirmed',
+                    'payloadHash' => $payloadHash,
                 ];
             }
 
@@ -107,6 +109,7 @@ class SignerBlockchainGateway implements BlockchainGateway
             'txHash' => (string) $result['txHash'],
             'blockNumber' => isset($result['blockNumber']) ? (int) $result['blockNumber'] : null,
             'status' => 'confirmed',
+            'payloadHash' => $payloadHash ?? null,
         ];
     }
 

@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\TraCuu;
 
 use App\Http\Controllers\Controller;
-use App\Models\TraCuu;
 use App\Services\Blockchain\SignerClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,7 +17,7 @@ class TraCuuController extends Controller
     {
         return view('truyXuat.trangChu', [
             'soLo' => DB::table('loThuoc')->count(),
-            'soDonVi' => DB::table('donViSanPham')->count(),
+            'soDonVi' => (int) DB::table('loThuoc')->sum('soLuong'),
             'soGiaoDich' => DB::table('blockchainTransaction')->count(),
             'soLoThuHoi' => DB::table('loThuoc')->where('trangThai', 'RECALLED')->count(),
             'loThuHoi' => DB::table('loThuoc as lt')
@@ -32,9 +31,7 @@ class TraCuuController extends Controller
                 })
                 ->where('lt.trangThai', 'RECALLED')
                 ->select('lt.maLoNghiepVu', 'lt.id', 'sp.tenSanPham', 'sp.soDangKy', 'tc.tenToChuc', 'th.lyDo', 'btx.txHash')
-                ->latest('lt.id')
-                ->limit(10)
-                ->get(),
+                ->latest('lt.id')->limit(10)->get(),
         ]);
     }
 
@@ -42,16 +39,6 @@ class TraCuuController extends Controller
     {
         $ma = trim((string) ($ma ?: $request->query('maDinhDanh', '')));
         $ketQua = $ma === '' ? null : $this->timTheoMa($ma);
-
-        if ($ketQua && $ketQua['trangThai'] !== 'NOT_FOUND') {
-            TraCuu::query()->create([
-                'loThuocId' => $ketQua['loThuocId'],
-                'maQRHoacSerial' => mb_substr($ma, 0, 255),
-                'thoiGianTraCuu' => now(),
-                'diaChiIP' => $request->ip(),
-            ]);
-        }
-
         return view('truyXuat.ketQua', compact('ma', 'ketQua'));
     }
 
@@ -59,53 +46,21 @@ class TraCuuController extends Controller
     {
         $ketQua = $this->timTheoMa(trim($ma));
         unset($ketQua['loThuocId']);
-
         return response()->json($ketQua);
     }
 
     private function timTheoMa(string $ma): array
     {
-        $unit = DB::table('donViSanPham as dv')
-            ->join('loThuoc as lt', 'lt.id', '=', 'dv.loThuocId')
-            ->where(function ($query) use ($ma): void {
-                $query->where('dv.maDonVi', $ma)
-                    ->orWhereExists(function ($qrQuery) use ($ma): void {
-                        $qrQuery->selectRaw('1')
-                            ->from('qrCode as qr')
-                            ->whereColumn('qr.donViSanPhamId', 'dv.id')
-                            ->where('qr.giaTriQR', $ma);
-                    });
-            })
-            ->select('dv.id as donViId', 'dv.maDonVi', 'dv.trangThai as trangThaiDonVi', 'dv.ngayBan', 'lt.id as loThuocId')
-            ->first();
+        $loId = DB::table('qrCode')->where('giaTriQR', $ma)->where('trangThai', 'ACTIVE')->value('loThuocId');
+        $loId = $loId ?: DB::table('loThuoc')
+            ->where('maLoNghiepVu', $ma)->orWhere('maLo', $ma)->value('id');
 
-        $loThuocId = $unit?->loThuocId;
-        if ($loThuocId === null) {
-            $qrLo = DB::table('qrCode')
-                ->where('giaTriQR', $ma)
-                ->where('loaiQR', 'BATCH')
-                ->value('loThuocId');
-            $loThuocId = $qrLo ?: DB::table('loThuoc')
-                ->where('maLoNghiepVu', $ma)
-                ->orWhere('maLo', $ma)
-                ->value('id');
-        }
-
-        if ($loThuocId === null) {
+        if (! $loId) {
             return [
                 'trangThai' => 'NOT_FOUND',
-                'loai' => 'KHÔNG TÌM THẤY',
-                'tenThuoc' => 'Không tìm thấy mã trong hệ thống.',
-                'hamLuongDangBaoChe' => '—',
-                'hoatChat' => '—',
-                'soDangKy' => '—',
-                'nhaSanXuat' => '—',
+                'loai' => 'MÃ LÔ THUỐC',
+                'tenThuoc' => 'Không tìm thấy mã QR hoặc mã lô trong hệ thống.',
                 'maLo' => $ma,
-                'ngaySanXuat' => '—',
-                'hanSuDung' => '—',
-                'batchIdHash' => '—',
-                'txHash' => '—',
-                'isDispensed' => 'Không xác định',
                 'hanhTrinh' => [],
             ];
         }
@@ -113,86 +68,27 @@ class TraCuuController extends Controller
         $lo = DB::table('loThuoc as lt')
             ->join('sanPham as sp', 'sp.id', '=', 'lt.sanPhamId')
             ->join('toChuc as tc', 'tc.id', '=', 'lt.toChucId')
-            ->where('lt.id', $loThuocId)
-            ->select(
-                'lt.*',
-                'sp.maSanPham',
-                'sp.tenSanPham',
-                'sp.soDangKy',
-                'sp.thanhPhan as hoatChat',
-                'sp.hamLuong',
-                'sp.dangBaoChe',
-                'sp.quyCachDongGoi',
-                'sp.nhaSanXuatId',
-                'sp.trangThaiDuyet as trangThaiSanPham',
-                'tc.tenToChuc'
-            )
+            ->where('lt.id', $loId)
+            ->select('lt.*', 'sp.maSanPham', 'sp.tenSanPham', 'sp.soDangKy',
+                'sp.thanhPhan as hoatChat', 'sp.hamLuong', 'sp.dangBaoChe',
+                'sp.quyCachDongGoi', 'sp.nhaSanXuatId', 'sp.hashHoSo', 'sp.trangThaiDuyet as trangThaiSanPham',
+                'tc.tenToChuc')
             ->first();
 
-        $thuHoi = DB::table('thuHoiLoHang')->where('loThuocId', $lo->id)->latest('id')->first();
-        $batchTxHash = DB::table('blockchainTransaction')
-            ->where('loThuocId', $lo->id)
-            ->where('eventName', 'BatchRegistered')
-            ->where('trangThai', 'CONFIRMED')
-            ->latest('id')
-            ->value('txHash');
-        $unitTxHash = $unit
-            ? DB::table('blockchainTransaction')
-                ->where('donViSanPhamId', $unit->donViId)
-                ->where('trangThai', 'CONFIRMED')
-                ->latest('id')
-                ->value('txHash')
-            : null;
-        $steps = DB::table('lichSuLoThuoc')
-            ->where('loThuocId', $lo->id)
-            ->orderBy('thoiGian')
-            ->get()
-            ->map(fn ($step): array => [
-                'tieuDe' => $step->suKien,
-                'donVi' => $step->moTa ?: 'Lịch sử lô thuốc',
-                'thoiGian' => $step->thoiGian,
-                'canhBao' => str_contains($step->suKien, 'THU_HOI'),
-            ])
-            ->all();
-        $transferSteps = DB::table('chuyenGiao as cg')
-            ->join('toChuc as bg', 'bg.id', '=', 'cg.benGuiId')
-            ->join('toChuc as bn', 'bn.id', '=', 'cg.benNhanId')
-            ->where('cg.loThuocId', $lo->id)
-            ->where('cg.trangThai', 'RECEIVED')
-            ->orderBy('cg.thoiGianXacNhan')
-            ->get()
-            ->map(fn ($transfer): array => [
-                'tieuDe' => 'CHUYEN_GIAO_DA_TIEP_NHAN',
-                'donVi' => $transfer->benGui.' → '.$transfer->benNhan.' ('.$transfer->soLuong.' đơn vị)',
-                'thoiGian' => $transfer->thoiGianXacNhan,
-                'canhBao' => false,
-            ])
-            ->all();
+        if (! $lo) return ['trangThai' => 'NOT_FOUND', 'loai' => 'MÃ LÔ THUỐC', 'tenThuoc' => 'Không tìm thấy lô.', 'maLo' => $ma, 'hanhTrinh' => []];
 
-        $batchIdBytes32 = '0x' . hash('sha256', 'BATCH_' . (string) $lo->maLo);
-        $productIdBytes32 = '0x' . hash('sha256', 'PRODUCT_' . (string) $lo->maSanPham);
-        $chainReadStatus = 'UNAVAILABLE';
-        $chainTransferReadStatus = 'UNAVAILABLE';
-        $chainBatch = null;
-        $chainHistory = [];
-        $chainTransfers = [];
+        $batchId = '0x' . hash('sha256', 'BATCH_' . (string) $lo->maLo);
+        $productId = '0x' . hash('sha256', 'PRODUCT_' . (string) $lo->maSanPham);
+        $batch = null;
+        $history = [];
         $productIntegrity = 'UNVERIFIED';
+        $chainReadStatus = 'UNAVAILABLE';
 
         try {
-            $chainBatch = $this->signer->getBatchState($batchIdBytes32);
-            $historyResponse = $this->signer->getBatchHistory($batchIdBytes32);
-            $chainHistory = $historyResponse['events'] ?? [];
-
-            $chainTransferReadStatus = 'AVAILABLE';
-            foreach (($chainBatch['transferIds'] ?? []) as $transferId) {
-                $transferResponse = $this->signer->getTransferState((string) $transferId);
-                if (! empty($transferResponse['transfer'])) {
-                    $chainTransfers[] = $transferResponse['transfer'];
-                }
-            }
-
-            $approval = $this->signer->isProductApproved($productIdBytes32);
-            $productPayload = [
+            $batch = $this->signer->getBatchState($batchId);
+            $history = $this->signer->getBatchHistory($batchId)['events'] ?? [];
+            $approval = $this->signer->isProductApproved($productId);
+            $payload = [
                 'maSanPham' => (string) $lo->maSanPham,
                 'tenSanPham' => (string) $lo->tenSanPham,
                 'soDangKy' => (string) $lo->soDangKy,
@@ -202,88 +98,100 @@ class TraCuuController extends Controller
                 'quyCachDongGoi' => $lo->quyCachDongGoi,
                 'nhaSanXuatId' => (int) $lo->nhaSanXuatId,
             ];
-            $productPayloadJson = json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
-            $expectedProductHash = $productPayloadJson === false ? null : '0x' . hash('sha256', $productPayloadJson);
-            $productIntegrity = empty($approval['isApproved'])
-                ? 'NOT_APPROVED_ON_CHAIN'
-                : (strtolower((string) ($approval['payloadHash'] ?? '')) === strtolower((string) $expectedProductHash)
-                    ? 'MATCH'
-                    : 'MISMATCH');
+            $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+            $expectedHash = $json === false ? null : '0x' . hash('sha256', $json);
+            $productIntegrity = empty($approval['isApproved']) ? 'NOT_APPROVED_ON_CHAIN'
+                : (strtolower((string) ($approval['payloadHash'] ?? '')) === strtolower((string) $expectedHash)
+                    && (empty($lo->hashHoSo) || strtolower((string) $lo->hashHoSo) === strtolower((string) $expectedHash)) ? 'MATCH' : 'MISMATCH');
             $chainReadStatus = 'AVAILABLE';
-        } catch (\\Throwable $exception) {
+        } catch (\Throwable $exception) {
             report($exception);
         }
 
-        $chainRecalled = ! empty($chainBatch['batch']['recalled']);
-        $batchExistsOnChain = ! empty($chainBatch['batch']['exists']);
-        $ngayHetHan = (string) $lo->hanSuDung;
-        $status = ($lo->trangThai === 'RECALLED' || $chainRecalled)
-            ? 'RECALLED'
-            : ($chainReadStatus !== 'AVAILABLE'
-                ? 'UNAVAILABLE'
-                : (! $batchExistsOnChain
-                    ? 'NOT_REGISTERED_ON_CHAIN'
-                    : ($ngayHetHan < today()->toDateString() ? 'EXPIRED' : ($lo->trangThaiSanPham === 'DA_DUYET' && $productIntegrity === 'MATCH' ? 'VALID' : 'INVALID'))));
+        $chainRecalled = ! empty($batch['batch']['recalled']);
+        $batchExists = ! empty($batch['batch']['exists']);
+        $expired = (string) $lo->hanSuDung < today()->toDateString();
+        $status = ($lo->trangThai === 'RECALLED' || $chainRecalled) ? 'RECALLED'
+            : ($expired ? 'EXPIRED'
+                : ($chainReadStatus !== 'AVAILABLE' ? 'UNAVAILABLE'
+                    : (! $batchExists ? 'NOT_REGISTERED_ON_CHAIN'
+                        : ($lo->trangThaiSanPham === 'DA_DUYET' && $productIntegrity === 'MATCH' ? 'VALID' : 'INVALID'))));
+
+        $transfers = DB::table('chuyenGiao as cg')
+            ->join('toChuc as bg', 'bg.id', '=', 'cg.benGuiId')
+            ->join('toChuc as bn', 'bn.id', '=', 'cg.benNhanId')
+            ->where('cg.loThuocId', $lo->id)->orderBy('cg.id')
+            ->get(['cg.trangThai', 'cg.soLuong', 'cg.thoiGianKhoiTao', 'cg.thoiGianXacNhan', 'bg.tenToChuc as benGui', 'bn.tenToChuc as benNhan'])
+            ->map(fn ($row) => [
+                'tieuDe' => 'CHUYEN_GIAO_' . $row->trangThai,
+                'donVi' => $row->benGui . ' → ' . $row->benNhan . ' (' . $row->soLuong . ' đơn vị)',
+                'thoiGian' => $row->thoiGianXacNhan ?: $row->thoiGianKhoiTao,
+                'canhBao' => false,
+            ])->all();
+
+        $sales = DB::table('chiTietBanLe as ct')
+            ->join('banLe as bl', 'bl.id', '=', 'ct.banLeId')
+            ->where('ct.loThuocId', $lo->id)->where('bl.trangThai', 'DA_HOAN_TAT')
+            ->orderBy('bl.ngayBan')->get(['bl.maHoaDon', 'bl.ngayBan', 'ct.soLuong'])
+            ->map(fn ($row) => [
+                'tieuDe' => 'SOLD',
+                'donVi' => "Hóa đơn {$row->maHoaDon}: bán {$row->soLuong} đơn vị.",
+                'thoiGian' => $row->ngayBan,
+                'canhBao' => false,
+            ])->all();
 
         $chainSteps = array_map(function (array $event): array {
-            $args = $event['args'] ?? [];
             $eventName = (string) ($event['eventName'] ?? 'BlockchainEvent');
-            $timestamp = (int) ($event['timestamp'] ?? 0);
-            $details = match ($eventName) {
-                'BatchRegistered' => 'Ví nhà sản xuất: ' . ($args['manufacturer'] ?? '—'),
-                'BatchEventRecorded' => 'Ví thực hiện: ' . ($args['actor'] ?? '—') . ' · eventType: ' . ($args['eventType'] ?? '—'),
-                'BatchOwnerChanged' => ($args['oldOwner'] ?? '—') . ' → ' . ($args['newOwner'] ?? '—'),
-                'TransferSubmitted' => ($args['sender'] ?? '—') . ' → ' . ($args['receiver'] ?? '—'),
-                'TransferReceived' => 'Bên nhận: ' . ($args['receiver'] ?? '—'),
-                'TransferRejected' => 'Bên nhận: ' . ($args['receiver'] ?? '—') . ' · reasonHash: ' . ($args['reasonHash'] ?? '—'),
-                'TransferCancelled' => 'Bên gửi: ' . ($args['sender'] ?? '—'),
-                'BatchRecalled' => 'Ví thu hồi: ' . ($args['actor'] ?? '—'),
-                default => 'Sự kiện được ghi nhận trên Ethereum Sepolia',
-            };
+            $args = $event['args'] ?? [];
             return [
                 'tieuDe' => $eventName,
-                'donVi' => $details,
-                'thoiGian' => $timestamp > 0 ? \\Illuminate\\Support\\Carbon::createFromTimestamp($timestamp)->toDateTimeString() : null,
-                'timestamp' => $timestamp,
+                'donVi' => $eventName === 'BatchOwnerChanged'
+                    ? (($args['oldOwner'] ?? '—') . ' → ' . ($args['newOwner'] ?? '—'))
+                    : 'Sự kiện được ghi nhận trên Ethereum Sepolia.',
+                'thoiGian' => ! empty($event['timestamp']) ? \Illuminate\Support\Carbon::createFromTimestamp((int) $event['timestamp'])->toDateTimeString() : null,
+                'timestamp' => (int) ($event['timestamp'] ?? 0),
                 'canhBao' => $eventName === 'BatchRecalled',
                 'txHash' => $event['txHash'] ?? null,
                 'blockNumber' => $event['blockNumber'] ?? null,
             ];
-        }, $chainHistory);
+        }, $history);
 
-        $hanhTrinh = [...$steps, ...$transferSteps, ...$chainSteps];
-        usort($hanhTrinh, function (array $a, array $b): int {
-            $ta = isset($a['timestamp']) ? (int) $a['timestamp'] : (isset($a['thoiGian']) ? strtotime((string) $a['thoiGian']) : 0);
-            $tb = isset($b['timestamp']) ? (int) $b['timestamp'] : (isset($b['thoiGian']) ? strtotime((string) $b['thoiGian']) : 0);
-            return $ta <=> $tb;
-        });
+        $timeline = [...$transfers, ...$sales, ...$chainSteps];
+        usort($timeline, fn ($a, $b) => strtotime((string) ($a['thoiGian'] ?? '1970-01-01')) <=> strtotime((string) ($b['thoiGian'] ?? '1970-01-01')));
+
+        $soldQuantity = (int) DB::table('chiTietBanLe as ct')
+            ->join('banLe as bl', 'bl.id', '=', 'ct.banLeId')
+            ->where('ct.loThuocId', $lo->id)->where('bl.trangThai', 'DA_HOAN_TAT')->sum('ct.soLuong');
+
+        $batchTx = DB::table('blockchainTransaction')->where('loThuocId', $lo->id)
+            ->where('eventName', 'BatchRegistered')->where('trangThai', 'CONFIRMED')->latest('id')->value('txHash');
 
         return [
             'trangThai' => $status,
-            'loai' => $unit ? 'MÃ ĐƠN VỊ HỘP LẺ' : 'MÃ LÔ THUỐC',
-            'tenThuoc' => $lo->tenSanPham.($unit ? ' · '.$unit->maDonVi : ''),
+            'loai' => 'MÃ LÔ THUỐC',
+            'tenThuoc' => $lo->tenSanPham,
             'hamLuongDangBaoChe' => $lo->quyCachDongGoi ?: '—',
             'hoatChat' => $lo->hoatChat ?: '—',
             'soDangKy' => $lo->soDangKy,
             'nhaSanXuat' => $lo->tenToChuc,
             'maLo' => $lo->maLoNghiepVu,
             'ngaySanXuat' => $lo->ngaySanXuat,
-            'hanSuDung' => $ngayHetHan,
-            'batchIdHash' => $batchIdBytes32,
-            'txHash' => ($unitTxHash ?: $batchTxHash) ?: 'Chưa có giao dịch blockchain',
+            'hanSuDung' => $lo->hanSuDung,
+            'batchIdHash' => $batchId,
+            'txHash' => $batchTx ?: ($batch['registerTxHash'] ?? 'Chưa có giao dịch blockchain'),
             'productIntegrity' => $productIntegrity,
             'chainReadStatus' => $chainReadStatus,
-            'batchExistsOnChain' => $batchExistsOnChain,
-            'chainOwner' => $chainBatch['batch']['currentOwner'] ?? null,
+            'batchExistsOnChain' => $batchExists,
+            'chainOwner' => $batch['batch']['currentOwner'] ?? null,
             'chainRecalled' => $chainRecalled,
-            'chainTransferIds' => $chainBatch['transferIds'] ?? [],
-            'chainTransfers' => $chainTransfers,
-            'chainTransferReadStatus' => $chainTransferReadStatus,
-            'chainHistory' => $chainHistory,
-            'isDispensed' => ! $unit ? 'N/A (cấp lô)' : ($unit->trangThaiDonVi === 'DISPENSED' ? 'ĐÃ BÁN' : 'CHƯA BÁN'),
-            'lyDoThuHoi' => $thuHoi?->lyDo,
+            'chainTransferIds' => $batch['transferIds'] ?? [],
+            'chainTransfers' => [],
+            'chainTransferReadStatus' => $chainReadStatus,
+            'chainHistory' => $history,
+            'isDispensed' => "Đã bán {$soldQuantity} đơn vị từ lô",
+            'lyDoThuHoi' => DB::table('thuHoiLoHang')->where('loThuocId', $lo->id)->value('lyDo'),
             'loThuocId' => (int) $lo->id,
-            'hanhTrinh' => $hanhTrinh,
+            'hanhTrinh' => $timeline,
         ];
     }
 }

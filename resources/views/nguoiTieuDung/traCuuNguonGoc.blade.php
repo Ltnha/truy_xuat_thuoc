@@ -47,7 +47,7 @@
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm pointer-events-none">
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </span>
-                    <input type="text" id="oNhapMa" value="<?php echo isset($_GET['maDinhDanh']) ? htmlspecialchars($_GET['maDinhDanh']) : ''; ?>" placeholder="Nhập mã lô (VD: LOT-PARA-2026) hoặc mã hộp (VD: UNIT-PARA-00891)..." class="w-full pl-10 pr-4 py-3 bg-[#f2faf5] border border-emerald-900/15 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 outline-none transition-all">
+                    <input type="text" id="oNhapMa" value="<?php echo isset($_GET['maDinhDanh']) ? htmlspecialchars($_GET['maDinhDanh']) : ''; ?>" placeholder="Nhập mã lô nghiệp vụ hoặc quét mã QR đại diện cho lô thuốc..." class="w-full pl-10 pr-4 py-3 bg-[#f2faf5] border border-emerald-900/15 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 outline-none transition-all">
                 </div>
                 <button type="button" id="nutXacNhanTraCuu" class="bg-emerald-700 hover:bg-emerald-800 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-shield-halved"></i> Xác Thực Ngay
@@ -58,7 +58,6 @@
                 <button type="button" class="btn-mau px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-emerald-700 font-mono font-bold" data-ma="LOT-PARA-2026">LOT-PARA-2026 (Hợp lệ)</button>
                 <button type="button" class="btn-mau px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-red-600 font-mono font-bold" data-ma="LOT-AMOX-2025-09">LOT-AMOX-2025-09 (Đã thu hồi)</button>
                 <button type="button" class="btn-mau px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-amber-600 font-mono font-bold" data-ma="LOT-EXPIRED-2024">LOT-EXPIRED-2024 (Quá hạn)</button>
-                <button type="button" class="btn-mau px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded text-slate-800 font-mono font-bold" data-ma="UNIT-PARA-00891">UNIT-PARA-00891 (Đơn vị lẻ)</button>
             </div>
         </div>
 
@@ -149,9 +148,9 @@
                         <div class="text-[11px] font-bold text-amber-800 truncate"><i class="fa-solid fa-hourglass-end text-amber-600 mr-1"></i> Quá hạn</div>
                         <div class="text-[10px] text-slate-500 font-mono truncate">LOT-EXPIRED-2024</div>
                     </button>
-                    <button type="button" class="btn-anh-mau py-2 px-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-left transition-all cursor-pointer" data-ma="UNIT-PARA-00891" data-ten="tem-qr-hop-le-ban-le.png">
-                        <div class="text-[11px] font-bold text-slate-800 truncate"><i class="fa-solid fa-box text-cyan-800 mr-1"></i> Hộp bán lẻ</div>
-                        <div class="text-[10px] text-slate-500 font-mono truncate">UNIT-PARA-00891</div>
+                    <button type="button" class="btn-anh-mau py-2 px-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-left transition-all cursor-pointer" data-ma="LOT-PARA-2026" data-ten="tem-qr-hop-le-ban-le.png">
+                        <div class="text-[11px] font-bold text-slate-800 truncate"><i class="fa-solid fa-box text-cyan-800 mr-1"></i> QR lô thuốc</div>
+                        <div class="text-[10px] text-slate-500 font-mono truncate">LOT-PARA-2026</div>
                     </button>
                 </div>
             </div>
@@ -160,7 +159,7 @@
             <div class="max-w-2xl mx-auto flex items-start gap-2.5 p-3.5 bg-cyan-50/80 rounded-xl border border-cyan-800/15 text-xs text-cyan-900 text-left">
                 <i class="fa-solid fa-circle-info text-cyan-800 mt-0.5 shrink-0"></i>
                 <div class="leading-relaxed">
-                    <strong>Hướng dẫn:</strong> Chụp ảnh tem nhãn mã QR trên vỏ hộp thuốc hoặc đơn vị sản phẩm. Hệ thống sẽ tự động quét, giải mã và đối chiếu nguồn gốc trên Blockchain tức thì.
+                    <strong>Hướng dẫn:</strong> Chụp ảnh mã QR đại diện cho toàn bộ lô thuốc. Hệ thống sẽ tự động quét, giải mã và đối chiếu nguồn gốc trên Blockchain tức thì.
                 </div>
             </div>
         </div>
@@ -273,7 +272,7 @@
                         <span id="chainBatchStatus" class="font-semibold text-slate-900"></span>
                     </div>
                     <div>
-                        <span class="text-slate-500 block mb-1">Trạng thái cờ bán lẻ (Unit Flag):</span>
+                        <span class="text-slate-500 block mb-1">Số lượng đã bán từ lô:</span>
                         <span id="coBanLe" class="font-bold px-2.5 py-1 rounded text-[11px] inline-block"></span>
                     </div>
                 </div>

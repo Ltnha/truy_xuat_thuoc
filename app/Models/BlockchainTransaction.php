@@ -11,6 +11,16 @@ class BlockchainTransaction extends Model
     public $timestamps = false;
     protected $guarded = ['id'];
 
+    protected function casts(): array
+    {
+        return [
+            'thoiGian' => 'datetime',
+            'lanThuCuoi' => 'datetime',
+            'blockNumber' => 'integer',
+            'soLanThu' => 'integer',
+        ];
+    }
+
     public function chuyenGiao(): BelongsTo
     {
         return $this->belongsTo(ChuyenGiao::class, 'chuyenGiaoId');
@@ -19,5 +29,15 @@ class BlockchainTransaction extends Model
     public function loThuoc(): BelongsTo
     {
         return $this->belongsTo(LoThuoc::class, 'loThuocId');
+    }
+
+    public function banLe(): BelongsTo
+    {
+        return $this->belongsTo(BanLe::class, 'banLeId');
+    }
+
+    public function chiTietBanLe(): BelongsTo
+    {
+        return $this->belongsTo(ChiTietBanLe::class, 'chiTietBanLeId');
     }
 }

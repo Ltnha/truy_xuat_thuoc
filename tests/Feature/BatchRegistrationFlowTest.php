@@ -11,7 +11,6 @@ use App\Models\TaiKhoan;
 use App\Models\ToChuc;
 use App\Services\Blockchain\SignerClient;
 use App\Services\ChuoiCungUng\TonKhoService;
-use App\Services\LoThuoc\DonViSanPhamService;
 use App\Services\LoThuoc\QrService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
@@ -88,26 +87,13 @@ class BatchRegistrationFlowTest extends TestCase
             $table->unsignedBigInteger('sanPhamId')->nullable();
             $table->unsignedBigInteger('loThuocId')->nullable();
             $table->unsignedBigInteger('chuyenGiaoId')->nullable();
-            $table->unsignedBigInteger('donViSanPhamId')->nullable();
             $table->unsignedBigInteger('banLeId')->nullable();
-        });
-
-        Schema::create('donViSanPham', function (Blueprint $table): void {
-            $table->id();
-            $table->string('maDonVi')->unique();
-            $table->unsignedBigInteger('loThuocId');
-            $table->unsignedBigInteger('banLeId')->nullable();
-            $table->string('trangThai')->default('AVAILABLE');
-            $table->dateTime('ngayTao')->nullable();
-            $table->dateTime('ngayBan')->nullable();
         });
 
         Schema::create('qrCode', function (Blueprint $table): void {
             $table->id();
             $table->string('giaTriQR')->unique();
-            $table->string('loaiQR');
             $table->unsignedBigInteger('loThuocId')->nullable();
-            $table->unsignedBigInteger('donViSanPhamId')->nullable();
             $table->dateTime('ngayTao')->nullable();
             $table->string('trangThai')->default('ACTIVE');
         });
@@ -277,8 +263,21 @@ class BatchRegistrationFlowTest extends TestCase
         ]);
 
         // Mock SignerClient
+        $productPayload = [
+            'maSanPham' => (string) $sanPham->maSanPham,
+            'tenSanPham' => (string) $sanPham->tenSanPham,
+            'soDangKy' => (string) $sanPham->soDangKy,
+            'thanhPhan' => null,
+            'hamLuong' => null,
+            'dangBaoChe' => null,
+            'quyCachDongGoi' => null,
+            'nhaSanXuatId' => (int) $sanPham->nhaSanXuatId,
+        ];
+        $payloadJson = json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
+        $payloadHash = '0x' . hash('sha256', $payloadJson);
+
         $mockSigner = Mockery::mock(SignerClient::class);
-        $mockSigner->shouldReceive('isProductApproved')->once()->andReturn(['ok' => true, 'isApproved' => true]);
+        $mockSigner->shouldReceive('isProductApproved')->once()->andReturn(['ok' => true, 'isApproved' => true, 'payloadHash' => $payloadHash]);
         $mockSigner->shouldReceive('getBatchState')->once()->andReturn(['ok' => true, 'batch' => ['exists' => false]]);
         $mockSigner->shouldReceive('ensureGas')->once()->andReturnNull();
         $mockSigner->shouldReceive('tx')->once()->andReturn([
@@ -288,12 +287,7 @@ class BatchRegistrationFlowTest extends TestCase
         ]);
 
         $job = new ProcessBatchRegistrationJob($loThuoc->id, $taiKhoan->id);
-        $job->handle(
-            $mockSigner,
-            app(DonViSanPhamService::class),
-            app(QrService::class),
-            app(TonKhoService::class)
-        );
+        $job->handle($mockSigner, app(QrService::class), app(TonKhoService::class));
 
         // Kiểm tra sau khi Job chạy:
         // 1. Transaction được CONFIRMED với hash thật
@@ -301,9 +295,9 @@ class BatchRegistrationFlowTest extends TestCase
         $this->assertSame('CONFIRMED', $bctx->trangThai);
         $this->assertStringStartsWith('0x', $bctx->txHash);
 
-        // 2. Các đơn vị thuốc đã được sinh
-        $donViCount = DB::table('donViSanPham')->where('loThuocId', $loThuoc->id)->count();
-        $this->assertSame($soLuong, $donViCount);
+        // 2. Một QR duy nhất đại diện cho toàn bộ lô
+        $qrCount = DB::table('qrCode')->where('loThuocId', $loThuoc->id)->count();
+        $this->assertSame(1, $qrCount);
 
         // 3. Tồn kho được khởi tạo
         $tonKho = DB::table('tonKhoLo')->where('loThuocId', $loThuoc->id)->where('toChucId', $toChuc->id)->first();
@@ -325,16 +319,11 @@ class BatchRegistrationFlowTest extends TestCase
         $mockSignerRetry->shouldNotReceive('tx');
 
         $jobRetry = new ProcessBatchRegistrationJob($loThuoc->id, $taiKhoan->id);
-        $jobRetry->handle(
-            $mockSignerRetry,
-            app(DonViSanPhamService::class),
-            app(QrService::class),
-            app(TonKhoService::class)
-        );
+        $jobRetry->handle($mockSignerRetry, app(QrService::class), app(TonKhoService::class));
 
-        // Tồn kho và đơn vị sản phẩm KHÔNG bị nhân đôi
-        $donViCountSauRetry = DB::table('donViSanPham')->where('loThuocId', $loThuoc->id)->count();
-        $this->assertSame($soLuong, $donViCountSauRetry);
+        // Tồn kho và QR lô KHÔNG bị nhân đôi
+        $qrCountSauRetry = DB::table('qrCode')->where('loThuocId', $loThuoc->id)->count();
+        $this->assertSame(1, $qrCountSauRetry);
 
         $tonKhoSauRetry = DB::table('tonKhoLo')->where('loThuocId', $loThuoc->id)->where('toChucId', $toChuc->id)->first();
         $this->assertSame($soLuong, $tonKhoSauRetry->soLuong);

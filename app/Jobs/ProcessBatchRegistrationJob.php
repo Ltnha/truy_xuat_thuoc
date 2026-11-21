@@ -8,7 +8,6 @@ use App\Models\LoThuoc;
 use App\Models\NhatKyHeThong;
 use App\Services\Blockchain\SignerClient;
 use App\Services\ChuoiCungUng\TonKhoService;
-use App\Services\LoThuoc\DonViSanPhamService;
 use App\Services\LoThuoc\QrService;
 use Exception;
 use Illuminate\Bus\Queueable;
@@ -30,7 +29,6 @@ class ProcessBatchRegistrationJob implements ShouldQueue
 
     public function handle(
         SignerClient $signer,
-        DonViSanPhamService $donViSanPhamService,
         QrService $qrService,
         TonKhoService $tonKhoService
     ): void {
@@ -114,7 +112,7 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             throw new Exception('Lô đã tồn tại on-chain nhưng không truy xuất được txHash BatchRegistered thật; cần đối soát RPC, không tạo hash thay thế.');
         }
 
-        DB::transaction(function () use ($loThuoc, $txHash, $blockNumber, $blockTimestamp, $donViSanPhamService, $qrService, $tonKhoService): void {
+        DB::transaction(function () use ($loThuoc, $txHash, $blockNumber, $blockTimestamp, $qrService, $tonKhoService): void {
             $blockTime = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
             $bctx = BlockchainTransaction::query()
                 ->where('loThuocId', $loThuoc->id)
@@ -145,17 +143,12 @@ class ProcessBatchRegistrationJob implements ShouldQueue
 
             $loThuoc->update(['trangThai' => 'CREATED']);
 
-            if (! DB::table('donViSanPham')->where('loThuocId', $loThuoc->id)->exists()) {
-                $donViSanPhamService->sinhHangLoat($loThuoc);
-            }
-
-            if (! DB::table('qrCode')->where('loThuocId', $loThuoc->id)->where('loaiQR', 'BATCH')->exists()) {
+            if (! DB::table('qrCode')->where('loThuocId', $loThuoc->id)->exists()) {
                 $qrService->sinhChoLo($loThuoc);
             }
 
             $coTonKho = DB::table('tonKhoLo')
                 ->where('loThuocId', $loThuoc->id)
-                ->where('toChucId', $loThuoc->toChucId)
                 ->exists();
 
             if (! $coTonKho) {

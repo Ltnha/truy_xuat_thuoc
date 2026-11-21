@@ -29,6 +29,7 @@ use App\Http\Controllers\QuanTri\NhatKyController;
 // --- CONTROLLERS NHÀ PHÂN PHỐI & NHÀ THUỐC ---
 use App\Http\Controllers\NhaPhanPhoi\QuanLyLoHangController;
 use App\Http\Controllers\NhaThuoc\TiepNhanLoHangController;
+use App\Http\Controllers\ChuoiCungUng\BanLeController;
 
 // --- CONTROLLERS BÁO CÁO & BLOCKCHAIN ---
 use App\Http\Controllers\BaoCao\BaoCaoNghiVanController;
@@ -208,8 +209,12 @@ Route::middleware(['auth', 'tai.khoan.hoat.dong'])->group(function () {
             Route::post('/api/tu-choi/{id}', [TiepNhanLoHangController::class, 'tuChoi'])
                 ->name('nha-thuoc.api.tu-choi');
 
-            Route::get('/quan-ly-ban-hang', fn() => view('nhaThuoc.quanLyBanHang'))
-                ->name('nha-thuoc.ban-hang');
+            Route::get('/quan-ly-ban-hang', [BanLeController::class, 'index'])->name('nha-thuoc.ban-hang');
+            Route::get('/api/ton-kho-ban-le', [BanLeController::class, 'tonKho'])->name('nha-thuoc.api.ton-kho-ban-le');
+            Route::get('/api/tra-cuu-lo-ban-le', [BanLeController::class, 'traCuu'])->name('nha-thuoc.api.tra-cuu-lo-ban-le');
+            Route::post('/api/ban-le', [BanLeController::class, 'store'])->name('nha-thuoc.api.ban-le');
+            Route::get('/api/lich-su-ban-le', [BanLeController::class, 'lichSu'])->name('nha-thuoc.api.lich-su-ban-le');
+            Route::post('/api/ban-le/{id}/dong-bo-lai', [BanLeController::class, 'dongBoLai'])->name('nha-thuoc.api.ban-le.dong-bo-lai');
             Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'indexAuth'])
                 ->name('nha-thuoc.bao-cao');
         });

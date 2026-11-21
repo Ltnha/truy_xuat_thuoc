@@ -1,17 +1,3 @@
-/* Tùy chỉnh hiệu ứng tương tác dòng bảng */
-.dong-gio-hang:hover,
-.dong-ton-kho:hover,
-.dong-lich-su:hover {
-  background-color: #f2faf5 !important;
-}
-
-/* KHÓA CỨNG GIAO DIỆN NHÃN (BADGE) CHỐNG VỠ NỀN & KHÔNG RỚT CHỮ */
-.badge-chuan {
-  display: inline-flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  white-space: nowrap !important;
-  gap: 0.375rem !important;
-  line-height: 1 !important;
-  flex-shrink: 0 !important;
-}
+.dong-ban-le:hover { background: #f2faf5; }
+.badge-ban-le { display:inline-flex; align-items:center; border-radius:9999px; padding:.25rem .65rem; font-size:.7rem; font-weight:700; white-space:nowrap; }
+#banLeApp input:focus { box-shadow: 0 0 0 3px rgba(8,145,178,.12); }

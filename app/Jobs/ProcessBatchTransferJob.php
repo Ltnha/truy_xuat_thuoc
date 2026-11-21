@@ -244,8 +244,12 @@ class ProcessBatchTransferJob implements ShouldQueue
                     $loThuoc->update(['trangThai' => BatchStatus::inTransit->value]);
                 }
             } elseif ($this->eventName === 'TransferReceived' && $lockedCg->trangThai === TransferStatus::pending) {
-                $tonKhoService->tru((int) $loThuoc->id, (int) $lockedCg->benGuiId, (int) $lockedCg->soLuong);
-                $tonKhoService->cong((int) $loThuoc->id, (int) $lockedCg->benNhanId, (int) $lockedCg->soLuong);
+                $tonKhoService->chuyenChuSoHuu(
+                    (int) $loThuoc->id,
+                    (int) $lockedCg->benGuiId,
+                    (int) $lockedCg->benNhanId,
+                    (int) $lockedCg->soLuong
+                );
                 $lockedCg->update([
                     'trangThai' => TransferStatus::received,
                     'thoiGianXacNhan' => $blockTime,

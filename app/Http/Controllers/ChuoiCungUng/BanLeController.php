@@ -4,60 +4,136 @@ namespace App\Http\Controllers\ChuoiCungUng;
 
 use App\Exceptions\NghiepVuException;
 use App\Http\Controllers\Controller;
+use App\Models\BanLe;
 use App\Services\ChuoiCungUng\BanLeService;
-use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class BanLeController extends Controller
 {
-    public function __construct(private BanLeService $banLeService)
+    public function __construct(private BanLeService $banLeService) {}
+
+    public function index(): View
     {
+        return view('nhaThuoc.quanLyBanHang');
     }
 
-    public function index(Request $request): View
+    public function tonKho(Request $request): JsonResponse
     {
-        $organizationId = $request->user()->toChucId;
-        abort_if($organizationId === null, 403, 'Tài khoản chưa được liên kết với tổ chức.');
+        $organization = $request->user()?->toChuc;
+        abort_if(! $organization, 403, 'Tài khoản chưa được liên kết với tổ chức.');
 
-        $tonKho = DB::table('tonKhoLo as tk')
-            ->join('loThuoc as lt', 'lt.id', '=', 'tk.loThuocId')
-            ->join('sanPham as sp', 'sp.id', '=', 'lt.sanPhamId')
-            ->where('tk.toChucId', $organizationId)
-            ->where('tk.soLuong', '>', 0)
-            ->where('lt.trangThai', '!=', 'RECALLED')
-            ->whereDate('lt.hanSuDung', '>=', today())
-            ->select('lt.id', 'lt.maLoNghiepVu', 'sp.tenSanPham', 'tk.soLuong', 'lt.hanSuDung')
-            ->orderBy('lt.hanSuDung')
-            ->get();
-        $banLes = DB::table('banLe as bl')
-            ->join('donViSanPham as dv', 'dv.banLeId', '=', 'bl.id')
-            ->join('loThuoc as lt', 'lt.id', '=', 'dv.loThuocId')
-            ->join('sanPham as sp', 'sp.id', '=', 'lt.sanPhamId')
-            ->where('bl.toChucId', $organizationId)
-            ->select('bl.maBanLe', 'bl.ngayBan', 'bl.txHash', 'dv.maDonVi', 'lt.maLoNghiepVu', 'sp.tenSanPham')
-            ->orderByDesc('bl.id')
-            ->limit(50)
-            ->get();
-
-        return view('chuoiCungUng.banLe', compact('tonKho', 'banLes'));
-    }
-
-    public function store(Request $request): RedirectResponse
-    {
-        $data = $request->validate([
-            'maDinhDanh' => ['required', 'string', 'max:100'],
+        return response()->json([
+            'success' => true,
+            'data' => $this->banLeService->danhSachTonKho($organization, trim((string) $request->query('q'))),
         ]);
-        $organization = $request->user()->toChuc;
-        abort_if($organization === null, 403, 'Tài khoản chưa được liên kết với tổ chức.');
+    }
+
+    public function traCuu(Request $request): JsonResponse
+    {
+        $data = $request->validate(['ma' => ['required', 'string', 'max:255']]);
+        $organization = $request->user()?->toChuc;
+        abort_if(! $organization, 403, 'Tài khoản chưa được liên kết với tổ chức.');
 
         try {
-            $this->banLeService->banLe($data['maDinhDanh'], $organization, $request->user(), $request->ip());
+            return response()->json([
+                'success' => true,
+                'data' => $this->banLeService->traCuuLo($data['ma'], $organization),
+            ]);
         } catch (NghiepVuException $exception) {
-            return back()->withInput()->with('loi', $exception->getMessage());
+            return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
         }
+    }
 
-        return back()->with('thanhCong', 'Đã ghi nhận bán lẻ và cập nhật tồn kho.');
+    public function store(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'items' => ['required', 'array', 'min:1', 'max:50'],
+            'items.*.loThuocId' => ['required', 'integer', 'distinct', 'exists:loThuoc,id'],
+            'items.*.soLuong' => ['required', 'integer', 'min:1'],
+            'items.*.donGia' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
+            'ghiChu' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $organization = $request->user()?->toChuc;
+        abort_if(! $organization, 403, 'Tài khoản chưa được liên kết với tổ chức.');
+
+        try {
+            $invoice = $this->banLeService->banLe(
+                $data['items'],
+                $organization,
+                $request->user(),
+                $data['ghiChu'] ?? null
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Hóa đơn đã được lưu. Các sự kiện SOLD đang được đưa vào hàng đợi đồng bộ Sepolia.',
+                'data' => $this->formatInvoice($invoice),
+            ], 201);
+        } catch (NghiepVuException $exception) {
+            return response()->json(['success' => false, 'message' => $exception->getMessage()], 422);
+        }
+    }
+
+    public function lichSu(Request $request): JsonResponse
+    {
+        $organization = $request->user()?->toChuc;
+        abort_if(! $organization, 403, 'Tài khoản chưa được liên kết với tổ chức.');
+
+        $invoices = BanLe::query()
+            ->with(['chiTietBanLes.loThuoc.sanPham', 'blockchainTransactions'])
+            ->where('toChucId', $organization->id)
+            ->latest('ngayBan')
+            ->limit(50)
+            ->get()
+            ->map(fn (BanLe $invoice) => $this->formatInvoice($invoice));
+
+        return response()->json(['success' => true, 'data' => $invoices]);
+    }
+
+    public function dongBoLai(Request $request, int $id): JsonResponse
+    {
+        $organization = $request->user()?->toChuc;
+        abort_if(! $organization, 403, 'Tài khoản chưa được liên kết với tổ chức.');
+
+        $invoice = BanLe::with('blockchainTransactions')
+            ->where('toChucId', $organization->id)
+            ->findOrFail($id);
+
+        $count = $this->banLeService->guiLaiDongBo($invoice);
+
+        return response()->json([
+            'success' => true,
+            'message' => $count > 0 ? "Đã đưa {$count} sự kiện vào hàng đợi đồng bộ." : 'Không có sự kiện nào cần đồng bộ lại.',
+        ]);
+    }
+
+    private function formatInvoice(BanLe $invoice): array
+    {
+        return [
+            'id' => $invoice->id,
+            'maHoaDon' => $invoice->maHoaDon,
+            'ngayBan' => optional($invoice->ngayBan)->format('d/m/Y H:i'),
+            'tongTien' => (float) $invoice->tongTien,
+            'trangThai' => $invoice->trangThai,
+            'ghiChu' => $invoice->ghiChu,
+            'chiTiet' => $invoice->chiTietBanLes->map(fn ($line) => [
+                'loThuocId' => $line->loThuocId,
+                'maLo' => $line->loThuoc?->maLoNghiepVu,
+                'tenSanPham' => $line->loThuoc?->sanPham?->tenSanPham,
+                'soLuong' => (int) $line->soLuong,
+                'donGia' => (float) $line->donGia,
+                'thanhTien' => (float) $line->thanhTien,
+            ])->values(),
+            'blockchain' => $invoice->blockchainTransactions->map(fn ($tx) => [
+                'eventName' => $tx->eventName,
+                'trangThai' => $tx->trangThai,
+                'txHash' => $tx->txHash,
+                'loiCuoi' => $tx->loiCuoi,
+                'explorerUrl' => $tx->txHash ? 'https://sepolia.etherscan.io/tx/' . $tx->txHash : null,
+            ])->values(),
+        ];
     }
 }

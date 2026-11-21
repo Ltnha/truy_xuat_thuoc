@@ -40,8 +40,8 @@ class LoThuocController extends Controller
     {
         $user = Auth::user();
 
-        $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc'])
-            ->where('toChucId', $user->toChucId ?? null)
+        $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc', 'tonKhoLos'])
+            ->whereHas('tonKhoLos', fn ($query) => $query->where('toChucId', $user->toChucId ?? null)->where('soLuong', '>', 0))
             ->orderBy('id', 'desc')
             ->get()
             ->map(function ($lo) use ($user) {
@@ -57,10 +57,7 @@ class LoThuocController extends Controller
                 $tonKhoService = app(TonKhoService::class);
                 $hienCo = $tonKhoService->soLuongHienCo($lo->id, $toChucId);
 
-                // Nếu chưa có dòng tonKhoLo (lô mới chưa đồng bộ), fallback theo soLuong lô
-                if ($hienCo <= 0 && ! \App\Models\TonKhoLo::where('loThuocId', $lo->id)->where('toChucId', $toChucId)->exists()) {
-                    $hienCo = (int) $lo->soLuong;
-                }
+
 
                 $lo->soLuongHienCo = $hienCo;
                 $lo->soLuongKhaDung = max(0, $hienCo - $tongDangChuyen);

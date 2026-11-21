@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Services\Blockchain;
 
 use App\Exceptions\NghiepVuException;
@@ -9,10 +10,7 @@ use Illuminate\Support\Facades\Log;
 
 class GhiNhanBlockchain
 {
-    public function __construct(
-        protected BlockchainGateway $gateway
-    ) {
-    }
+    public function __construct(protected BlockchainGateway $gateway) {}
 
     public function ghi(
         string $tenNghiepVu,
@@ -20,8 +18,10 @@ class GhiNhanBlockchain
         ToChuc $toChuc,
         LoThuoc $loThuoc,
         array $thamChieu = [],
-    ): string
-    {
+    ): string {
+        $transactionId = $thamChieu['blockchainTransactionId'] ?? null;
+        unset($thamChieu['blockchainTransactionId']);
+
         $loThuoc->loadMissing('sanPham');
         $ketQua = $this->gateway->ghiNhan($tenNghiepVu, [
             'businessId' => $businessId,
@@ -33,40 +33,50 @@ class GhiNhanBlockchain
             'maSanPham' => (string) ($loThuoc->sanPham?->maSanPham ?? ''),
             ...$thamChieu,
         ]);
-        $txHash = $ketQua['txHash'] ?? null;
 
-        if (! is_string($txHash) || $txHash === '') {
-            throw new NghiepVuException('Blockchain không trả về mã giao dịch hợp lệ.');
+        $txHash = $ketQua['txHash'] ?? null;
+        if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+            throw new NghiepVuException('Blockchain không trả về Ethereum transaction hash hợp lệ.');
         }
 
-        BlockchainTransaction::create([
+        $data = [
             'txHash' => $txHash,
             'blockNumber' => $ketQua['blockNumber'] ?? null,
             'eventName' => $tenNghiepVu,
+            'doiTuongToChucId' => $toChuc->id,
             'businessId' => $businessId,
+            'payloadHash' => $ketQua['payloadHash'] ?? null,
             'thoiGian' => now(),
-            'network' => config('truyXuat.blockchain.mang'),
-            'trangThai' => $ketQua['status'] === 'submitted' ? 'PENDING' : 'CONFIRMED',
+            'network' => config('truyXuat.blockchain.mang', 'Ethereum Sepolia Testnet'),
+            'trangThai' => 'CONFIRMED',
             'toChucId' => $toChuc->id,
+            'sanPhamId' => $loThuoc->sanPhamId,
             'loThuocId' => $loThuoc->id,
             'chuyenGiaoId' => $thamChieu['chuyenGiaoId'] ?? null,
-            'donViSanPhamId' => $thamChieu['donViSanPhamId'] ?? null,
             'banLeId' => $thamChieu['banLeId'] ?? null,
-        ]);
+            'chiTietBanLeId' => $thamChieu['chiTietBanLeId'] ?? null,
+        ];
 
-        Log::info('Blockchain submission recorded: '.$tenNghiepVu, ['businessId' => $businessId, 'txHash' => $txHash]);
+        if ($transactionId) {
+            BlockchainTransaction::query()->whereKey($transactionId)->update($data);
+        } else {
+            BlockchainTransaction::query()->create($data);
+        }
+
+        Log::info('Blockchain event confirmed: ' . $tenNghiepVu, [
+            'businessId' => $businessId,
+            'txHash' => $txHash,
+        ]);
 
         return $txHash;
     }
 
     public function diaChiVi(ToChuc $toChuc): string
     {
-        $diaChi = $toChuc->blockchainIdentity?->address;
-
+        $diaChi = $toChuc->blockchainIdentity?->diaChiVi;
         if (! is_string($diaChi) || $diaChi === '') {
             throw new NghiepVuException('Tổ chức chưa được cấp định danh blockchain.');
         }
-
         return $diaChi;
     }
 }

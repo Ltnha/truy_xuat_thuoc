@@ -2,17 +2,12 @@
 
 namespace App\Services\ChuoiCungUng;
 
-use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
-use App\Models\ChuyenGiao;
 use App\Models\TonKhoLo;
 use Illuminate\Support\Facades\DB;
 
 class TonKhoService
 {
-    /**
-     * Số lượng hiện có trong bảng tonKhoLo (chưa trừ giữ chỗ)
-     */
     public function soLuongHienCo(int $loThuocId, int $toChucId): int
     {
         return (int) TonKhoLo::query()
@@ -21,60 +16,60 @@ class TonKhoService
             ->value('soLuong');
     }
 
-    /**
-     * Số lượng khả dụng = hiện có - số lượng đang giữ chỗ (PENDING)
-     */
     public function soLuongKhaDung(int $loThuocId, int $toChucId): int
     {
-        $dangCho = ChuyenGiao::query()
-            ->where('loThuocId', $loThuocId)
-            ->where('benGuiId', $toChucId)
-            ->where('trangThai', TransferStatus::pending->value)
-            ->sum('soLuong');
-
-        return max(0, $this->soLuongHienCo($loThuocId, $toChucId) - (int) $dangCho);
+        return $this->soLuongHienCo($loThuocId, $toChucId);
     }
 
-    /**
-     * Trừ tồn kho (dùng khi bên nhận xác nhận)
-     */
     public function tru(int $loThuocId, int $toChucId, int $soLuong): void
     {
-        $tonKho = TonKhoLo::query()
-            ->where('loThuocId', $loThuocId)
-            ->where('toChucId', $toChucId)
-            ->lockForUpdate()
-            ->first();
+        $tonKho = TonKhoLo::query()->where('loThuocId', $loThuocId)
+            ->where('toChucId', $toChucId)->lockForUpdate()->first();
 
-        if (! $tonKho || $tonKho->soLuong < $soLuong) {
-            throw new NghiepVuException('Bạn không có đủ số lượng tồn kho để thực hiện thao tác này.');
+        if (! $tonKho || $soLuong < 1 || (int) $tonKho->soLuong < $soLuong) {
+            throw new NghiepVuException('Tồn kho không đủ hoặc tổ chức không còn là chủ sở hữu lô.');
         }
 
         $tonKho->decrement('soLuong', $soLuong);
         $tonKho->update(['ngayCapNhat' => now()]);
     }
 
-    /**
-     * Cộng tồn kho (dùng khi bên nhận xác nhận)
-     */
+    /** Chỉ dùng khởi tạo tồn kho lần đầu khi registerBatch đã xác nhận. */
     public function cong(int $loThuocId, int $toChucId, int $soLuong): void
     {
-        // Tạo dòng số 0 theo kiểu idempotent trước, tránh hai lần nhận đồng thời
-        // cùng INSERT một cặp (loThuocId, toChucId) và đụng unique key.
-        DB::table('tonKhoLo')->insertOrIgnore([
-            'loThuocId' => $loThuocId,
-            'toChucId' => $toChucId,
-            'soLuong' => 0,
-            'ngayCapNhat' => now(),
-        ]);
+        $tonKho = TonKhoLo::query()->where('loThuocId', $loThuocId)->lockForUpdate()->first();
+        if (! $tonKho) {
+            TonKhoLo::query()->create([
+                'loThuocId' => $loThuocId,
+                'toChucId' => $toChucId,
+                'soLuong' => $soLuong,
+                'ngayCapNhat' => now(),
+            ]);
+            return;
+        }
 
-        $tonKho = TonKhoLo::query()
-            ->where('loThuocId', $loThuocId)
-            ->where('toChucId', $toChucId)
-            ->lockForUpdate()
-            ->firstOrFail();
+        if ((int) $tonKho->toChucId !== $toChucId) {
+            throw new NghiepVuException('Lô đã có chủ sở hữu khác trong kho; không thể tạo thêm dòng tồn kho.');
+        }
 
         $tonKho->increment('soLuong', $soLuong);
         $tonKho->update(['ngayCapNhat' => now()]);
+    }
+
+    /** Chuyển quyền sở hữu toàn lô bằng cách cập nhật một dòng tồn kho duy nhất. */
+    public function chuyenChuSoHuu(int $loThuocId, int $benGuiId, int $benNhanId, int $soLuong): void
+    {
+        $tonKho = TonKhoLo::query()->where('loThuocId', $loThuocId)->lockForUpdate()->first();
+        if (! $tonKho || (int) $tonKho->toChucId !== $benGuiId) {
+            throw new NghiepVuException('Dòng tồn kho không thuộc bên gửi; không thể chuyển chủ sở hữu.');
+        }
+        if ($soLuong < 1 || (int) $tonKho->soLuong !== $soLuong) {
+            throw new NghiepVuException('Chuyển giao phải bằng toàn bộ số lượng tồn kho hiện tại của lô.');
+        }
+
+        $tonKho->update([
+            'toChucId' => $benNhanId,
+            'ngayCapNhat' => now(),
+        ]);
     }
 }

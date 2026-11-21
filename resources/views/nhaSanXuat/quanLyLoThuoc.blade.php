@@ -81,7 +81,7 @@
 
 </div>
 
-<!-- MODAL 1: ĐĂNG KÝ LÔ MỚI & SINH MÃ QR 2 CẤP -->
+<!-- MODAL 1: ĐĂNG KÝ LÔ MỚI & SINH MÃ QR THEO LÔ -->
 <div id="modalDangKyLo" class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 hidden bg-black/60">
     <div class="bg-white rounded-2xl max-w-2xl w-full p-6 sm:p-8 space-y-6 bong-xanh max-h-[90vh] overflow-y-auto">
 
@@ -308,18 +308,12 @@
             <div class="flex items-center justify-between">
                 <div>
                     <h5 class="font-bold text-xs text-cyan-950 uppercase tracking-wide">Quản Lý & Tải Mã QR Lô Hàng</h5>
-                    <p class="text-[11px] text-slate-600 mt-0.5">Xuất bộ mã để in tem nhãn thùng lớn hoặc in lên từng hộp/vỉ thuốc lẻ.</p>
+                    <p class="text-[11px] text-slate-600 mt-0.5">Mỗi lô có một mã QR duy nhất, dùng để tra cứu toàn bộ thông tin và lịch sử của lô.</p>
                 </div>
             </div>
             <div class="flex flex-wrap gap-2 pt-1">
                 <button type="button" id="nutXuatQRThungModal" class="px-3.5 py-2 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs" title="Tải QR lô">
                     <i class="fa-solid fa-qrcode"></i> Tải Mã QR Lô (Thùng)
-                </button>
-                <button type="button" id="nutXuatQRDonViZipModal" class="px-3.5 py-2 bg-cyan-800 hover:bg-cyan-900 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs" title="Tải QR đơn vị (ZIP)">
-                    <i class="fa-solid fa-file-zipper"></i> Xuất Trọn Bộ QR Đơn Vị (.ZIP)
-                </button>
-                <button type="button" id="nutXuatQRDonViCsvModal" class="px-3.5 py-2 bg-white hover:bg-cyan-50 border border-cyan-300 text-cyan-900 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-2xs">
-                    <i class="fa-solid fa-file-csv"></i> Xuất Danh Sách Serial (.CSV)
                 </button>
             </div>
         </div>

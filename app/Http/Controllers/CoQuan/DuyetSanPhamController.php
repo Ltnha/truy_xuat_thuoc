@@ -121,7 +121,7 @@ class DuyetSanPhamController extends Controller
             }
 
             // BƯỚC 4: BLOCKCHAIN THÀNH CÔNG -> TIẾN HÀNH LƯU VÀO CSDL
-            DB::transaction(function () use ($yeuCau, $sanPham, $user, $txHash, $toChucCoQuan, $blockTimestamp): void {
+            DB::transaction(function () use ($yeuCau, $sanPham, $user, $txHash, $toChucCoQuan, $blockTimestamp, $payloadHashBytes32): void {
                 $now = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
 
                 $yeuCau->update([
@@ -132,6 +132,7 @@ class DuyetSanPhamController extends Controller
 
                 $sanPham->update([
                     'trangThaiDuyet' => 'DA_DUYET',
+                    'hashHoSo' => $payloadHashBytes32,
                 ]);
 
                 BlockchainTransaction::updateOrCreate(

@@ -666,13 +666,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ================== 12. NÚT QR TRONG MODAL ==================
     document.getElementById('nutXuatQRThungModal')?.addEventListener('click', () => {
-        alert('Chức năng tải QR lô sẽ kết nối API xuất file trong bước tiếp theo.');
-    });
-    document.getElementById('nutXuatQRDonViZipModal')?.addEventListener('click', () => {
-        alert('Chức năng xuất ZIP QR đơn vị sẽ kết nối API trong bước tiếp theo.');
-    });
-    document.getElementById('nutXuatQRDonViCsvModal')?.addEventListener('click', () => {
-        alert('Chức năng xuất CSV serial sẽ kết nối API trong bước tiếp theo.');
+        alert('QR duy nhất của lô được tạo sau khi registerBatch xác nhận thành công.');
     });
 
     // Khởi chạy
