@@ -277,7 +277,7 @@ class ChuyenGiaoService
             return $tx;
         });
 
-        \\Illuminate\\Support\\Facades\\Log::info('[ChuyenGiaoService] Nhà thuốc bắt đầu xử lý ký TransferReceived đồng bộ.', [
+        \Illuminate\Support\Facades\Log::info('[ChuyenGiaoService] Nhà thuốc bắt đầu xử lý ký TransferReceived đồng bộ.', [
             'chuyenGiaoId' => $chuyenGiao->id,
             'blockchainTransactionId' => $blockchainTransaction->id,
             'benNhanId' => $benNhan->id,
@@ -293,7 +293,7 @@ class ChuyenGiaoService
             'TRANSFER_RECEIVED'
         );
 
-        \\Illuminate\\Support\\Facades\\Log::info('[ChuyenGiaoService] TransferReceived đã ký và xác nhận thành công.', [
+        \Illuminate\Support\Facades\Log::info('[ChuyenGiaoService] TransferReceived đã ký và xác nhận thành công.', [
             'chuyenGiaoId' => $chuyenGiao->id,
             'blockchainTransactionId' => $blockchainTransaction->id,
         ]);
