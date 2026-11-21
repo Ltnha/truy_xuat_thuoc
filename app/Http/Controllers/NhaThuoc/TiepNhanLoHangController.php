@@ -6,6 +6,7 @@ use App\Enums\TransferStatus;
 use App\Exceptions\NghiepVuException;
 use App\Http\Controllers\Controller;
 use App\Models\ChuyenGiao;
+use App\Models\BlockchainTransaction;
 use App\Models\TonKhoLo;
 use App\Services\ChuoiCungUng\ChuyenGiaoService;
 use Illuminate\Http\JsonResponse;
@@ -170,6 +171,16 @@ class TiepNhanLoHangController extends Controller
 
         try {
             $this->chuyenGiaoService->nhan($chuyenGiao, $toChuc, $user, $request->ip());
+            $transaction = BlockchainTransaction::query()
+                ->where('chuyenGiaoId', $chuyenGiao->id)
+                ->where('eventName', 'TransferReceived')
+                ->latest('id')
+                ->first();
+            $txHash = (string) ($transaction?->txHash ?? '');
+            if (strtoupper((string) $transaction?->trangThai) !== 'CONFIRMED'
+                || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+                throw new \RuntimeException('TransferReceived chưa có txHash Sepolia đã xác nhận.');
+            }
             Log::info('[TiepNhanLoHangController] TransferReceived đã xử lý xong; trả kết quả cho trình duyệt.', [
                 'chuyenGiaoId' => $chuyenGiao->id,
                 'toChucNhanId' => $toChuc->id,
@@ -177,7 +188,8 @@ class TiepNhanLoHangController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã ký và xác nhận TransferReceived trên Ethereum Sepolia. Lô hàng đã được cộng vào kho.',
+                'message' => 'Đã ký và xác nhận TransferReceived trên Ethereum Sepolia. Lô hàng đã được chuyển vào kho Nhà thuốc.',
+                'data' => ['txHash' => $txHash, 'explorerUrl' => 'https://sepolia.etherscan.io/tx/' . $txHash],
             ]);
         } catch (NghiepVuException $e) {
             Log::warning('[TiepNhanLoHangController] Không thể xác nhận tiếp nhận lô.', [
@@ -219,7 +231,21 @@ class TiepNhanLoHangController extends Controller
 
         try {
             $this->chuyenGiaoService->tuChoi($chuyenGiao, $toChuc, $user, $request->ip(), $lyDo);
-            return response()->json(['success' => true, 'message' => 'Đã gửi yêu cầu từ chối. Hệ thống đang chờ giao dịch TransferRejected được xác nhận trên blockchain.']);
+            $transaction = BlockchainTransaction::query()
+                ->where('chuyenGiaoId', $chuyenGiao->id)
+                ->where('eventName', 'TransferRejected')
+                ->latest('id')
+                ->first();
+            $txHash = (string) ($transaction?->txHash ?? '');
+            if (strtoupper((string) $transaction?->trangThai) !== 'CONFIRMED'
+                || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
+                throw new \RuntimeException('TransferRejected chưa có txHash Sepolia đã xác nhận.');
+            }
+            return response()->json([
+                'success' => true,
+                'message' => 'Đã ký và xác nhận từ chối trên Ethereum Sepolia. Số lượng khả dụng đã được hoàn lại cho Nhà phân phối.',
+                'data' => ['txHash' => $txHash, 'explorerUrl' => 'https://sepolia.etherscan.io/tx/' . $txHash],
+            ]);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {

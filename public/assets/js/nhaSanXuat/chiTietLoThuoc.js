@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const btnLamMoi = document.getElementById('btnLamMoiTrangThai');
 
     let pollingTimer = null;
+    let lastTxStatus = null;
+    let lastNotifiedTxHash = null;
     const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
 
     // ================== GỌI API THẬT ==================
@@ -42,6 +44,24 @@ document.addEventListener('DOMContentLoaded', function () {
     // ================== RENDER TỪ DỮ LIỆU CSDL ==================
     function renderAll(data) {
         const tx = data.blockchain_transaction || null;
+        const currentStatus = getStatus(tx).key;
+        if (lastTxStatus === 'PENDING' && currentStatus === 'CONFIRMED'
+            && tx?.txHash && tx.txHash !== lastNotifiedTxHash) {
+            lastNotifiedTxHash = tx.txHash;
+            window.PharmaPopup?.show({
+                type: 'success',
+                title: 'Ghi nhận lô thuốc thành công',
+                message: 'Giao dịch đăng ký lô đã được ký và xác nhận trên Ethereum Sepolia.',
+                txHash: tx.txHash
+            });
+        } else if (lastTxStatus === 'PENDING' && currentStatus === 'FAILED') {
+            window.PharmaPopup?.show({
+                type: 'error',
+                title: 'Ghi nhận Blockchain thất bại',
+                message: tx?.loiCuoi || 'Signer không thể hoàn tất giao dịch đăng ký lô.'
+            });
+        }
+        lastTxStatus = currentStatus;
         renderBadgeTong(tx);
         renderBlockchainCard(tx);
         renderTimeline(data);
@@ -276,9 +296,14 @@ document.addEventListener('DOMContentLoaded', function () {
             const json = await res.json();
 
             if (json.success) {
+                lastTxStatus = 'PENDING';
                 await fetchChiTiet();
             } else {
-                alert(json.message || 'Gửi thất bại');
+                window.PharmaPopup?.show({
+                    type: 'error',
+                    title: 'Không thể gửi Blockchain',
+                    message: json.message || 'Gửi thất bại'
+                });
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi lên Blockchain';
@@ -286,7 +311,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } catch (e) {
             console.error(e);
-            alert('Lỗi kết nối máy chủ');
+            window.PharmaPopup?.show({ type: 'error', title: 'Lỗi kết nối', message: 'Lỗi kết nối máy chủ' });
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Gửi lên Blockchain';

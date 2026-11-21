@@ -15,6 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let stockCache = [];
     let cameraStream = null;
     let cameraFrame = null;
+    let historyPollTimer = null;
+    let historyLoading = false;
+    const invoiceSyncStates = new Map();
 
     const el = (id) => document.getElementById(id);
     const money = (value) => new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Number(value || 0));
@@ -37,15 +40,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return data;
     }
 
-    function notify(message, type = 'info') {
-        const box = el('thongBaoBanLe');
-        box.className = 'rounded-xl p-3 text-sm ' + (type === 'error'
-            ? 'bg-red-50 border border-red-200 text-red-700'
-            : type === 'success'
-                ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
-                : 'bg-cyan-50 border border-cyan-200 text-cyan-800');
-        box.textContent = message;
-        box.classList.remove('hidden');
+    function notify(message, type = 'info', txHash = null) {
+        window.PharmaPopup?.show({
+            type,
+            title: type === 'error' ? 'Thao tác không thành công' : type === 'success' ? 'Thành công' : 'Thông báo',
+            message,
+            txHash
+        });
     }
 
     async function stopCamera() {
@@ -212,28 +213,58 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function loadHistory() {
-        const data = await request(urls.history);
-        const tbody = el('historyRows');
-        tbody.innerHTML = '';
-        if (!(data.data || []).length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="p-5 text-center text-slate-400">Chưa có hóa đơn bán hàng.</td></tr>';
-            return;
+        if (historyLoading) return;
+        historyLoading = true;
+        try {
+            const data = await request(urls.history);
+            const invoices = data.data || [];
+            const tbody = el('historyRows');
+            tbody.innerHTML = '';
+            let hasPending = false;
+
+            if (!invoices.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="p-5 text-center text-slate-400">Chưa có hóa đơn bán hàng.</td></tr>';
+            }
+
+            invoices.forEach((invoice) => {
+                const blockchain = invoice.blockchain || [];
+                const states = blockchain.map((tx) => String(tx.trangThai || '').toUpperCase());
+                const allConfirmed = states.length > 0 && states.every((state) => state === 'CONFIRMED');
+                const hasFailed = states.includes('FAILED');
+                const syncState = allConfirmed ? 'CONFIRMED' : hasFailed ? 'FAILED' : 'PENDING';
+                const previous = invoiceSyncStates.get(Number(invoice.id));
+
+                if (previous === 'PENDING' && allConfirmed) {
+                    const proof = blockchain.find((tx) => tx.trangThai === 'CONFIRMED' && /^0x[a-fA-F0-9]{64}$/.test(String(tx.txHash || '')));
+                    notify('Hóa đơn ' + invoice.maHoaDon + ' đã được ký và ghi nhận sự kiện SOLD trên Ethereum Sepolia.', 'success', proof?.txHash || null);
+                } else if (previous === 'PENDING' && hasFailed) {
+                    const failed = blockchain.find((tx) => tx.trangThai === 'FAILED');
+                    notify(failed?.loiCuoi || ('Không thể đồng bộ sự kiện SOLD của hóa đơn ' + invoice.maHoaDon + '.'), 'error');
+                }
+                invoiceSyncStates.set(Number(invoice.id), syncState);
+                if (syncState === 'PENDING') hasPending = true;
+
+                const status = allConfirmed ? 'Đã xác nhận' : hasFailed ? 'Có lỗi đồng bộ' : 'Đang chờ đồng bộ';
+                const tr = document.createElement('tr');
+                tr.className = 'dong-ban border-b border-slate-100';
+                tr.innerHTML = `
+                    <td class="p-3 font-mono text-xs">${escapeHtml(invoice.maHoaDon)}</td>
+                    <td class="p-3">${escapeHtml(invoice.ngayBan)}</td>
+                    <td class="p-3 text-right font-bold">${money(invoice.tongTien)}</td>
+                    <td class="p-3"><span class="badge-ban-le ${allConfirmed ? 'bg-emerald-100 text-emerald-800' : hasFailed ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}">${status}</span></td>
+                    <td class="p-3 text-right">${allConfirmed ? '' : `<button type="button" class="retry-invoice text-cyan-800 font-bold" data-id="${invoice.id}">Đồng bộ lại</button>`}</td>`;
+                tbody.appendChild(tr);
+            });
+
+            if (hasPending && !historyPollTimer) {
+                historyPollTimer = setInterval(() => loadHistory().catch((error) => console.error(error)), 5000);
+            } else if (!hasPending && historyPollTimer) {
+                clearInterval(historyPollTimer);
+                historyPollTimer = null;
+            }
+        } finally {
+            historyLoading = false;
         }
-        data.data.forEach((invoice) => {
-            const states = (invoice.blockchain || []).map((tx) => tx.trangThai);
-            const allConfirmed = states.length > 0 && states.every((state) => state === 'CONFIRMED');
-            const hasFailed = states.includes('FAILED');
-            const status = allConfirmed ? 'Đã xác nhận' : hasFailed ? 'Có lỗi đồng bộ' : 'Đang chờ đồng bộ';
-            const tr = document.createElement('tr');
-            tr.className = 'dong-ban border-b border-slate-100';
-            tr.innerHTML = `
-                <td class="p-3 font-mono text-xs">${escapeHtml(invoice.maHoaDon)}</td>
-                <td class="p-3">${escapeHtml(invoice.ngayBan)}</td>
-                <td class="p-3 text-right font-bold">${money(invoice.tongTien)}</td>
-                <td class="p-3"><span class="badge-ban-le ${allConfirmed ? 'bg-emerald-100 text-emerald-800' : hasFailed ? 'bg-red-100 text-red-800' : 'bg-amber-100 text-amber-800'}">${status}</span></td>
-                <td class="p-3 text-right">${allConfirmed ? '' : `<button type="button" class="retry-invoice text-cyan-800 font-bold" data-id="${invoice.id}">Đồng bộ lại</button>`}</td>`;
-            tbody.appendChild(tr);
-        });
     }
 
     el('historyRows').addEventListener('click', async (event) => {
@@ -281,7 +312,17 @@ document.addEventListener('DOMContentLoaded', () => {
             cart.clear();
             el('ghiChuHoaDon').value = '';
             renderCart();
-            notify(data.message || 'Hóa đơn đã được lưu.', 'success');
+            const invoice = data.data || {};
+            const invoiceTxs = invoice.blockchain || [];
+            const alreadyConfirmed = invoiceTxs.length > 0 && invoiceTxs.every((tx) => tx.trangThai === 'CONFIRMED');
+            if (invoice.id) invoiceSyncStates.set(Number(invoice.id), alreadyConfirmed ? 'CONFIRMED' : 'PENDING');
+            notify(
+                alreadyConfirmed
+                    ? (data.message || 'Hóa đơn đã được lưu và ghi nhận trên Blockchain.')
+                    : 'Hóa đơn đã được lưu. Các sự kiện SOLD đang chờ Signer đồng bộ lên Sepolia.',
+                alreadyConfirmed ? 'success' : 'info',
+                alreadyConfirmed ? invoiceTxs.find((tx) => tx.txHash)?.txHash : null
+            );
             await Promise.all([loadStock(), loadHistory()]);
         } catch (error) {
             notify(error.message, 'error');

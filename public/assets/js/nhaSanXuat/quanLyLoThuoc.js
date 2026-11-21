@@ -16,6 +16,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const SO_COT = 8; // Khớp bảng Blade
 
     let pollingInterval = null;
+    const batchSigningStates = new Map();
+
+    function showPopup(message, type = 'info', title = 'Thông báo', txHash = null) {
+        window.PharmaPopup?.show({ type, title, message, txHash });
+    }
 
     // ================== HELPERS ==================
     function getTxList(item) {
@@ -60,6 +65,34 @@ document.addEventListener('DOMContentLoaded', function () {
             return [...confirmed].sort((a, b) => (a.id || 0) - (b.id || 0))[0];
         }
         return null;
+    } 
+
+    function watchBatchRegistration(items) {
+        (items || []).forEach(item => {
+            const tx = getBatchRegistrationTx(item);
+            if (!tx) return;
+            const id = Number(item.id);
+            const status = String(tx.trangThai || '').toUpperCase();
+            const previous = batchSigningStates.get(id);
+
+            if (previous === 'PENDING' && (status === 'CONFIRMED' || status === 'SUCCESS')
+                && /^0x[a-fA-F0-9]{64}$/.test(String(tx.txHash || ''))) {
+                showPopup(
+                    `Lô thuốc ${item.maLoNghiepVu || ''} đã được ký và xác nhận thành công trên Ethereum Sepolia. QR của lô đã sẵn sàng.`,
+                    'success',
+                    'Đăng ký lô thuốc thành công',
+                    tx.txHash
+                );
+            } else if (previous === 'PENDING' && ['FAILED', 'REJECTED'].includes(status)) {
+                showPopup(
+                    tx.loiCuoi || 'Giao dịch đăng ký lô không thể hoàn tất trên Blockchain.',
+                    'error',
+                    'Đăng ký lô thất bại'
+                );
+            }
+
+            batchSigningStates.set(id, status);
+        });
     }
 
     /**
@@ -139,6 +172,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (result.success) {
                 tatCaLoThuoc = result.data || [];
+                watchBatchRegistration(tatCaLoThuoc);
                 apDungBoLocVaphanTrang();
 
                 const coPending = tatCaLoThuoc.some(item => isTxPending(getLatestTx(item)));
@@ -360,7 +394,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } catch (error) {
             console.error(error);
             select.innerHTML = '<option value="">Không tải được danh sách nhà phân phối</option>';
-            alert(error.message || 'Không thể tải danh sách nhà phân phối đã duyệt.');
+            showPopup(error.message || 'Không thể tải danh sách nhà phân phối đã duyệt.', 'error', 'Không tải được danh sách');
         } finally {
             select.disabled = false;
         }
@@ -369,17 +403,17 @@ document.addEventListener('DOMContentLoaded', function () {
     window.moModalPhanPhoiDirect = async function (id, nppDuocChon = null) {
         const item = tatCaLoThuoc.find(l => Number(l.id) === Number(id));
         if (!item) {
-            alert('Không tìm thấy thông tin lô thuốc.');
+            showPopup('Không tìm thấy thông tin lô thuốc.', 'error', 'Không tìm thấy lô thuốc');
             return;
         }
 
         const batchTx = getBatchRegistrationTx(item);
         if (!isTxConfirmed(batchTx)) {
-            alert('Lô thuốc chưa được ghi nhận On-chain thành công. Vui lòng đợi đồng bộ xong trước khi chuyển giao.');
+            showPopup('Lô thuốc chưa được ghi nhận On-chain thành công. Vui lòng đợi đồng bộ xong trước khi chuyển giao.', 'warning', 'Lô chưa sẵn sàng');
             return;
         }
         if (item.coChuyenGiaoCho || item.co_chuyen_giao_cho) {
-            alert('Lô này đang có yêu cầu chuyển giao chờ Nhà phân phối xác nhận.');
+            showPopup('Lô này đang có yêu cầu chuyển giao chờ Nhà phân phối xác nhận.', 'warning', 'Lô đang chuyển giao');
             return;
         }
 
@@ -424,7 +458,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const original = btn ? btn.innerHTML : '';
 
             if (!loThuocId || !benNhanId || !Number.isInteger(soLuong) || soLuong < 1) {
-                alert('Vui lòng chọn nhà phân phối đã duyệt.');
+                showPopup('Vui lòng chọn nhà phân phối đã duyệt.', 'warning', 'Thiếu thông tin chuyển giao');
                 return;
             }
             if (loiSl) loiSl.classList.add('hidden');
@@ -464,14 +498,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     sessionStorage.removeItem(NPP_INTENT_PREFIX + String(loDangChuyen.maLoNghiepVu));
                 }
                 const explorer = json.data?.explorerUrl || ('https://sepolia.etherscan.io/tx/' + txHash);
-                alert((json.message || 'Chuyển giao đã được xác nhận on-chain.')
-                    + '\nTxHash: ' + txHash
-                    + '\nEtherscan: ' + explorer);
+                showPopup(json.message || 'Chuyển giao đã được xác nhận on-chain.', 'success', 'Đã ký chuyển giao thành công', txHash);
                 document.getElementById('modalPhanPhoiLo')?.classList.add('hidden');
                 await loadDataFromDB();
             } catch (err) {
                 console.error(err);
-                alert(err.message || 'Không thể hoàn tất ký chuyển giao. CSDL chưa ghi nhận chuyển giao.');
+                showPopup(err.message || 'Không thể hoàn tất ký chuyển giao. CSDL chưa ghi nhận chuyển giao.', 'error', 'Ký chuyển giao thất bại');
             } finally {
                 if (btn) {
                     btn.disabled = false;
@@ -625,6 +657,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 const maLoCuaYeuCau = result.data?.maLoNghiepVu || payload.maLoNghiepVu;
+                if (result.data?.id) batchSigningStates.set(Number(result.data.id), 'PENDING');
                 const selectNppTaoLo = document.getElementById('chonNhaPhanPhoiKhiTaoLo');
                 if (payload.benNhanId && selectNppTaoLo) {
                     const selectedOption = selectNppTaoLo.options[selectNppTaoLo.selectedIndex];
@@ -653,7 +686,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 loadDataFromDB();
             } catch (error) {
                 console.error('Lỗi khi gửi yêu cầu tạo lô:', error);
-                alert('Thao tác thất bại: ' + (error.message || 'Đã xảy ra lỗi kết nối!'));
+                showPopup('Thao tác thất bại: ' + (error.message || 'Đã xảy ra lỗi kết nối!'), 'error', 'Không thể tạo lô thuốc');
             } finally {
                 if (btnSubmit) {
                     btnSubmit.disabled = false;
@@ -666,7 +699,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ================== 12. NÚT QR TRONG MODAL ==================
     document.getElementById('nutXuatQRThungModal')?.addEventListener('click', () => {
-        alert('QR duy nhất của lô được tạo sau khi registerBatch xác nhận thành công.');
+        showPopup('QR duy nhất của lô được tạo sau khi registerBatch xác nhận thành công.', 'info', 'Mã QR theo lô');
     });
 
     // Khởi chạy

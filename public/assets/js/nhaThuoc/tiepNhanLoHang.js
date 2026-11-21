@@ -26,8 +26,13 @@ document.addEventListener('DOMContentLoaded', function () {
         return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : ngayYMD;
     }
 
-    function toast(msg, type = 'success') {
-        alert((type === 'error' ? '❌ ' : '✅ ') + msg);
+    function toast(msg, type = 'success', txHash = null) {
+        window.PharmaPopup?.show({
+            type,
+            title: type === 'error' ? 'Thao tác không thành công' : type === 'success' ? 'Thành công' : 'Thông báo',
+            message: msg,
+            txHash
+        });
     }
 
     async function fetchJSON(url, options = {}) {
@@ -139,7 +144,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
             tbody.querySelectorAll('.btn-xac-nhan').forEach(btn => {
                 btn.addEventListener('click', async function () {
-                    if (!confirm('Xác nhận tiếp nhận lô hàng này vào kho?')) return;
+                    const approved = await window.PharmaPopup.confirm({
+                        type: 'warning',
+                        title: 'Xác nhận nhận hàng',
+                        message: 'Xác nhận tiếp nhận lô này vào kho Nhà thuốc? Hệ thống sẽ ký TransferReceived trên Ethereum Sepolia.',
+                        confirmText: 'Xác nhận nhận'
+                    });
+                    if (!approved) return;
 
                     const modal = document.getElementById('modalLoadingBlockchain');
                     const loading = document.getElementById('khungLoadingIcon');
@@ -155,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (success) success.classList.add('hidden');
                     if (failure) failure.classList.add('hidden');
                     if (title) title.textContent = 'Đang ký giao dịch tiếp nhận...';
-                    if (detail) detail.textContent = 'Đang gửi yêu cầu đến Laravel và Signer Service. Vui lòng không đóng cửa sổ này.';
+                    if (detail) detail.textContent = 'Đang chờ Signer ký và Ethereum Sepolia xác nhận.';
                     modal?.classList.remove('hidden');
 
                     try {
@@ -163,20 +174,23 @@ document.addEventListener('DOMContentLoaded', function () {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
+                        const txHash = result.data?.txHash;
+                        if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
+                            throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
+                        }
 
-                        // API trả thành công sau dispatchSync + receipt CONFIRMED.
-                        if (loading) loading.classList.add('hidden');
-                        if (failure) failure.classList.add('hidden');
-                        if (success) success.classList.remove('hidden');
-                        const successDetail = document.getElementById('successMessageDetail');
-                        if (successDetail) successDetail.textContent = result.message || 'TransferReceived đã được xác nhận trên Ethereum Sepolia.';
-                        loadChoXacNhan(currentPageCho);
-                        loadDaTiepNhan(1);
+                        modal?.classList.add('hidden');
+                        await window.PharmaPopup.show({
+                            type: 'success',
+                            title: 'Nhà thuốc tiếp nhận thành công',
+                            message: result.message || 'TransferReceived đã xác nhận. Quyền sở hữu và tồn kho lô đã chuyển sang Nhà thuốc.',
+                            txHash
+                        });
+                        await Promise.all([loadChoXacNhan(currentPageCho), loadDaTiepNhan(1)]);
                     } catch (err) {
-                        if (loading) loading.classList.add('hidden');
-                        if (success) success.classList.add('hidden');
-                        if (failure) failure.classList.remove('hidden');
+                        modal?.classList.add('hidden');
                         if (failText) failText.textContent = err.message || 'Không thể hoàn tất giao dịch tiếp nhận.';
+                        toast(err.message || 'Không thể hoàn tất giao dịch tiếp nhận.', 'error');
                         btn.disabled = false;
                         btn.textContent = 'Xác nhận nhận hàng';
                     }
@@ -185,23 +199,47 @@ document.addEventListener('DOMContentLoaded', function () {
 
             tbody.querySelectorAll('.btn-tu-choi').forEach(btn => {
                 btn.addEventListener('click', async function () {
-                    if (!confirm('Bạn có chắc muốn từ chối tiếp nhận lô hàng này?')) return;
-                    const lyDo = prompt('Lý do từ chối (có thể bỏ trống):', 'Nhà thuốc từ chối tiếp nhận lô hàng') || 'Nhà thuốc từ chối tiếp nhận lô hàng';
-                    btn.disabled = true;
+                    const approved = await window.PharmaPopup.confirm({
+                        type: 'warning',
+                        title: 'Từ chối nhận hàng',
+                        message: 'Bạn có chắc muốn từ chối lô hàng này?',
+                        confirmText: 'Tiếp tục từ chối'
+                    });
+                    if (!approved) return;
+
+                    const lyDo = await window.PharmaPopup.prompt({
+                        type: 'info',
+                        title: 'Lý do từ chối',
+                        message: 'Nhập lý do từ chối (có thể để trống).',
+                        defaultValue: 'Nhà thuốc từ chối tiếp nhận lô hàng',
+                        confirmText: 'Ký từ chối'
+                    });
+                    if (lyDo === null) return;
+
                     const oldText = btn.textContent;
-                    btn.textContent = 'Đang xử lý...';
+                    btn.disabled = true;
+                    btn.textContent = 'Đang ký...';
                     try {
-                        await fetchJSON(`/nha-thuoc/api/tu-choi/${btn.dataset.id}`, {
+                        const result = await fetchJSON(`/nha-thuoc/api/tu-choi/${btn.dataset.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ lyDo }),
                         });
-                        toast('Đã gửi yêu cầu từ chối. Đang chờ xác nhận giao dịch trên blockchain.');
-                        loadChoXacNhan(currentPageCho);
+                        const txHash = result.data?.txHash;
+                        if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
+                            throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
+                        }
+                        await window.PharmaPopup.show({
+                            type: 'success',
+                            title: 'Đã ký từ chối nhận hàng',
+                            message: result.message || 'TransferRejected đã xác nhận. Số lượng khả dụng đã được hoàn lại cho Nhà phân phối.',
+                            txHash
+                        });
+                        await loadChoXacNhan(currentPageCho);
                     } catch (err) {
                         toast(err.message, 'error');
                         btn.disabled = false;
-                        btn.textContent = oldText;
+                        btn.textContent = oldText || 'Từ chối';
                     }
                 });
             });

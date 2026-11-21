@@ -16,9 +16,30 @@ class TonKhoService
             ->value('soLuong');
     }
 
+    /**
+     * Số lượng đang được giữ chỗ bởi các lệnh chuyển giao đã gửi on-chain
+     * nhưng bên nhận chưa xác nhận hoặc từ chối.
+     */
+    public function soLuongDangChuyenGiao(int $loThuocId, int $toChucId): int
+    {
+        return (int) DB::table('chuyenGiao')
+            ->where('loThuocId', $loThuocId)
+            ->where('benGuiId', $toChucId)
+            ->where('trangThai', 'PENDING')
+            ->sum('soLuong');
+    }
+
+    /**
+     * Tồn kho vật lý vẫn giữ nguyên trong kho bên gửi.
+     * Chỉ phần chưa được giữ chỗ cho chuyển giao mới là khả dụng.
+     */
     public function soLuongKhaDung(int $loThuocId, int $toChucId): int
     {
-        return $this->soLuongHienCo($loThuocId, $toChucId);
+        return max(
+            0,
+            $this->soLuongHienCo($loThuocId, $toChucId)
+                - $this->soLuongDangChuyenGiao($loThuocId, $toChucId)
+        );
     }
 
     public function tru(int $loThuocId, int $toChucId, int $soLuong): void

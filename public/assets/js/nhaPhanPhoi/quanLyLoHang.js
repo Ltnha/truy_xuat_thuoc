@@ -29,13 +29,13 @@ document.addEventListener('DOMContentLoaded', function () {
         return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : ngayYMD;
     }
 
-    function toast(msg, type = 'success') {
-        // Dùng alert tạm, có thể thay bằng toast UI của project
-        if (type === 'error') {
-            alert('❌ ' + msg);
-        } else {
-            alert('✅ ' + msg);
-        }
+    function toast(msg, type = 'success', txHash = null) {
+        window.PharmaPopup?.show({
+            type,
+            title: type === 'error' ? 'Thao tác không thành công' : type === 'success' ? 'Thành công' : 'Thông báo',
+            message: msg,
+            txHash
+        });
     }
 
     async function fetchJSON(url, options = {}) {
@@ -140,22 +140,36 @@ document.addEventListener('DOMContentLoaded', function () {
                 </tr>`;
             }).join('');
 
-            // Bind nút tiếp nhận
+            // Xác nhận tiếp nhận: API chỉ trả thành công sau khi TransferReceived đã mined.
             tbody.querySelectorAll('.btn-tiep-nhan').forEach(btn => {
                 btn.addEventListener('click', async function () {
-                    if (!confirm('Xác nhận tiếp nhận lô hàng này?')) return;
-                    btn.disabled = true;
+                    const approved = await window.PharmaPopup.confirm({
+                        type: 'warning',
+                        title: 'Xác nhận tiếp nhận',
+                        message: 'Xác nhận nhận lô hàng này vào kho? Thao tác sẽ ký giao dịch TransferReceived trên Sepolia.',
+                        confirmText: 'Tiếp nhận'
+                    });
+                    if (!approved) return;
+
                     const oldText = btn.textContent;
-                    btn.textContent = 'Đang xử lý...';
+                    btn.disabled = true;
+                    btn.textContent = 'Đang ký...';
                     try {
-                        // Gọi API NPP chính thức duy nhất.
-                        await fetchJSON(`/nha-phan-phoi/api/tiep-nhan/${btn.dataset.id}`, {
+                        const result = await fetchJSON(`/nha-phan-phoi/api/tiep-nhan/${btn.dataset.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                         });
-                        toast('Đã gửi yêu cầu tiếp nhận. Đang chờ xác nhận giao dịch trên blockchain.');
-                        loadPending(currentPagePending);
-                        // Tồn kho chỉ thay đổi sau khi TransferReceived được xác nhận.
+                        const txHash = result.data?.txHash;
+                        if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
+                            throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
+                        }
+                        await window.PharmaPopup.show({
+                            type: 'success',
+                            title: 'Tiếp nhận lô hàng thành công',
+                            message: result.message || 'TransferReceived đã được xác nhận. Lô hàng đã vào kho Nhà phân phối.',
+                            txHash
+                        });
+                        await Promise.all([loadPending(currentPagePending), loadKho()]);
                     } catch (err) {
                         toast(err.message, 'error');
                         btn.disabled = false;
@@ -164,105 +178,48 @@ document.addEventListener('DOMContentLoaded', function () {
                 });
             });
 
-            // Giữ hộp chờ mở cho đến khi TransferRejected có receipt CONFIRMED và txHash thật.
+            // Từ chối: chỉ thông báo thành công khi TransferRejected có txHash thật.
             tbody.querySelectorAll('.btn-tu-choi').forEach(btn => {
                 btn.addEventListener('click', async function () {
-                    if (!confirm('Bạn có chắc muốn từ chối tiếp nhận lô hàng này?')) return;
-                    const lyDo = prompt('Lý do từ chối (có thể bỏ trống):', 'Nhà phân phối từ chối nhận hàng') || 'Nhà phân phối từ chối nhận hàng';
+                    const approved = await window.PharmaPopup.confirm({
+                        type: 'warning',
+                        title: 'Từ chối tiếp nhận',
+                        message: 'Bạn có chắc muốn từ chối lô hàng này?',
+                        confirmText: 'Tiếp tục từ chối'
+                    });
+                    if (!approved) return;
+
+                    const lyDo = await window.PharmaPopup.prompt({
+                        type: 'info',
+                        title: 'Lý do từ chối',
+                        message: 'Nhập lý do từ chối (có thể để trống).',
+                        defaultValue: 'Nhà phân phối từ chối nhận hàng',
+                        confirmText: 'Ký từ chối'
+                    });
+                    if (lyDo === null) return;
+
                     const oldText = btn.textContent;
                     btn.disabled = true;
-                    btn.textContent = 'Đang gửi yêu cầu...';
-
-                    const modal = document.createElement('div');
-                    modal.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/60 p-4';
-                    modal.innerHTML = `
-                        <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
-                            <div class="flex items-center gap-3 mb-4">
-                                <div class="h-11 w-11 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center"><i class="fa-solid fa-hourglass-half text-lg"></i></div>
-                                <div><h3 class="font-bold text-slate-900">Đang chờ xác nhận từ chối</h3><p class="text-xs text-slate-500">Ethereum Sepolia</p></div>
-                            </div>
-                            <div class="flex items-center gap-3 rounded-xl bg-amber-50 border border-amber-200 p-3">
-                                <i data-role="spinner" class="fa-solid fa-spinner fa-spin text-amber-600"></i>
-                                <p data-role="message" class="text-sm text-amber-900">Đang gửi yêu cầu đến hệ thống ký giao dịch...</p>
-                            </div>
-                            <p data-role="detail" class="mt-3 text-xs text-slate-500">Hộp này chỉ tự đóng sau khi giao dịch được xác nhận.</p>
-                            <a data-role="tx" href="#" target="_blank" rel="noopener" class="hidden mt-3 text-xs text-blue-700 underline break-all">Xem giao dịch trên Etherscan</a>
-                            <button data-role="close" type="button" class="hidden mt-5 w-full rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-bold text-white">Đóng</button>
-                        </div>`;
-                    document.body.appendChild(modal);
-                    const message = modal.querySelector('[data-role="message"]');
-                    const detail = modal.querySelector('[data-role="detail"]');
-                    const txLink = modal.querySelector('[data-role="tx"]');
-                    const closeButton = modal.querySelector('[data-role="close"]');
-                    const closeModal = () => modal.remove();
-
-                    closeButton.addEventListener('click', () => {
-                        closeModal();
-                        loadPending(currentPagePending);
-                        loadKho();
-                    });
-
+                    btn.textContent = 'Đang ký...';
                     try {
-                        await fetchJSON(`/nha-phan-phoi/api/tu-choi/${btn.dataset.id}`, {
+                        const result = await fetchJSON(`/nha-phan-phoi/api/tu-choi/${btn.dataset.id}`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ lyDo }),
                         });
-
-                        message.textContent = 'Đang chờ Signer ký rejectTransfer và xác nhận trên blockchain...';
-                        detail.textContent = 'Không gửi lại yêu cầu trong lúc đang chờ để tránh giao dịch trùng.';
-                        let finished = false;
-                        for (let attempt = 0; attempt < 120; attempt++) {
-                            await new Promise(resolve => setTimeout(resolve, 3000));
-                            const response = await fetchJSON(`/nha-phan-phoi/api/tu-choi/${btn.dataset.id}/trang-thai`);
-                            const state = response.data || {};
-
-                            if (state.status === 'CONFIRMED' && state.confirmed && state.txHash) {
-                                message.textContent = 'Giao dịch từ chối đã ký và xác nhận trên Ethereum Sepolia.';
-                                message.className = 'text-sm text-emerald-900';
-                                modal.querySelector('[data-role="spinner"]').className = 'fa-solid fa-circle-check text-emerald-600';
-                                detail.textContent = 'Quyền sở hữu lô vẫn thuộc bên gửi.';
-                                txLink.href = state.explorerUrl;
-                                txLink.textContent = 'TxHash: ' + state.txHash;
-                                txLink.classList.remove('hidden');
-                                closeButton.textContent = 'Đóng';
-                                closeButton.classList.remove('hidden');
-                                finished = true;
-                                setTimeout(() => {
-                                    if (modal.isConnected) closeModal();
-                                    loadPending(currentPagePending);
-                                    loadKho();
-                                }, 1800);
-                                break;
-                            }
-
-                            if (state.status === 'FAILED') {
-                                message.textContent = state.message || 'Giao dịch từ chối ký thất bại.';
-                                message.className = 'text-sm text-rose-800';
-                                detail.textContent = 'Hộp vẫn mở. Kiểm tra log Laravel và Signer Service trước khi thử lại.';
-                                closeButton.textContent = 'Đóng';
-                                closeButton.classList.remove('hidden');
-                                finished = true;
-                                break;
-                            }
-                            message.textContent = state.message || 'Đang chờ Signer ký và blockchain xác nhận...';
-                            detail.textContent = 'Đã chờ ' + Math.round(((attempt + 1) * 3) / 60) + ' phút. Vẫn đang kiểm tra trạng thái.';
+                        const txHash = result.data?.txHash;
+                        if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
+                            throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
                         }
-
-                        if (!finished) {
-                            message.textContent = 'Giao dịch vẫn đang chờ xác nhận.';
-                            detail.textContent = 'Chưa nhận được kết quả sau 6 phút. Hộp vẫn mở; không gửi lại để tránh giao dịch trùng.';
-                            closeButton.textContent = 'Đóng';
-                            closeButton.classList.remove('hidden');
-                        }
+                        await window.PharmaPopup.show({
+                            type: 'success',
+                            title: 'Đã ký từ chối tiếp nhận',
+                            message: result.message || 'TransferRejected đã được xác nhận. Quyền sở hữu lô vẫn thuộc bên gửi.',
+                            txHash
+                        });
+                        await Promise.all([loadPending(currentPagePending), loadKho()]);
                     } catch (err) {
-                        message.textContent = err.message || 'Không thể gửi hoặc kiểm tra yêu cầu từ chối.';
-                        message.className = 'text-sm text-rose-800';
-                        detail.textContent = 'Kiểm tra queue worker, log Laravel và Signer Service.';
-                        closeButton.textContent = 'Đóng';
-                        closeButton.classList.remove('hidden');
                         toast(err.message, 'error');
-                    } finally {
                         btn.disabled = false;
                         btn.textContent = oldText || 'Từ chối';
                     }
@@ -297,29 +254,31 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            tbody.innerHTML = list.map(item => `
-                <tr class="hover:bg-slate-50/80">
-                    <td class="py-3 px-3 font-semibold whitespace-nowrap">${item.maLo || '--'}</td>
-                    <td class="py-3 px-2 text-center text-slate-400 text-[11px]">${item.temQr || item.maTem || '--'}</td>
-                    <td class="py-3 px-3">${item.tenSanPham || '--'}</td>
-                    <td class="py-3 px-2.5 text-center whitespace-nowrap">${dinhDangNgay(item.hanDung)}</td>
-                    <td class="py-3 px-3 text-right whitespace-nowrap">${Number(item.soLuongHienCo || 0).toLocaleString('vi-VN')}</td>
-                    <td class="py-3 px-3 text-right font-bold text-emerald-700 whitespace-nowrap">${Number(item.soLuongKhaDung || 0).toLocaleString('vi-VN')}</td>
-                    <td class="py-3 px-2.5 text-center">
-                        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">KHẢ DỤNG</span>
-                    </td>
-                    <td class="py-3 px-3 text-center whitespace-nowrap">
-                        <button type="button"
-                            class="btn-chuyen-tiep px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition"
-                            data-lo-id="${item.loThuocId}"
-                            data-ma-lo="${item.maLo}"
-                            data-ten="${item.tenSanPham || ''}"
-                            data-kha-dung="${item.soLuongKhaDung}">
-                            Chuyển sang Nhà thuốc
-                        </button>
-                    </td>
-                </tr>
-            `).join('');
+            tbody.innerHTML = list.map(item => {
+                const khaDung = Number(item.soLuongKhaDung || 0);
+                const dangChuyen = Number(item.soLuongDangChuyenGiao || 0);
+                const daGiuCho = dangChuyen > 0;
+                const badge = daGiuCho
+                    ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">ĐANG CHUYỂN GIAO</span>'
+                    : khaDung > 0
+                        ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">KHẢ DỤNG</span>'
+                        : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">HẾT KHẢ DỤNG</span>';
+                const action = khaDung > 0
+                    ? `<button type="button" class="btn-chuyen-tiep px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition" data-lo-id="${item.loThuocId}" data-ma-lo="${item.maLo}" data-ten="${item.tenSanPham || ''}" data-kha-dung="${khaDung}">Chuyển sang Nhà thuốc</button>`
+                    : '<span class="text-[11px] font-semibold text-amber-700">Chờ Nhà thuốc xác nhận</span>';
+
+                return `
+                    <tr class="hover:bg-slate-50/80">
+                        <td class="py-3 px-3 font-semibold whitespace-nowrap">${item.maLo || '--'}</td>
+                        <td class="py-3 px-2 text-center text-slate-400 text-[11px]">${item.temQr || item.maTem || '--'}</td>
+                        <td class="py-3 px-3">${item.tenSanPham || '--'}</td>
+                        <td class="py-3 px-2.5 text-center whitespace-nowrap">${dinhDangNgay(item.hanDung)}</td>
+                        <td class="py-3 px-3 text-right whitespace-nowrap">${Number(item.soLuongHienCo || 0).toLocaleString('vi-VN')}</td>
+                        <td class="py-3 px-3 text-right font-bold ${khaDung > 0 ? 'text-emerald-700' : 'text-amber-700'} whitespace-nowrap">${khaDung.toLocaleString('vi-VN')}</td>
+                        <td class="py-3 px-2.5 text-center">${badge}</td>
+                        <td class="py-3 px-3 text-center whitespace-nowrap">${action}</td>
+                    </tr>`;
+            }).join('');
 
             // Bind nút chuyển
             tbody.querySelectorAll('.btn-chuyen-tiep').forEach(btn => {
@@ -393,7 +352,7 @@ document.addEventListener('DOMContentLoaded', function () {
             this.textContent = 'Đang gửi...';
 
             try {
-                await fetchJSON('/nha-phan-phoi/api/chuyen-giao', {
+                const result = await fetchJSON('/nha-phan-phoi/api/chuyen-giao', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -402,9 +361,18 @@ document.addEventListener('DOMContentLoaded', function () {
                         soLuong: soLuong,
                     }),
                 });
-                toast('Đã gửi yêu cầu chuyển giao thành công!');
+                const txHash = result.data?.txHash;
+                if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
+                    throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
+                }
                 modal.remove();
-                loadKho();
+                await window.PharmaPopup.show({
+                    type: 'success',
+                    title: 'Đã ký chuyển giao sang Nhà thuốc',
+                    message: result.message || 'Lô vẫn được lưu trong kho Nhà phân phối; số lượng khả dụng đã được giữ chỗ cho đến khi Nhà thuốc nhận hoặc từ chối.',
+                    txHash
+                });
+                await loadKho();
             } catch (err) {
                 toast(err.message, 'error');
                 this.disabled = false;
