@@ -1,4 +1,5 @@
--- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION v8)
+-- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION v9)
+-- v9: chuyen giao nguyen lo; ton kho moi lo chi co mot chu so huu; ban le theo so luong; QR theo lo; txHash that moi duoc luu.
 
 CREATE DATABASE IF NOT EXISTS truyxuatthuoc CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE truyxuatthuoc;
@@ -106,6 +107,7 @@ CREATE TABLE sanPham (
     quyCachDongGoi VARCHAR(255),
     nhaSanXuatId BIGINT NOT NULL,
     trangThaiDuyet ENUM('CHO_DUYET','DA_DUYET','TU_CHOI') NOT NULL DEFAULT 'CHO_DUYET',
+    hashHoSo CHAR(66) NULL COMMENT 'Keccak-256 cua snapshot ho so san pham da duyet; khong tu dong thay doi khi sua ho so',
     FOREIGN KEY (nhaSanXuatId) REFERENCES toChuc(id)
 );
 
@@ -135,8 +137,8 @@ CREATE TABLE loThuoc (
     maLo CHAR(36) NOT NULL UNIQUE,
     maLoNghiepVu VARCHAR(50) NOT NULL UNIQUE,
     sanPhamId BIGINT NOT NULL,
-    toChucId BIGINT NOT NULL,
-    soLuong INT NOT NULL,
+    toChucId BIGINT NOT NULL COMMENT 'To chuc san xuat tao lo; chu so huu hien tai duoc quan ly tai tonKhoLo',
+    soLuong INT NOT NULL COMMENT 'Tong so luong ban dau cua lo',
     ngaySanXuat DATE NOT NULL,
     hanSuDung DATE NOT NULL,
     trangThai ENUM('CREATED','IN_TRANSIT','RECALLED') NOT NULL DEFAULT 'CREATED',
@@ -146,82 +148,52 @@ CREATE TABLE loThuoc (
     CONSTRAINT chk_lo_han CHECK (hanSuDung > ngaySanXuat)
 );
 
--- 10. Bảng banLe
-CREATE TABLE banLe (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    maBanLe CHAR(36) NOT NULL UNIQUE,
-    toChucId BIGINT NOT NULL,
-    ngayBan DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    soLuong INT NOT NULL,
-    trangThai ENUM('PENDING','CONFIRMED','CANCELLED') NOT NULL DEFAULT 'CONFIRMED',
-    FOREIGN KEY (toChucId) REFERENCES toChuc(id),
-    CONSTRAINT chk_banle_soluong CHECK (soLuong > 0)
-);
-
--- 11. Bảng donViSanPham
-CREATE TABLE donViSanPham (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    maDonVi VARCHAR(50) NOT NULL UNIQUE,
-    loThuocId BIGINT NOT NULL,
-    banLeId BIGINT NULL,
-    trangThai ENUM('AVAILABLE','DISPENSED') NOT NULL DEFAULT 'AVAILABLE',
-    ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ngayBan DATETIME NULL,
-    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
-    FOREIGN KEY (banLeId) REFERENCES banLe(id)
-);
-
--- 12. Bảng qrCode
+-- 10. Bảng qrCode (Quản lý theo Lô hàng - 01 mã QR đại diện cho toàn bộ lô)
 CREATE TABLE qrCode (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     giaTriQR VARCHAR(255) NOT NULL UNIQUE,
-    loaiQR ENUM('BATCH','UNIT') NOT NULL,
-    loThuocId BIGINT NULL,
-    donViSanPhamId BIGINT NULL UNIQUE,
+    loThuocId BIGINT NOT NULL UNIQUE,
     ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     trangThai ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
-    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
-    FOREIGN KEY (donViSanPhamId) REFERENCES donViSanPham(id),
-    CONSTRAINT chk_qr_loai CHECK (
-        (loaiQR = 'BATCH' AND loThuocId IS NOT NULL AND donViSanPhamId IS NULL) OR
-        (loaiQR = 'UNIT'  AND donViSanPhamId IS NOT NULL AND loThuocId IS NULL)
-    )
+    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id)
 );
 
--- 13. Bảng tonKhoLo
+-- 11. Bảng tonKhoLo
 CREATE TABLE tonKhoLo (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    loThuocId BIGINT NOT NULL,
-    toChucId BIGINT NOT NULL,
-    soLuong INT NOT NULL DEFAULT 0,
+    loThuocId BIGINT NOT NULL COMMENT 'Moi lo chi co mot dong ton kho; cap nhat toChucId khi chuyen giao thanh cong',
+    toChucId BIGINT NOT NULL COMMENT 'To chuc dang so huu lo hien tai',
+    soLuong INT NOT NULL DEFAULT 0 COMMENT 'So luong con lai dang nam trong kho cua chu so huu hien tai',
     ngayCapNhat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (toChucId) REFERENCES toChuc(id),
-    UNIQUE KEY uq_ton_kho (loThuocId, toChucId),
+    UNIQUE KEY uq_ton_kho_lo (loThuocId),
     CONSTRAINT chk_tonkho_soluong CHECK (soLuong >= 0)
 );
 
--- 14. Bảng chuyenGiao
+-- 12. Bảng chuyenGiao
 CREATE TABLE chuyenGiao (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maChuyenGiao CHAR(36) NOT NULL UNIQUE,
     loThuocId BIGINT NOT NULL,
     benGuiId BIGINT NOT NULL,
     benNhanId BIGINT NOT NULL,
-    soLuong INT NOT NULL,
+    soLuong INT NOT NULL COMMENT 'Bat buoc bang toan bo ton kho hien tai cua lo tai thoi diem gui',
     thoiGianKhoiTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     thoiGianXacNhan DATETIME NULL,
     trangThai ENUM('PENDING','RECEIVED','CANCELLED','REJECTED') NOT NULL DEFAULT 'PENDING', -- v7
-    lyDoTuChoi VARCHAR(500) NULL, -- Đã bỏ chữ AFTER trangThai ở đây
+    lyDoTuChoi VARCHAR(500) NULL, -- v8
+    loThuocDangCho BIGINT GENERATED ALWAYS AS (CASE WHEN trangThai = 'PENDING' THEN loThuocId ELSE NULL END) STORED,
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (benGuiId) REFERENCES toChuc(id),
     FOREIGN KEY (benNhanId) REFERENCES toChuc(id),
     CONSTRAINT chk_soluong CHECK (soLuong > 0),
     CONSTRAINT chk_khac_to_chuc CHECK (benGuiId <> benNhanId),
-    CONSTRAINT chk_xac_nhan CHECK (trangThai <> 'RECEIVED' OR thoiGianXacNhan IS NOT NULL)
+    CONSTRAINT chk_xac_nhan CHECK (trangThai <> 'RECEIVED' OR thoiGianXacNhan IS NOT NULL),
+    UNIQUE KEY uq_chuyengiao_moi_lo (loThuocDangCho)
 );
 
--- 15. Bảng baoCaoNghiVan
+-- 13. Bảng baoCaoNghiVan
 CREATE TABLE baoCaoNghiVan (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maBaoCao VARCHAR(255) NOT NULL UNIQUE,
@@ -236,7 +208,7 @@ CREATE TABLE baoCaoNghiVan (
     FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id)
 );
 
--- 16. Bảng minhChungBaoCao
+-- 14. Bảng minhChungBaoCao
 CREATE TABLE minhChungBaoCao (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     baoCaoId BIGINT NOT NULL,
@@ -247,7 +219,7 @@ CREATE TABLE minhChungBaoCao (
     FOREIGN KEY (baoCaoId) REFERENCES baoCaoNghiVan(id)
 );
 
--- 17. Bảng ketQuaXuLyBaoCao
+-- 15. Bảng ketQuaXuLyBaoCao
 CREATE TABLE ketQuaXuLyBaoCao (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     baoCaoId BIGINT NOT NULL UNIQUE,
@@ -260,7 +232,7 @@ CREATE TABLE ketQuaXuLyBaoCao (
     FOREIGN KEY (coQuanXuLyId) REFERENCES taiKhoan(id)
 );
 
--- 18. Bảng thuHoiLoHang
+-- 16. Bảng thuHoiLoHang
 CREATE TABLE thuHoiLoHang (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     loThuocId BIGINT NOT NULL UNIQUE,
@@ -271,6 +243,37 @@ CREATE TABLE thuHoiLoHang (
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (coQuanQuyetDinhId) REFERENCES taiKhoan(id),
     FOREIGN KEY (ketQuaXuLyBaoCaoId) REFERENCES ketQuaXuLyBaoCao(id)
+);
+
+-- 17. Bảng banLe (Hóa đơn bán lẻ tại nhà thuốc; trạng thái bán tách biệt đồng bộ Blockchain)
+CREATE TABLE banLe (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    maHoaDon CHAR(36) NOT NULL UNIQUE,
+    toChucId BIGINT NOT NULL,
+    taiKhoanId BIGINT NOT NULL,
+    tongTien DECIMAL(15,2) NOT NULL DEFAULT 0,
+    trangThai ENUM('DA_HOAN_TAT','DA_HUY') NOT NULL DEFAULT 'DA_HOAN_TAT',
+    ngayBan DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ghiChu VARCHAR(500) NULL,
+    FOREIGN KEY (toChucId) REFERENCES toChuc(id),
+    FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id),
+    CONSTRAINT chk_banle_tongtien CHECK (tongTien >= 0)
+);
+
+-- 18. Bảng chiTietBanLe (Một dòng cho mỗi lô trong hóa đơn; không quản lý từng đơn vị sản phẩm)
+CREATE TABLE chiTietBanLe (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    banLeId BIGINT NOT NULL,
+    loThuocId BIGINT NOT NULL,
+    soLuong INT NOT NULL,
+    donGia DECIMAL(15,2) NOT NULL,
+    thanhTien DECIMAL(15,2) NOT NULL,
+    FOREIGN KEY (banLeId) REFERENCES banLe(id),
+    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
+    UNIQUE KEY uq_chitiet_banle_lo (banLeId, loThuocId),
+    CONSTRAINT chk_chitiet_soluong CHECK (soLuong > 0),
+    CONSTRAINT chk_chitiet_dongia CHECK (donGia >= 0),
+    CONSTRAINT chk_chitiet_thanhtien CHECK (thanhTien >= 0)
 );
 
 -- 19. Bảng blockchainIdentity
@@ -285,31 +288,38 @@ CREATE TABLE blockchainIdentity (
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 20. Bảng blockchainTransaction
+-- 20. Bảng blockchainTransaction (chỉ lưu txHash thật do Signer trả về; NULL khi chưa submit thành công)
 CREATE TABLE blockchainTransaction (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    txHash VARCHAR(66) NULL UNIQUE,
+    txHash CHAR(66) NULL,
     blockNumber BIGINT NULL,
     eventName VARCHAR(100) NOT NULL,
     doiTuongToChucId BIGINT NULL,
-    businessId VARCHAR(36) NOT NULL,
+    businessId CHAR(36) NOT NULL,
+    payloadHash CHAR(66) NULL COMMENT 'Keccak-256 payload gui len contract',
     thoiGian DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet',
     trangThai ENUM('PENDING','CONFIRMED','FAILED') NOT NULL DEFAULT 'PENDING',
+    soLanThu TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    lanThuCuoi DATETIME NULL,
+    loiCuoi TEXT NULL,
     toChucId BIGINT NOT NULL,
     sanPhamId BIGINT NULL,
     loThuocId BIGINT NULL,
     chuyenGiaoId BIGINT NULL,
-    donViSanPhamId BIGINT NULL,
     banLeId BIGINT NULL,
+    chiTietBanLeId BIGINT NULL,
     FOREIGN KEY (toChucId) REFERENCES toChuc(id),
+    FOREIGN KEY (doiTuongToChucId) REFERENCES toChuc(id),
     FOREIGN KEY (sanPhamId) REFERENCES sanPham(id),
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (chuyenGiaoId) REFERENCES chuyenGiao(id),
-    FOREIGN KEY (donViSanPhamId) REFERENCES donViSanPham(id),
-    FOREIGN KEY (banLeId) REFERENCES banLe(id)
+    FOREIGN KEY (banLeId) REFERENCES banLe(id),
+    FOREIGN KEY (chiTietBanLeId) REFERENCES chiTietBanLe(id),
+    CONSTRAINT chk_bctx_confirmed_hash CHECK (trangThai <> 'CONFIRMED' OR txHash IS NOT NULL),
+    UNIQUE KEY uq_bctx_idempotency (loThuocId, businessId, eventName)
 );
--- 22. Bảng lưu hàng đợi xử lý ngầm (Jobs) v8
+-- 21. Bảng lưu hàng đợi xử lý ngầm (Jobs)
 CREATE TABLE IF NOT EXISTS `jobs` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `queue` VARCHAR(255) NOT NULL,
@@ -321,7 +331,7 @@ CREATE TABLE IF NOT EXISTS `jobs` (
   INDEX `jobs_queue_index` (`queue`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 23. Bảng lưu các Job bị lỗi (Failed Jobs) v8 
+-- 22. Bảng lưu các Job bị lỗi (Failed Jobs)
 CREATE TABLE IF NOT EXISTS `failed_jobs` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `uuid` VARCHAR(255) NOT NULL UNIQUE,
@@ -332,7 +342,7 @@ CREATE TABLE IF NOT EXISTS `failed_jobs` (
   `failed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 21. Các Index tối ưu truy vấn
+-- 23. Các Index tối ưu truy vấn
 CREATE INDEX idx_taikhoan_tochuc ON taiKhoan(toChucId);
 CREATE INDEX idx_nhatky_taikhoan ON nhatKyHeThong(taiKhoanId);
 CREATE INDEX idx_nhatky_doituong ON nhatKyHeThong(doiTuongId);
@@ -342,13 +352,10 @@ CREATE INDEX idx_sanpham_nhasanxuat ON sanPham(nhaSanXuatId);
 CREATE INDEX idx_yeucausp_sanpham ON yeuCauDangKySanPham(sanPhamId);
 CREATE INDEX idx_lothuoc_sanpham ON loThuoc(sanPhamId);
 CREATE INDEX idx_lothuoc_tochuc ON loThuoc(toChucId);
-CREATE INDEX idx_donvi_lothuoc ON donViSanPham(loThuocId);
-CREATE INDEX idx_donvi_banle ON donViSanPham(banLeId);
 CREATE INDEX idx_tonkho_tochuc ON tonKhoLo(toChucId);
 CREATE INDEX idx_chuyengiao_lothuoc ON chuyenGiao(loThuocId);
 CREATE INDEX idx_chuyengiao_bengui ON chuyenGiao(benGuiId);
 CREATE INDEX idx_chuyengiao_bennhan ON chuyenGiao(benNhanId);
-CREATE INDEX idx_banle_tochuc ON banLe(toChucId);
 CREATE INDEX idx_baocao_lothuoc ON baoCaoNghiVan(loThuocId);
 CREATE INDEX idx_thuhoi_lothuoc ON thuHoiLoHang(loThuocId);
 CREATE INDEX idx_bctx_lothuoc ON blockchainTransaction(loThuocId);
@@ -356,13 +363,17 @@ CREATE INDEX idx_bctx_tochuc ON blockchainTransaction(toChucId);
 CREATE INDEX idx_bctx_businessid ON blockchainTransaction(businessId);
 CREATE INDEX idx_lothuoc_trangthai ON loThuoc(trangThai);
 CREATE INDEX idx_chuyengiao_trangthai ON chuyenGiao(trangThai);
-CREATE INDEX idx_donvi_trangthai ON donViSanPham(trangThai);
 CREATE INDEX idx_baocao_trangthai ON baoCaoNghiVan(trangThai);
 CREATE INDEX idx_yeucaudk_trangthai ON yeuCauDangKy(trangThai);
 CREATE INDEX idx_yeucausp_trangthai ON yeuCauDangKySanPham(trangThai);
 CREATE INDEX idx_nhatky_ketqua ON nhatKyHeThong(ketQua);
 CREATE INDEX idx_bctx_eventname ON blockchainTransaction(eventName);
 CREATE INDEX idx_bctx_chuyengiao ON blockchainTransaction(chuyenGiaoId);
+CREATE INDEX idx_banle_tochuc_ngayban ON banLe(toChucId, ngayBan);
+CREATE INDEX idx_chitietbanle_lothuoc ON chiTietBanLe(loThuocId);
+CREATE INDEX idx_bctx_banle ON blockchainTransaction(banLeId);
+CREATE INDEX idx_bctx_chitietbanle ON blockchainTransaction(chiTietBanLeId);
+CREATE INDEX idx_bctx_trangthai ON blockchainTransaction(trangThai);
 
 -- ============================================================================
 -- DỮ LIỆU MẪU KIỂM THỦ (DEMO DATA)
@@ -410,8 +421,8 @@ VALUES
     (1, 1, NULL, 'TAO_DU_LIEU_DEMO', 'THANH_CONG', '2026-10-01 08:30:00', 'Khoi tao bo du lieu demo cho kiem thu local.'),
     (2, 2, 3, 'PHE_DUYET_TO_CHUC', 'THANH_CONG', '2026-10-01 09:00:00', 'Phe duyet ho so cac to chuc demo.'),
     (3, 3, NULL, 'DANG_KY_LO', 'THANH_CONG', '2026-10-02 08:30:00', 'Dang ky lo demo AK-PARA-2026-001.'),
-    (4, 4, NULL, 'XAC_NHAN_CHUYEN_GIAO', 'THANH_CONG', '2026-10-03 10:00:00', 'Nhan mot phan lo AK-PARA-2026-001.'),
-    (5, 5, NULL, 'GHI_NHAN_BAN_LE', 'THANH_CONG', '2026-10-05 16:30:00', 'Ban 2 don vi thuoc demo.'),
+    (4, 4, NULL, 'XAC_NHAN_CHUYEN_GIAO', 'THANH_CONG', '2026-10-03 10:00:00', 'Nhan nguyen lo AK-PARA-2026-001.'),
+    (5, 5, NULL, 'GHI_NHAN_BAN_LE', 'THANH_CONG', '2026-10-05 16:30:00', 'Ban 2 don vi thuoc tu lo AK-PARA-2026-001.'),
     (6, 7, NULL, 'TAO_TAI_KHOAN_DEMO', 'THANH_CONG', '2026-10-01 09:30:00', 'Tao tai khoan mo rong du lieu demo.'),
     (7, 8, NULL, 'TAO_TAI_KHOAN_DEMO', 'THANH_CONG', '2026-10-02 09:30:00', 'Tao tai khoan mo rong du lieu demo.'),
     (8, 9, NULL, 'TAO_TAI_KHOAN_DEMO', 'THANH_CONG', '2026-10-03 09:30:00', 'Tao tai khoan mo rong du lieu demo.'),
@@ -560,116 +571,116 @@ VALUES
     (105, '460d8aac-b353-4a27-8a34-7c358ec61d08', 'Ambroxol 25 mg - Lo demo 052', 'VD-DEMO-EXP-2026-052', 'Ambroxol hydrochloride', '25 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 7, 'TU_CHOI'),
     (106, 'be65aaa0-9045-4b41-acff-923d4aabc63e', 'Montelukast 50 mg - Lo demo 053', 'VD-DEMO-EXP-2026-053', 'Montelukast sodium', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 7, 'TU_CHOI');
 
--- 7. Bảng yeuCauDangKySanPham
+-- 7. Bảng yeuCauDangKySanPham (Bổ sung cột soDangKy theo schema v9)
 INSERT INTO yeuCauDangKySanPham
-    (id, sanPhamId, tenSanPham, thanhPhan, hamLuong, dangBaoChe, quyCachDongGoi, versionHoSo, ngayGui, trangThai, nguoiXuLyId, ngayXuLy, lyDoTuChoi)
+    (id, sanPhamId, tenSanPham, thanhPhan, hamLuong, dangBaoChe, quyCachDongGoi, versionHoSo, soDangKy, ngayGui, trangThai, nguoiXuLyId, ngayXuLy, lyDoTuChoi)
 VALUES
-    (1, 1, 'Paracetamol An Khang 500 mg (DEMO)', 'Paracetamol', '500 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-09-08 00:00:00', 'DA_DUYET', 2, '2026-09-15 00:00:00', NULL),
-    (2, 2, 'Amoxicillin An Khang 500 mg (DEMO)', 'Amoxicillin', '500 mg', 'Vien nang', 'Hop 10 vi x 10 vien', 1, '2026-09-09 00:00:00', 'DA_DUYET', 2, '2026-09-16 00:00:00', NULL),
-    (3, 3, 'Vitamin C Hoa Binh 500 mg (DEMO)', 'Acid ascorbic', '500 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
-    (4, 4, 'Loratadine An Khang 10 mg (DEMO)', 'Loratadine', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-17 00:00:00', 'DA_DUYET', 2, '2026-09-18 00:00:00', NULL),
-    (5, 5, 'Cetirizine An Khang 10 mg (DEMO)', 'Cetirizine dihydrochloride', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-17 00:00:00', 'DA_DUYET', 2, '2026-09-18 00:00:00', NULL),
-    (6, 6, 'Omeprazole An Khang 20 mg (DEMO)', 'Omeprazole', '20 mg', 'Vien nang', 'Hop 3 vi x 10 vien nang', 1, '2026-09-18 00:00:00', 'DA_DUYET', 2, '2026-09-19 00:00:00', NULL),
-    (7, 7, 'Esomeprazole An Khang 20 mg (DEMO)', 'Esomeprazole', '20 mg', 'Vien nang', 'Hop 3 vi x 10 vien nang', 1, '2026-09-18 00:00:00', 'DA_DUYET', 2, '2026-09-19 00:00:00', NULL),
-    (8, 8, 'Metformin An Khang 500 mg (DEMO)', 'Metformin hydrochloride', '500 mg', 'Vien nen', 'Hop 6 vi x 10 vien', 1, '2026-09-19 00:00:00', 'DA_DUYET', 2, '2026-09-20 00:00:00', NULL),
-    (9, 9, 'Amlodipine An Khang 5 mg (DEMO)', 'Amlodipine', '5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-19 00:00:00', 'DA_DUYET', 2, '2026-09-20 00:00:00', NULL),
-    (10, 10, 'Losartan An Khang 50 mg (DEMO)', 'Losartan potassium', '50 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-20 00:00:00', 'DA_DUYET', 2, '2026-09-21 00:00:00', NULL),
-    (11, 11, 'Atorvastatin An Khang 10 mg (DEMO)', 'Atorvastatin calcium', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-20 00:00:00', 'DA_DUYET', 2, '2026-09-21 00:00:00', NULL),
-    (12, 12, 'Simvastatin An Khang 10 mg (DEMO)', 'Simvastatin', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-21 00:00:00', 'DA_DUYET', 2, '2026-09-22 00:00:00', NULL),
-    (13, 13, 'Captopril An Khang 25 mg (DEMO)', 'Captopril', '25 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-09-21 00:00:00', 'DA_DUYET', 2, '2026-09-22 00:00:00', NULL),
-    (14, 14, 'Enalapril An Khang 5 mg (DEMO)', 'Enalapril maleate', '5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-22 00:00:00', 'DA_DUYET', 2, '2026-09-23 00:00:00', NULL),
-    (15, 15, 'Bisoprolol An Khang 2.5 mg (DEMO)', 'Bisoprolol fumarate', '2.5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-22 00:00:00', 'DA_DUYET', 2, '2026-09-23 00:00:00', NULL),
-    (16, 16, 'Hydrochlorothiazide An Khang 25 mg (DEMO)', 'Hydrochlorothiazide', '25 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-23 00:00:00', 'DA_DUYET', 2, '2026-09-24 00:00:00', NULL),
-    (17, 17, 'Gliclazide An Khang 30 mg (DEMO)', 'Gliclazide', '30 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-23 00:00:00', 'DA_DUYET', 2, '2026-09-24 00:00:00', NULL),
-    (18, 18, 'Glimepiride An Khang 2 mg (DEMO)', 'Glimepiride', '2 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-24 00:00:00', 'DA_DUYET', 2, '2026-09-25 00:00:00', NULL),
-    (19, 19, 'Dapagliflozin An Khang 10 mg (DEMO)', 'Dapagliflozin', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-24 00:00:00', 'DA_DUYET', 2, '2026-09-25 00:00:00', NULL),
-    (20, 20, 'Aspirin An Khang 81 mg (DEMO)', 'Acetylsalicylic acid', '81 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-25 00:00:00', 'DA_DUYET', 2, '2026-09-26 00:00:00', NULL),
-    (21, 21, 'Clopidogrel An Khang 75 mg (DEMO)', 'Clopidogrel', '75 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-25 00:00:00', 'DA_DUYET', 2, '2026-09-26 00:00:00', NULL),
-    (22, 22, 'Diclofenac An Khang 50 mg (DEMO)', 'Diclofenac sodium', '50 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-09-26 00:00:00', 'DA_DUYET', 2, '2026-09-27 00:00:00', NULL),
-    (23, 23, 'Meloxicam An Khang 7.5 mg (DEMO)', 'Meloxicam', '7.5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-09-26 00:00:00', 'DA_DUYET', 2, '2026-09-27 00:00:00', NULL),
-    (24, 24, 'Celecoxib An Khang 100 mg (DEMO)', 'Celecoxib', '100 mg', 'Vien nang', 'Hop 3 vi x 10 vien nang', 1, '2026-09-27 00:00:00', 'DA_DUYET', 2, '2026-09-28 00:00:00', NULL),
-    (25, 25, 'Dexamethasone An Khang 0.5 mg (DEMO)', 'Dexamethasone', '0.5 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-09-27 00:00:00', 'DA_DUYET', 2, '2026-09-28 00:00:00', NULL),
-    (26, 26, 'Prednisolone An Khang 5 mg (DEMO)', 'Prednisolone', '5 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-09-28 00:00:00', 'DA_DUYET', 2, '2026-09-29 00:00:00', NULL),
-    (27, 27, 'Azithromycin An Khang 250 mg (DEMO)', 'Azithromycin', '250 mg', 'Vien nen', 'Hop 1 vi x 6 vien', 1, '2026-09-28 00:00:00', 'DA_DUYET', 2, '2026-09-29 00:00:00', NULL),
-    (28, 28, 'Cefixime An Khang 200 mg (DEMO)', 'Cefixime', '200 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, '2026-09-29 00:00:00', 'DA_DUYET', 2, '2026-09-30 00:00:00', NULL),
-    (29, 29, 'Cefuroxime An Khang 250 mg (DEMO)', 'Cefuroxime axetil', '250 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, '2026-09-29 00:00:00', 'DA_DUYET', 2, '2026-09-30 00:00:00', NULL),
-    (30, 30, 'Clarithromycin An Khang 500 mg (DEMO)', 'Clarithromycin', '500 mg', 'Vien nen', 'Hop 2 vi x 7 vien', 1, '2026-09-30 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
-    (31, 31, 'Doxycycline An Khang 100 mg (DEMO)', 'Doxycycline hyclate', '100 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-09-30 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
-    (32, 32, 'Metronidazole An Khang 250 mg (DEMO)', 'Metronidazole', '250 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
-    (33, 33, 'Fluconazole An Khang 150 mg (DEMO)', 'Fluconazole', '150 mg', 'Vien nang', 'Hop 1 vi x 1 vien nang', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
-    (34, 34, 'Acyclovir An Khang 200 mg (DEMO)', 'Acyclovir', '200 mg', 'Vien nen', 'Hop 5 vi x 5 vien', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (35, 35, 'Ambroxol An Khang 30 mg (DEMO)', 'Ambroxol hydrochloride', '30 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (36, 36, 'Acetylcysteine An Khang 200 mg (DEMO)', 'Acetylcysteine', '200 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (37, 37, 'Montelukast An Khang 10 mg (DEMO)', 'Montelukast', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (38, 38, 'Salbutamol An Khang 2 mg (DEMO)', 'Salbutamol sulfate', '2 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (39, 39, 'Domperidone An Khang 10 mg (DEMO)', 'Domperidone', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (40, 40, 'Ondansetron An Khang 4 mg (DEMO)', 'Ondansetron', '4 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (41, 41, 'Loperamide An Khang 2 mg (DEMO)', 'Loperamide hydrochloride', '2 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (42, 42, 'Racecadotril An Khang 100 mg (DEMO)', 'Racecadotril', '100 mg', 'Vien nang', 'Hop 2 vi x 10 vien nang', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (43, 43, 'Ferrous fumarate An Khang 200 mg (DEMO)', 'Ferrous fumarate', '200 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (44, 44, 'Folic acid An Khang 5 mg (DEMO)', 'Folic acid', '5 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (45, 45, 'Calcium carbonate An Khang 500 mg (DEMO)', 'Calcium carbonate', '500 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (46, 46, 'Zinc gluconate An Khang 10 mg (DEMO)', 'Zinc gluconate', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (47, 47, 'Thiamine An Khang 100 mg (DEMO)', 'Thiamine hydrochloride', '100 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (48, 48, 'Pyridoxine An Khang 50 mg (DEMO)', 'Pyridoxine hydrochloride', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (49, 49, 'Cholecalciferol An Khang 1000 IU (DEMO)', 'Cholecalciferol', '1000 IU', 'Vien nang mềm', 'Hop 3 vi x 10 vien nang mem', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (50, 50, 'Oral rehydration salts An Khang (DEMO)', 'Natri clorid, kali clorid, natri citrat, glucose', 'Standard', 'Bột uống', 'Hop 20 goi bot pha dung dich', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (51, 51, 'Cyanocobalamin An Khang 500 mcg (DEMO)', 'Cyanocobalamin', '500 mcg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (52, 52, 'Levofloxacin An Khang 500 mg (DEMO)', 'Levofloxacin', '500 mg', 'Vien nen', 'Hop 1 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (53, 53, 'Cefuroxime An Khang 500 mg (DEMO)', 'Cefuroxime axetil', '500 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (54, 54, 'Paracetamol 10 mg - Lo demo 001', 'Paracetamol', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (55, 55, 'Loratadine 20 mg - Lo demo 002', 'Loratadine', '20 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (56, 56, 'Cetirizine 25 mg - Lo demo 003', 'Cetirizine dihydrochloride', '25 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (57, 57, 'Omeprazole 50 mg - Lo demo 004', 'Omeprazole', '50 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (58, 58, 'Metformin 100 mg - Lo demo 005', 'Metformin hydrochloride', '100 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
-    (59, 59, 'Amlodipine 250 mg - Lo demo 006', 'Amlodipine besylate', '250 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
-    (60, 60, 'Losartan 500 mg - Lo demo 007', 'Losartan potassium', '500 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
-    (61, 61, 'Atorvastatin 10 mg - Lo demo 008', 'Atorvastatin calcium', '10 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
-    (62, 62, 'Captopril 20 mg - Lo demo 009', 'Captopril', '20 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
-    (63, 63, 'Azithromycin 25 mg - Lo demo 010', 'Azithromycin', '25 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (64, 64, 'Cefixime 50 mg - Lo demo 011', 'Cefixime trihydrate', '50 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (65, 65, 'Ambroxol 100 mg - Lo demo 012', 'Ambroxol hydrochloride', '100 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (66, 66, 'Montelukast 250 mg - Lo demo 013', 'Montelukast sodium', '250 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (67, 67, 'Domperidone 500 mg - Lo demo 014', 'Domperidone', '500 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
-    (68, 68, 'Folic acid 10 mg - Lo demo 015', 'Folic acid', '10 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
-    (69, 69, 'Acetylcysteine 20 mg - Lo demo 016', 'Acetylcysteine', '20 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
-    (70, 70, 'Vitamin C 25 mg - Lo demo 017', 'Ascorbic acid', '25 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
-    (71, 71, 'Doxycycline 50 mg - Lo demo 018', 'Doxycycline hyclate', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
-    (72, 72, 'Diclofenac 100 mg - Lo demo 019', 'Diclofenac sodium', '100 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (73, 73, 'Ferrous fumarate 250 mg - Lo demo 020', 'Ferrous fumarate', '250 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (74, 74, 'Paracetamol 500 mg - Lo demo 021', 'Paracetamol', '500 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (75, 75, 'Loratadine 10 mg - Lo demo 022', 'Loratadine', '10 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (76, 76, 'Cetirizine 20 mg - Lo demo 023', 'Cetirizine dihydrochloride', '20 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
-    (77, 77, 'Omeprazole 25 mg - Lo demo 024', 'Omeprazole', '25 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
-    (78, 78, 'Metformin 50 mg - Lo demo 025', 'Metformin hydrochloride', '50 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
-    (79, 79, 'Amlodipine 100 mg - Lo demo 026', 'Amlodipine besylate', '100 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
-    (80, 80, 'Losartan 250 mg - Lo demo 027', 'Losartan potassium', '250 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
-    (81, 81, 'Atorvastatin 500 mg - Lo demo 028', 'Atorvastatin calcium', '500 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (82, 82, 'Captopril 10 mg - Lo demo 029', 'Captopril', '10 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (83, 83, 'Azithromycin 20 mg - Lo demo 030', 'Azithromycin', '20 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (84, 84, 'Cefixime 25 mg - Lo demo 031', 'Cefixime trihydrate', '25 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (85, 85, 'Ambroxol 50 mg - Lo demo 032', 'Ambroxol hydrochloride', '50 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
-    (86, 86, 'Montelukast 100 mg - Lo demo 033', 'Montelukast sodium', '100 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
-    (87, 87, 'Domperidone 250 mg - Lo demo 034', 'Domperidone', '250 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
-    (88, 88, 'Folic acid 500 mg - Lo demo 035', 'Folic acid', '500 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
-    (89, 89, 'Acetylcysteine 10 mg - Lo demo 036', 'Acetylcysteine', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
-    (90, 90, 'Vitamin C 20 mg - Lo demo 037', 'Ascorbic acid', '20 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
-    (91, 91, 'Doxycycline 25 mg - Lo demo 038', 'Doxycycline hyclate', '25 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
-    (92, 92, 'Diclofenac 50 mg - Lo demo 039', 'Diclofenac sodium', '50 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
-    (93, 93, 'Ferrous fumarate 100 mg - Lo demo 040', 'Ferrous fumarate', '100 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
-    (94, 94, 'Paracetamol 250 mg - Lo demo 041', 'Paracetamol', '250 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
-    (95, 95, 'Loratadine 500 mg - Lo demo 042', 'Loratadine', '500 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
-    (96, 96, 'Cetirizine 10 mg - Lo demo 043', 'Cetirizine dihydrochloride', '10 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
-    (97, 97, 'Omeprazole 20 mg - Lo demo 044', 'Omeprazole', '20 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
-    (98, 98, 'Metformin 25 mg - Lo demo 045', 'Metformin hydrochloride', '25 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
-    (99, 99, 'Amlodipine 50 mg - Lo demo 046', 'Amlodipine besylate', '50 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-01 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
-    (100, 100, 'Losartan 100 mg - Lo demo 047', 'Losartan potassium', '100 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-02 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
-    (101, 101, 'Atorvastatin 250 mg - Lo demo 048', 'Atorvastatin calcium', '250 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-03 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
-    (102, 102, 'Captopril 500 mg - Lo demo 049', 'Captopril', '500 mg', 'Bột uống', 'Hop 30 goi bot', 1, '2026-10-04 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
-    (103, 103, 'Azithromycin 10 mg - Lo demo 050', 'Azithromycin', '10 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
-    (104, 104, 'Cefixime 20 mg - Lo demo 051', 'Cefixime trihydrate', '20 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, '2026-10-06 00:00:00', 'TU_CHOI', 2, '2026-10-08 00:00:00', 'Ho so demo can bo sung thong tin.'),
-    (105, 105, 'Ambroxol 25 mg - Lo demo 052', 'Ambroxol hydrochloride', '25 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, '2026-10-07 00:00:00', 'TU_CHOI', 2, '2026-10-09 00:00:00', 'Ho so demo can bo sung thong tin.'),
-    (106, 106, 'Montelukast 50 mg - Lo demo 053', 'Montelukast sodium', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, '2026-10-08 00:00:00', 'TU_CHOI', 2, '2026-10-01 00:00:00', 'Ho so demo can bo sung thong tin.');
+    (1, 1, 'Paracetamol An Khang 500 mg (DEMO)', 'Paracetamol', '500 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-001', '2026-09-08 00:00:00', 'DA_DUYET', 2, '2026-09-15 00:00:00', NULL),
+    (2, 2, 'Amoxicillin An Khang 500 mg (DEMO)', 'Amoxicillin', '500 mg', 'Vien nang', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-002', '2026-09-09 00:00:00', 'DA_DUYET', 2, '2026-09-16 00:00:00', NULL),
+    (3, 3, 'Vitamin C Hoa Binh 500 mg (DEMO)', 'Acid ascorbic', '500 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-003', '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (4, 4, 'Loratadine An Khang 10 mg (DEMO)', 'Loratadine', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-004', '2026-09-17 00:00:00', 'DA_DUYET', 2, '2026-09-18 00:00:00', NULL),
+    (5, 5, 'Cetirizine An Khang 10 mg (DEMO)', 'Cetirizine dihydrochloride', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-005', '2026-09-17 00:00:00', 'DA_DUYET', 2, '2026-09-18 00:00:00', NULL),
+    (6, 6, 'Omeprazole An Khang 20 mg (DEMO)', 'Omeprazole', '20 mg', 'Vien nang', 'Hop 3 vi x 10 vien nang', 1, 'VD-DEMO-2026-006', '2026-09-18 00:00:00', 'DA_DUYET', 2, '2026-09-19 00:00:00', NULL),
+    (7, 7, 'Esomeprazole An Khang 20 mg (DEMO)', 'Esomeprazole', '20 mg', 'Vien nang', 'Hop 3 vi x 10 vien nang', 1, 'VD-DEMO-2026-007', '2026-09-18 00:00:00', 'DA_DUYET', 2, '2026-09-19 00:00:00', NULL),
+    (8, 8, 'Metformin An Khang 500 mg (DEMO)', 'Metformin hydrochloride', '500 mg', 'Vien nen', 'Hop 6 vi x 10 vien', 1, 'VD-DEMO-2026-008', '2026-09-19 00:00:00', 'DA_DUYET', 2, '2026-09-20 00:00:00', NULL),
+    (9, 9, 'Amlodipine An Khang 5 mg (DEMO)', 'Amlodipine', '5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-009', '2026-09-19 00:00:00', 'DA_DUYET', 2, '2026-09-20 00:00:00', NULL),
+    (10, 10, 'Losartan An Khang 50 mg (DEMO)', 'Losartan potassium', '50 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-010', '2026-09-20 00:00:00', 'DA_DUYET', 2, '2026-09-21 00:00:00', NULL),
+    (11, 11, 'Atorvastatin An Khang 10 mg (DEMO)', 'Atorvastatin calcium', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-011', '2026-09-20 00:00:00', 'DA_DUYET', 2, '2026-09-21 00:00:00', NULL),
+    (12, 12, 'Simvastatin An Khang 10 mg (DEMO)', 'Simvastatin', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-012', '2026-09-21 00:00:00', 'DA_DUYET', 2, '2026-09-22 00:00:00', NULL),
+    (13, 13, 'Captopril An Khang 25 mg (DEMO)', 'Captopril', '25 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-013', '2026-09-21 00:00:00', 'DA_DUYET', 2, '2026-09-22 00:00:00', NULL),
+    (14, 14, 'Enalapril An Khang 5 mg (DEMO)', 'Enalapril maleate', '5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-014', '2026-09-22 00:00:00', 'DA_DUYET', 2, '2026-09-23 00:00:00', NULL),
+    (15, 15, 'Bisoprolol An Khang 2.5 mg (DEMO)', 'Bisoprolol fumarate', '2.5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-015', '2026-09-22 00:00:00', 'DA_DUYET', 2, '2026-09-23 00:00:00', NULL),
+    (16, 16, 'Hydrochlorothiazide An Khang 25 mg (DEMO)', 'Hydrochlorothiazide', '25 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-016', '2026-09-23 00:00:00', 'DA_DUYET', 2, '2026-09-24 00:00:00', NULL),
+    (17, 17, 'Gliclazide An Khang 30 mg (DEMO)', 'Gliclazide', '30 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-017', '2026-09-23 00:00:00', 'DA_DUYET', 2, '2026-09-24 00:00:00', NULL),
+    (18, 18, 'Glimepiride An Khang 2 mg (DEMO)', 'Glimepiride', '2 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-018', '2026-09-24 00:00:00', 'DA_DUYET', 2, '2026-09-25 00:00:00', NULL),
+    (19, 19, 'Dapagliflozin An Khang 10 mg (DEMO)', 'Dapagliflozin', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-019', '2026-09-24 00:00:00', 'DA_DUYET', 2, '2026-09-25 00:00:00', NULL),
+    (20, 20, 'Aspirin An Khang 81 mg (DEMO)', 'Acetylsalicylic acid', '81 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-020', '2026-09-25 00:00:00', 'DA_DUYET', 2, '2026-09-26 00:00:00', NULL),
+    (21, 21, 'Clopidogrel An Khang 75 mg (DEMO)', 'Clopidogrel', '75 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-021', '2026-09-25 00:00:00', 'DA_DUYET', 2, '2026-09-26 00:00:00', NULL),
+    (22, 22, 'Diclofenac An Khang 50 mg (DEMO)', 'Diclofenac sodium', '50 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-2026-022', '2026-09-26 00:00:00', 'DA_DUYET', 2, '2026-09-27 00:00:00', NULL),
+    (23, 23, 'Meloxicam An Khang 7.5 mg (DEMO)', 'Meloxicam', '7.5 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-023', '2026-09-26 00:00:00', 'DA_DUYET', 2, '2026-09-27 00:00:00', NULL),
+    (24, 24, 'Celecoxib An Khang 100 mg (DEMO)', 'Celecoxib', '100 mg', 'Vien nang', 'Hop 3 vi x 10 vien nang', 1, 'VD-DEMO-2026-024', '2026-09-27 00:00:00', 'DA_DUYET', 2, '2026-09-28 00:00:00', NULL),
+    (25, 25, 'Dexamethasone An Khang 0.5 mg (DEMO)', 'Dexamethasone', '0.5 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-025', '2026-09-27 00:00:00', 'DA_DUYET', 2, '2026-09-28 00:00:00', NULL),
+    (26, 26, 'Prednisolone An Khang 5 mg (DEMO)', 'Prednisolone', '5 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-026', '2026-09-28 00:00:00', 'DA_DUYET', 2, '2026-09-29 00:00:00', NULL),
+    (27, 27, 'Azithromycin An Khang 250 mg (DEMO)', 'Azithromycin', '250 mg', 'Vien nen', 'Hop 1 vi x 6 vien', 1, 'VD-DEMO-2026-027', '2026-09-28 00:00:00', 'DA_DUYET', 2, '2026-09-29 00:00:00', NULL),
+    (28, 28, 'Cefixime An Khang 200 mg (DEMO)', 'Cefixime', '200 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, 'VD-DEMO-2026-028', '2026-09-29 00:00:00', 'DA_DUYET', 2, '2026-09-30 00:00:00', NULL),
+    (29, 29, 'Cefuroxime An Khang 250 mg (DEMO)', 'Cefuroxime axetil', '250 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, 'VD-DEMO-2026-029', '2026-09-29 00:00:00', 'DA_DUYET', 2, '2026-09-30 00:00:00', NULL),
+    (30, 30, 'Clarithromycin An Khang 500 mg (DEMO)', 'Clarithromycin', '500 mg', 'Vien nen', 'Hop 2 vi x 7 vien', 1, 'VD-DEMO-2026-030', '2026-09-30 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
+    (31, 31, 'Doxycycline An Khang 100 mg (DEMO)', 'Doxycycline hyclate', '100 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-031', '2026-09-30 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
+    (32, 32, 'Metronidazole An Khang 250 mg (DEMO)', 'Metronidazole', '250 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-032', '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
+    (33, 33, 'Fluconazole An Khang 150 mg (DEMO)', 'Fluconazole', '150 mg', 'Vien nang', 'Hop 1 vi x 1 vien nang', 1, 'VD-DEMO-2026-033', '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
+    (34, 34, 'Acyclovir An Khang 200 mg (DEMO)', 'Acyclovir', '200 mg', 'Vien nen', 'Hop 5 vi x 5 vien', 1, 'VD-DEMO-2026-034', '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (35, 35, 'Ambroxol An Khang 30 mg (DEMO)', 'Ambroxol hydrochloride', '30 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, 'VD-DEMO-2026-035', '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (36, 36, 'Acetylcysteine An Khang 200 mg (DEMO)', 'Acetylcysteine', '200 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-2026-036', '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (37, 37, 'Montelukast An Khang 10 mg (DEMO)', 'Montelukast', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-037', '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (38, 38, 'Salbutamol An Khang 2 mg (DEMO)', 'Salbutamol sulfate', '2 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-038', '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (39, 39, 'Domperidone An Khang 10 mg (DEMO)', 'Domperidone', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-039', '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (40, 40, 'Ondansetron An Khang 4 mg (DEMO)', 'Ondansetron', '4 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, 'VD-DEMO-2026-040', '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (41, 41, 'Loperamide An Khang 2 mg (DEMO)', 'Loperamide hydrochloride', '2 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, 'VD-DEMO-2026-041', '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (42, 42, 'Racecadotril An Khang 100 mg (DEMO)', 'Racecadotril', '100 mg', 'Vien nang', 'Hop 2 vi x 10 vien nang', 1, 'VD-DEMO-2026-042', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (43, 43, 'Ferrous fumarate An Khang 200 mg (DEMO)', 'Ferrous fumarate', '200 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-2026-043', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (44, 44, 'Folic acid An Khang 5 mg (DEMO)', 'Folic acid', '5 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-044', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (45, 45, 'Calcium carbonate An Khang 500 mg (DEMO)', 'Calcium carbonate', '500 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-2026-045', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (46, 46, 'Zinc gluconate An Khang 10 mg (DEMO)', 'Zinc gluconate', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-046', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (47, 47, 'Thiamine An Khang 100 mg (DEMO)', 'Thiamine hydrochloride', '100 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-047', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (48, 48, 'Pyridoxine An Khang 50 mg (DEMO)', 'Pyridoxine hydrochloride', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-2026-048', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (49, 49, 'Cholecalciferol An Khang 1000 IU (DEMO)', 'Cholecalciferol', '1000 IU', 'Vien nang mềm', 'Hop 3 vi x 10 vien nang mem', 1, 'VD-DEMO-2026-049', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (50, 50, 'Oral rehydration salts An Khang (DEMO)', 'Natri clorid, kali clorid, natri citrat, glucose', 'Standard', 'Bột uống', 'Hop 20 goi bot pha dung dich', 1, 'VD-DEMO-2026-050', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (51, 51, 'Cyanocobalamin An Khang 500 mcg (DEMO)', 'Cyanocobalamin', '500 mcg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-2026-051', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (52, 52, 'Levofloxacin An Khang 500 mg (DEMO)', 'Levofloxacin', '500 mg', 'Vien nen', 'Hop 1 vi x 10 vien', 1, 'VD-DEMO-2026-052', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (53, 53, 'Cefuroxime An Khang 500 mg (DEMO)', 'Cefuroxime axetil', '500 mg', 'Vien nen', 'Hop 2 vi x 10 vien', 1, 'VD-DEMO-2026-053', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (54, 54, 'Paracetamol 10 mg - Lo demo 001', 'Paracetamol', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-001', '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (55, 55, 'Loratadine 20 mg - Lo demo 002', 'Loratadine', '20 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-002', '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (56, 56, 'Cetirizine 25 mg - Lo demo 003', 'Cetirizine dihydrochloride', '25 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-003', '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (57, 57, 'Omeprazole 50 mg - Lo demo 004', 'Omeprazole', '50 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-004', '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (58, 58, 'Metformin 100 mg - Lo demo 005', 'Metformin hydrochloride', '100 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-005', '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
+    (59, 59, 'Amlodipine 250 mg - Lo demo 006', 'Amlodipine besylate', '250 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-006', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
+    (60, 60, 'Losartan 500 mg - Lo demo 007', 'Losartan potassium', '500 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-007', '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
+    (61, 61, 'Atorvastatin 10 mg - Lo demo 008', 'Atorvastatin calcium', '10 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-008', '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
+    (62, 62, 'Captopril 20 mg - Lo demo 009', 'Captopril', '20 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-009', '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
+    (63, 63, 'Azithromycin 25 mg - Lo demo 010', 'Azithromycin', '25 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-010', '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (64, 64, 'Cefixime 50 mg - Lo demo 011', 'Cefixime trihydrate', '50 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-011', '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (65, 65, 'Ambroxol 100 mg - Lo demo 012', 'Ambroxol hydrochloride', '100 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-012', '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (66, 66, 'Montelukast 250 mg - Lo demo 013', 'Montelukast sodium', '250 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-013', '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (67, 67, 'Domperidone 500 mg - Lo demo 014', 'Domperidone', '500 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-014', '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
+    (68, 68, 'Folic acid 10 mg - Lo demo 015', 'Folic acid', '10 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-015', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
+    (69, 69, 'Acetylcysteine 20 mg - Lo demo 016', 'Acetylcysteine', '20 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-016', '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
+    (70, 70, 'Vitamin C 25 mg - Lo demo 017', 'Ascorbic acid', '25 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-017', '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
+    (71, 71, 'Doxycycline 50 mg - Lo demo 018', 'Doxycycline hyclate', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-018', '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
+    (72, 72, 'Diclofenac 100 mg - Lo demo 019', 'Diclofenac sodium', '100 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-019', '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (73, 73, 'Ferrous fumarate 250 mg - Lo demo 020', 'Ferrous fumarate', '250 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-020', '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (74, 74, 'Paracetamol 500 mg - Lo demo 021', 'Paracetamol', '500 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-021', '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (75, 75, 'Loratadine 10 mg - Lo demo 022', 'Loratadine', '10 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-022', '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (76, 76, 'Cetirizine 20 mg - Lo demo 023', 'Cetirizine dihydrochloride', '20 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-023', '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
+    (77, 77, 'Omeprazole 25 mg - Lo demo 024', 'Omeprazole', '25 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-024', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
+    (78, 78, 'Metformin 50 mg - Lo demo 025', 'Metformin hydrochloride', '50 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-025', '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
+    (79, 79, 'Amlodipine 100 mg - Lo demo 026', 'Amlodipine besylate', '100 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-026', '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
+    (80, 80, 'Losartan 250 mg - Lo demo 027', 'Losartan potassium', '250 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-027', '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
+    (81, 81, 'Atorvastatin 500 mg - Lo demo 028', 'Atorvastatin calcium', '500 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-028', '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (82, 82, 'Captopril 10 mg - Lo demo 029', 'Captopril', '10 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-029', '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (83, 83, 'Azithromycin 20 mg - Lo demo 030', 'Azithromycin', '20 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-030', '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (84, 84, 'Cefixime 25 mg - Lo demo 031', 'Cefixime trihydrate', '25 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-031', '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (85, 85, 'Ambroxol 50 mg - Lo demo 032', 'Ambroxol hydrochloride', '50 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-032', '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
+    (86, 86, 'Montelukast 100 mg - Lo demo 033', 'Montelukast sodium', '100 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-033', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
+    (87, 87, 'Domperidone 250 mg - Lo demo 034', 'Domperidone', '250 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-034', '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
+    (88, 88, 'Folic acid 500 mg - Lo demo 035', 'Folic acid', '500 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-035', '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
+    (89, 89, 'Acetylcysteine 10 mg - Lo demo 036', 'Acetylcysteine', '10 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-036', '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
+    (90, 90, 'Vitamin C 20 mg - Lo demo 037', 'Ascorbic acid', '20 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-037', '2026-10-01 00:00:00', 'DA_DUYET', 2, '2026-10-03 00:00:00', NULL),
+    (91, 91, 'Doxycycline 25 mg - Lo demo 038', 'Doxycycline hyclate', '25 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-038', '2026-10-02 00:00:00', 'DA_DUYET', 2, '2026-10-04 00:00:00', NULL),
+    (92, 92, 'Diclofenac 50 mg - Lo demo 039', 'Diclofenac sodium', '50 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-039', '2026-10-03 00:00:00', 'DA_DUYET', 2, '2026-10-05 00:00:00', NULL),
+    (93, 93, 'Ferrous fumarate 100 mg - Lo demo 040', 'Ferrous fumarate', '100 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-040', '2026-10-04 00:00:00', 'DA_DUYET', 2, '2026-10-06 00:00:00', NULL),
+    (94, 94, 'Paracetamol 250 mg - Lo demo 041', 'Paracetamol', '250 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-041', '2026-10-05 00:00:00', 'DA_DUYET', 2, '2026-10-07 00:00:00', NULL),
+    (95, 95, 'Loratadine 500 mg - Lo demo 042', 'Loratadine', '500 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-042', '2026-10-06 00:00:00', 'DA_DUYET', 2, '2026-10-08 00:00:00', NULL),
+    (96, 96, 'Cetirizine 10 mg - Lo demo 043', 'Cetirizine dihydrochloride', '10 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-043', '2026-10-07 00:00:00', 'DA_DUYET', 2, '2026-10-09 00:00:00', NULL),
+    (97, 97, 'Omeprazole 20 mg - Lo demo 044', 'Omeprazole', '20 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-044', '2026-10-08 00:00:00', 'DA_DUYET', 2, '2026-10-01 00:00:00', NULL),
+    (98, 98, 'Metformin 25 mg - Lo demo 045', 'Metformin hydrochloride', '25 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-045', '2026-10-09 00:00:00', 'DA_DUYET', 2, '2026-10-02 00:00:00', NULL),
+    (99, 99, 'Amlodipine 50 mg - Lo demo 046', 'Amlodipine besylate', '50 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-046', '2026-10-01 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (100, 100, 'Losartan 100 mg - Lo demo 047', 'Losartan potassium', '100 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-047', '2026-10-02 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (101, 101, 'Atorvastatin 250 mg - Lo demo 048', 'Atorvastatin calcium', '250 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-048', '2026-10-03 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (102, 102, 'Captopril 500 mg - Lo demo 049', 'Captopril', '500 mg', 'Bột uống', 'Hop 30 goi bot', 1, 'VD-DEMO-EXP-2026-049', '2026-10-04 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (103, 103, 'Azithromycin 10 mg - Lo demo 050', 'Azithromycin', '10 mg', 'Vien nang', 'Hop 2 vi x 7 vien nang', 1, 'VD-DEMO-EXP-2026-050', '2026-10-05 00:00:00', 'CHO_DUYET', NULL, NULL, NULL),
+    (104, 104, 'Cefixime 20 mg - Lo demo 051', 'Cefixime trihydrate', '20 mg', 'Vien nen', 'Hop 3 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-051', '2026-10-06 00:00:00', 'TU_CHOI', 2, '2026-10-08 00:00:00', 'Ho so demo can bo sung thong tin.'),
+    (105, 105, 'Ambroxol 25 mg - Lo demo 052', 'Ambroxol hydrochloride', '25 mg', 'Vien nen', 'Hop 5 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-052', '2026-10-07 00:00:00', 'TU_CHOI', 2, '2026-10-09 00:00:00', 'Ho so demo can bo sung thong tin.'),
+    (106, 106, 'Montelukast 50 mg - Lo demo 053', 'Montelukast sodium', '50 mg', 'Vien nen', 'Hop 10 vi x 10 vien', 1, 'VD-DEMO-EXP-2026-053', '2026-10-08 00:00:00', 'TU_CHOI', 2, '2026-10-01 00:00:00', 'Ho so demo can bo sung thong tin.');
 
 -- 8. Bảng loThuoc
 INSERT INTO loThuoc
@@ -681,161 +692,36 @@ VALUES
     (4, 'e060159a-c060-4a7f-837c-dc509fc4acac', 'DEMO-EXP-2026-B002', 89, 6, 10, '2026-09-05', '2028-09-04', 'IN_TRANSIT'),
     (5, 'bf546894-2af5-476e-93a0-9f96183a2b11', 'DEMO-EXP-2026-B003', 90, 6, 8, '2026-08-15', '2028-08-14', 'RECALLED');
 
--- 9. Bảng banLe
-INSERT INTO banLe
-    (id, maBanLe, toChucId, ngayBan, soLuong, trangThai)
-VALUES
-    (1, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 3, '2026-10-05 16:30:00', 2, 'CONFIRMED'),
-    (2, 'e12144ac-ec46-4496-a688-6e8c4ddc8d21', 9, '2026-10-07 14:00:00', 2, 'CONFIRMED'),
-    (3, '457df10c-396d-4195-b5bc-86c2af9a7448', 9, '2026-10-08 14:00:00', 1, 'CONFIRMED');
-
--- 10. Bảng donViSanPham
-INSERT INTO donViSanPham
-    (id, maDonVi, loThuocId, banLeId, trangThai, ngayTao, ngayBan)
-VALUES
-    (1, 'AK-PARA-2026-001-000001', 1, 1, 'DISPENSED', '2026-10-02 08:30:00', '2026-10-05 16:30:00'),
-    (2, 'AK-PARA-2026-001-000002', 1, 1, 'DISPENSED', '2026-10-02 08:30:00', '2026-10-05 16:30:00'),
-    (3, 'AK-PARA-2026-001-000003', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (4, 'AK-PARA-2026-001-000004', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (5, 'AK-PARA-2026-001-000005', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (6, 'AK-PARA-2026-001-000006', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (7, 'AK-PARA-2026-001-000007', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (8, 'AK-PARA-2026-001-000008', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (9, 'AK-PARA-2026-001-000009', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (10, 'AK-PARA-2026-001-000010', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (11, 'AK-PARA-2026-001-000011', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (12, 'AK-PARA-2026-001-000012', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (13, 'AK-PARA-2026-001-000013', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (14, 'AK-PARA-2026-001-000014', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (15, 'AK-PARA-2026-001-000015', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (16, 'AK-PARA-2026-001-000016', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (17, 'AK-PARA-2026-001-000017', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (18, 'AK-PARA-2026-001-000018', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (19, 'AK-PARA-2026-001-000019', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (20, 'AK-PARA-2026-001-000020', 1, NULL, 'AVAILABLE', '2026-10-02 08:30:00', NULL),
-    (21, 'AK-AMOX-2026-002-000001', 2, NULL, 'AVAILABLE', '2026-10-02 09:00:00', NULL),
-    (22, 'AK-AMOX-2026-002-000002', 2, NULL, 'AVAILABLE', '2026-10-02 09:00:00', NULL),
-    (23, 'AK-AMOX-2026-002-000003', 2, NULL, 'AVAILABLE', '2026-10-02 09:00:00', NULL),
-    (24, 'AK-AMOX-2026-002-000004', 2, NULL, 'AVAILABLE', '2026-10-02 09:00:00', NULL),
-    (25, 'AK-AMOX-2026-002-000005', 2, NULL, 'AVAILABLE', '2026-10-02 09:00:00', NULL),
-    (26, 'AK-AMOX-2026-002-000006', 2, NULL, 'AVAILABLE', '2026-10-02 09:00:00', NULL),
-    (27, 'DEMO-EXP-2026-B001-0001', 3, 2, 'DISPENSED', '2026-09-01 08:00:00', '2026-10-07 14:00:00'),
-    (28, 'DEMO-EXP-2026-B001-0002', 3, 2, 'DISPENSED', '2026-09-01 08:00:00', '2026-10-07 14:00:00'),
-    (29, 'DEMO-EXP-2026-B001-0003', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (30, 'DEMO-EXP-2026-B001-0004', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (31, 'DEMO-EXP-2026-B001-0005', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (32, 'DEMO-EXP-2026-B001-0006', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (33, 'DEMO-EXP-2026-B001-0007', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (34, 'DEMO-EXP-2026-B001-0008', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (35, 'DEMO-EXP-2026-B001-0009', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (36, 'DEMO-EXP-2026-B001-0010', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (37, 'DEMO-EXP-2026-B001-0011', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (38, 'DEMO-EXP-2026-B001-0012', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (39, 'DEMO-EXP-2026-B001-0013', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (40, 'DEMO-EXP-2026-B001-0014', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (41, 'DEMO-EXP-2026-B001-0015', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (42, 'DEMO-EXP-2026-B001-0016', 3, NULL, 'AVAILABLE', '2026-09-01 08:00:00', NULL),
-    (43, 'DEMO-EXP-2026-B002-0001', 4, 3, 'DISPENSED', '2026-09-02 08:00:00', '2026-10-08 14:00:00'),
-    (44, 'DEMO-EXP-2026-B002-0002', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (45, 'DEMO-EXP-2026-B002-0003', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (46, 'DEMO-EXP-2026-B002-0004', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (47, 'DEMO-EXP-2026-B002-0005', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (48, 'DEMO-EXP-2026-B002-0006', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (49, 'DEMO-EXP-2026-B002-0007', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (50, 'DEMO-EXP-2026-B002-0008', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (51, 'DEMO-EXP-2026-B002-0009', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL),
-    (52, 'DEMO-EXP-2026-B002-0010', 4, NULL, 'AVAILABLE', '2026-09-02 08:00:00', NULL);
-
--- 11. Bảng qrCode
+-- 9. Bảng qrCode (Điều chỉnh theo v10: 01 mã QR/Lô hàng, bỏ cột loaiQR và donViSanPhamId)
 INSERT INTO qrCode
-    (id, giaTriQR, loaiQR, loThuocId, donViSanPhamId, ngayTao, trangThai)
+    (id, giaTriQR, loThuocId, ngayTao, trangThai)
 VALUES
-    (1, 'QR-BATCH-AK-PARA-2026-001', 'BATCH', 1, NULL, '2026-10-02 08:31:00', 'ACTIVE'),
-    (2, 'QR-UNIT-AK26PARA00000001', 'UNIT', NULL, 1, '2026-10-02 08:31:00', 'ACTIVE'),
-    (3, 'QR-UNIT-AK26PARA00000002', 'UNIT', NULL, 2, '2026-10-02 08:31:00', 'ACTIVE'),
-    (4, 'QR-UNIT-AK26PARA00000003', 'UNIT', NULL, 3, '2026-10-02 08:31:00', 'ACTIVE'),
-    (5, 'QR-UNIT-AK26PARA00000004', 'UNIT', NULL, 4, '2026-10-02 08:31:00', 'ACTIVE'),
-    (6, 'QR-UNIT-AK26PARA00000005', 'UNIT', NULL, 5, '2026-10-02 08:31:00', 'ACTIVE'),
-    (7, 'QR-UNIT-AK26PARA00000006', 'UNIT', NULL, 6, '2026-10-02 08:31:00', 'ACTIVE'),
-    (8, 'QR-UNIT-AK26PARA00000007', 'UNIT', NULL, 7, '2026-10-02 08:31:00', 'ACTIVE'),
-    (9, 'QR-UNIT-AK26PARA00000008', 'UNIT', NULL, 8, '2026-10-02 08:31:00', 'ACTIVE'),
-    (10, 'QR-UNIT-AK26PARA00000009', 'UNIT', NULL, 9, '2026-10-02 08:31:00', 'ACTIVE'),
-    (11, 'QR-UNIT-AK26PARA00000010', 'UNIT', NULL, 10, '2026-10-02 08:31:00', 'ACTIVE'),
-    (12, 'QR-UNIT-AK26PARA00000011', 'UNIT', NULL, 11, '2026-10-02 08:31:00', 'ACTIVE'),
-    (13, 'QR-UNIT-AK26PARA00000012', 'UNIT', NULL, 12, '2026-10-02 08:31:00', 'ACTIVE'),
-    (14, 'QR-UNIT-AK26PARA00000013', 'UNIT', NULL, 13, '2026-10-02 08:31:00', 'ACTIVE'),
-    (15, 'QR-UNIT-AK26PARA00000014', 'UNIT', NULL, 14, '2026-10-02 08:31:00', 'ACTIVE'),
-    (16, 'QR-UNIT-AK26PARA00000015', 'UNIT', NULL, 15, '2026-10-02 08:31:00', 'ACTIVE'),
-    (17, 'QR-UNIT-AK26PARA00000016', 'UNIT', NULL, 16, '2026-10-02 08:31:00', 'ACTIVE'),
-    (18, 'QR-UNIT-AK26PARA00000017', 'UNIT', NULL, 17, '2026-10-02 08:31:00', 'ACTIVE'),
-    (19, 'QR-UNIT-AK26PARA00000018', 'UNIT', NULL, 18, '2026-10-02 08:31:00', 'ACTIVE'),
-    (20, 'QR-UNIT-AK26PARA00000019', 'UNIT', NULL, 19, '2026-10-02 08:31:00', 'ACTIVE'),
-    (21, 'QR-UNIT-AK26PARA00000020', 'UNIT', NULL, 20, '2026-10-02 08:31:00', 'ACTIVE'),
-    (22, 'QR-BATCH-AK-AMOX-2026-002', 'BATCH', 2, NULL, '2026-10-02 09:01:00', 'ACTIVE'),
-    (23, 'QR-UNIT-AK26AMOX00000001', 'UNIT', NULL, 21, '2026-10-02 09:01:00', 'ACTIVE'),
-    (24, 'QR-UNIT-AK26AMOX00000002', 'UNIT', NULL, 22, '2026-10-02 09:01:00', 'ACTIVE'),
-    (25, 'QR-UNIT-AK26AMOX00000003', 'UNIT', NULL, 23, '2026-10-02 09:01:00', 'ACTIVE'),
-    (26, 'QR-UNIT-AK26AMOX00000004', 'UNIT', NULL, 24, '2026-10-02 09:01:00', 'ACTIVE'),
-    (27, 'QR-UNIT-AK26AMOX00000005', 'UNIT', NULL, 25, '2026-10-02 09:01:00', 'ACTIVE'),
-    (28, 'QR-UNIT-AK26AMOX00000006', 'UNIT', NULL, 26, '2026-10-02 09:01:00', 'ACTIVE'),
-    (29, 'QR-BATCH-DEMO-EXP-2026-B001', 'BATCH', 3, NULL, '2026-09-01 08:30:00', 'ACTIVE'),
-    (30, 'QR-BATCH-DEMO-EXP-2026-B002', 'BATCH', 4, NULL, '2026-09-01 08:30:00', 'ACTIVE'),
-    (31, 'QR-BATCH-DEMO-EXP-2026-B003', 'BATCH', 5, NULL, '2026-09-01 08:30:00', 'ACTIVE'),
-    (32, 'QR-UNIT-DEMO-EXP-2026-B001-0001', 'UNIT', NULL, 27, '2026-09-01 08:30:00', 'ACTIVE'),
-    (33, 'QR-UNIT-DEMO-EXP-2026-B001-0002', 'UNIT', NULL, 28, '2026-09-01 08:30:00', 'ACTIVE'),
-    (34, 'QR-UNIT-DEMO-EXP-2026-B001-0003', 'UNIT', NULL, 29, '2026-09-01 08:30:00', 'ACTIVE'),
-    (35, 'QR-UNIT-DEMO-EXP-2026-B001-0004', 'UNIT', NULL, 30, '2026-09-01 08:30:00', 'ACTIVE'),
-    (36, 'QR-UNIT-DEMO-EXP-2026-B001-0005', 'UNIT', NULL, 31, '2026-09-01 08:30:00', 'ACTIVE'),
-    (37, 'QR-UNIT-DEMO-EXP-2026-B001-0006', 'UNIT', NULL, 32, '2026-09-01 08:30:00', 'ACTIVE'),
-    (38, 'QR-UNIT-DEMO-EXP-2026-B001-0007', 'UNIT', NULL, 33, '2026-09-01 08:30:00', 'ACTIVE'),
-    (39, 'QR-UNIT-DEMO-EXP-2026-B001-0008', 'UNIT', NULL, 34, '2026-09-01 08:30:00', 'ACTIVE'),
-    (40, 'QR-UNIT-DEMO-EXP-2026-B001-0009', 'UNIT', NULL, 35, '2026-09-01 08:30:00', 'ACTIVE'),
-    (41, 'QR-UNIT-DEMO-EXP-2026-B001-0010', 'UNIT', NULL, 36, '2026-09-01 08:30:00', 'ACTIVE'),
-    (42, 'QR-UNIT-DEMO-EXP-2026-B001-0011', 'UNIT', NULL, 37, '2026-09-01 08:30:00', 'ACTIVE'),
-    (43, 'QR-UNIT-DEMO-EXP-2026-B001-0012', 'UNIT', NULL, 38, '2026-09-01 08:30:00', 'ACTIVE'),
-    (44, 'QR-UNIT-DEMO-EXP-2026-B001-0013', 'UNIT', NULL, 39, '2026-09-01 08:30:00', 'ACTIVE'),
-    (45, 'QR-UNIT-DEMO-EXP-2026-B001-0014', 'UNIT', NULL, 40, '2026-09-01 08:30:00', 'ACTIVE'),
-    (46, 'QR-UNIT-DEMO-EXP-2026-B001-0015', 'UNIT', NULL, 41, '2026-09-01 08:30:00', 'ACTIVE'),
-    (47, 'QR-UNIT-DEMO-EXP-2026-B001-0016', 'UNIT', NULL, 42, '2026-09-01 08:30:00', 'ACTIVE'),
-    (48, 'QR-UNIT-DEMO-EXP-2026-B002-0001', 'UNIT', NULL, 43, '2026-09-01 08:30:00', 'ACTIVE'),
-    (49, 'QR-UNIT-DEMO-EXP-2026-B002-0002', 'UNIT', NULL, 44, '2026-09-01 08:30:00', 'ACTIVE'),
-    (50, 'QR-UNIT-DEMO-EXP-2026-B002-0003', 'UNIT', NULL, 45, '2026-09-01 08:30:00', 'ACTIVE'),
-    (51, 'QR-UNIT-DEMO-EXP-2026-B002-0004', 'UNIT', NULL, 46, '2026-09-01 08:30:00', 'ACTIVE'),
-    (52, 'QR-UNIT-DEMO-EXP-2026-B002-0005', 'UNIT', NULL, 47, '2026-09-01 08:30:00', 'ACTIVE'),
-    (53, 'QR-UNIT-DEMO-EXP-2026-B002-0006', 'UNIT', NULL, 48, '2026-09-01 08:30:00', 'ACTIVE'),
-    (54, 'QR-UNIT-DEMO-EXP-2026-B002-0007', 'UNIT', NULL, 49, '2026-09-01 08:30:00', 'ACTIVE'),
-    (55, 'QR-UNIT-DEMO-EXP-2026-B002-0008', 'UNIT', NULL, 50, '2026-09-01 08:30:00', 'ACTIVE'),
-    (56, 'QR-UNIT-DEMO-EXP-2026-B002-0009', 'UNIT', NULL, 51, '2026-09-01 08:30:00', 'ACTIVE'),
-    (57, 'QR-UNIT-DEMO-EXP-2026-B002-0010', 'UNIT', NULL, 52, '2026-09-01 08:30:00', 'ACTIVE');
+    (1, 'QR-BATCH-AK-PARA-2026-001', 1, '2026-10-02 08:31:00', 'ACTIVE'),
+    (2, 'QR-BATCH-AK-AMOX-2026-002', 2, '2026-10-02 09:01:00', 'ACTIVE'),
+    (3, 'QR-BATCH-DEMO-EXP-2026-B001', 3, '2026-09-01 08:30:00', 'ACTIVE'),
+    (4, 'QR-BATCH-DEMO-EXP-2026-B002', 4, '2026-09-01 08:30:00', 'ACTIVE'),
+    (5, 'QR-BATCH-DEMO-EXP-2026-B003', 5, '2026-09-01 08:30:00', 'ACTIVE');
 
--- 12. Bảng tonKhoLo
+-- 10. Bảng tonKhoLo
 INSERT INTO tonKhoLo (id, loThuocId, toChucId, soLuong, ngayCapNhat)
 VALUES
-    (1, 1, 1, 10, '2026-10-05 10:00:00'),
-    (2, 1, 2, 5, '2026-10-04 11:00:00'),
-    (3, 1, 3, 3, '2026-10-05 16:30:00'),
-    (4, 2, 1, 6, '2026-10-05 17:00:00'),
-    (5, 3, 6, 6, '2026-10-08 10:00:00'),
-    (6, 3, 8, 8, '2026-10-08 10:00:00'),
-    (7, 3, 9, 1, '2026-10-08 10:00:00'),
-    (8, 4, 6, 4, '2026-10-08 10:00:00'),
-    (9, 4, 8, 4, '2026-10-08 10:00:00'),
-    (10, 4, 9, 1, '2026-10-08 10:00:00'),
-    (11, 5, 7, 8, '2026-10-08 10:00:00');
+    (1, 1, 3, 18, '2026-10-05 16:30:00'), -- Nha thuoc dang so huu; 20 ban dau, da ban 2
+    (2, 2, 1, 6, '2026-10-05 17:00:00'), -- Lo bi thu hoi, ton kho cach ly tai NSX
+    (3, 3, 8, 16, '2026-10-08 10:00:00'), -- NPP dang so huu nguyen lo
+    (4, 4, 8, 10, '2026-10-08 10:00:00'), -- NPP dang so huu; chuyen nguyen lo sang nha thuoc dang cho
+    (5, 5, 6, 8, '2026-10-08 10:00:00'); -- Lo bi thu hoi, ton kho cach ly tai NSX
 
--- 13. Bảng chuyenGiao
+-- 11. Bảng chuyenGiao
 INSERT INTO chuyenGiao
     (id, maChuyenGiao, loThuocId, benGuiId, benNhanId, soLuong, thoiGianKhoiTao, thoiGianXacNhan, trangThai)
 VALUES
-    (1, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 1, 1, 2, 10, '2026-10-02 10:00:00', '2026-10-03 10:00:00', 'RECEIVED'),
-    (2, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 1, 2, 3, 5, '2026-10-03 11:00:00', '2026-10-04 11:00:00', 'RECEIVED'),
-    (3, 'ffffffff-ffff-4fff-8fff-ffffffffffff', 1, 1, 2, 2, '2026-10-05 17:00:00', NULL, 'PENDING'),
-    (4, '42d4abbd-0314-4f7c-a0ba-7bfc1a2f9663', 3, 6, 8, 6, '2026-09-03 10:00:00', '2026-09-04 10:00:00', 'RECEIVED'),
-    (5, 'c821c892-24d4-438e-b2d7-77db36ce187a', 3, 8, 9, 2, '2026-09-05 11:00:00', NULL, 'PENDING'),
-    (6, 'b7c773bd-b2cd-4c46-9742-ea4c529a2d4a', 4, 6, 8, 4, '2026-09-06 12:00:00', NULL, 'PENDING'),
-    (7, 'd980c7c3-bcbc-4313-b417-372c2e46fc56', 4, 8, 9, 1, '2026-09-07 13:00:00', '2026-09-07 15:00:00', 'RECEIVED');
+    (1, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', 1, 1, 2, 20, '2026-10-02 10:00:00', '2026-10-03 10:00:00', 'RECEIVED'),
+    (2, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', 1, 2, 3, 20, '2026-10-03 11:00:00', '2026-10-04 11:00:00', 'RECEIVED'),
+    (4, '42d4abbd-0314-4f7c-a0ba-7bfc1a2f9663', 3, 1, 8, 16, '2026-09-03 10:00:00', '2026-09-04 10:00:00', 'RECEIVED'),
+    (6, 'b7c773bd-b2cd-4c46-9742-ea4c529a2d4a', 4, 6, 8, 10, '2026-09-06 12:00:00', '2026-09-07 12:00:00', 'RECEIVED'),
+    (7, 'd980c7c3-bcbc-4313-b417-372c2e46fc56', 4, 8, 9, 10, '2026-09-07 13:00:00', NULL, 'PENDING');
 
--- 14. Bảng baoCaoNghiVan
+-- 12. Bảng baoCaoNghiVan
 INSERT INTO baoCaoNghiVan
     (id, maBaoCao, loThuocId, maLoKhaiBao, taiKhoanId, lyDo, moTa, ngayGui, trangThai)
 VALUES
@@ -844,7 +730,7 @@ VALUES
     (3, 'BC-DEMO-EXP-2026-0001', 5, 'DEMO-EXP-2026-B003', 10, 'Nghi ngo bao quan lo thuoc khong dung dieu kien.', 'Du lieu minh hoa, khong phai ket luan kiem dinh that.', '2026-09-08 00:00:00', 'DANG_XU_LY'),
     (4, 'BC-DEMO-EXP-2026-0002', 5, 'DEMO-EXP-2026-B003', 10, 'Phat hien sai lech trong ho so lo thuoc.', 'Du lieu minh hoa, khong phai ket luan kiem dinh that.', '2026-09-09 00:00:00', 'DA_XU_LY');
 
--- 15. Bảng minhChungBaoCao
+-- 13. Bảng minhChungBaoCao
 INSERT INTO minhChungBaoCao (id, baoCaoId, tenFile, loaiFile, duongDan, ngayTaiLen)
 VALUES
     (1, 1, 'anh-mau-vien-thuoc-demo.jpg', 'image/jpeg', 'demo/bao-cao/BC-DEMO-2026-0001/anh-mau.jpg', '2026-10-05 00:00:00'),
@@ -852,21 +738,30 @@ VALUES
     (3, 3, 'minh-chung-demo-1.jpg', 'image/jpeg', 'demo/mo-rong/bao-cao/BC-DEMO-EXP-2026-0001/minh-chung.jpg', '2026-09-08 00:00:00'),
     (4, 4, 'minh-chung-demo-2.jpg', 'image/jpeg', 'demo/mo-rong/bao-cao/BC-DEMO-EXP-2026-0002/minh-chung.jpg', '2026-09-09 00:00:00');
 
--- 16. Bảng ketQuaXuLyBaoCao
+-- 14. Bảng ketQuaXuLyBaoCao
 INSERT INTO ketQuaXuLyBaoCao
     (id, baoCaoId, coQuanXuLyId, quyetDinh, lyDoXuLy, ghiChu, ngayXuLy)
 VALUES
     (1, 1, 2, 'THU_HOI', 'Ket qua kiem tra mau khong dat yeu cau.', 'Du lieu minh hoa; khong phai ket luan kiem dinh that.', '2026-10-05 00:00:00'),
     (2, 4, 11, 'THU_HOI', 'Can cach ly lo hang de kiem tra.', 'Du lieu demo.', '2026-09-12 00:00:00');
 
--- 17. Bảng thuHoiLoHang
+-- 15. Bảng thuHoiLoHang
 INSERT INTO thuHoiLoHang
     (id, loThuocId, coQuanQuyetDinhId, ketQuaXuLyBaoCaoId, lyDo, ngayThuHoi)
 VALUES
     (1, 2, 2, 1, 'Thu hoi demo theo ket qua xu ly BC-DEMO-2026-0001.', '2026-10-05 00:00:00'),
     (2, 5, 11, 2, 'Thu hoi minh hoa theo ket qua xu ly bao cao demo.', '2026-09-12 00:00:00');
 
--- 18. Bảng blockchainIdentity (Bổ sung id = 10 liên kết toChucId = 11)
+-- 16. Hóa đơn bán lẻ demo: nhà thuốc 3 bán 2 đơn vị từ lô 1 (tồn còn 18)
+INSERT INTO banLe (id, maHoaDon, toChucId, taiKhoanId, tongTien, trangThai, ngayBan, ghiChu)
+VALUES
+    (1, 'a1111111-1111-4111-8111-111111111111', 3, 5, 20000.00, 'DA_HOAN_TAT', '2026-10-05 16:30:00', 'Hoa don demo ban 2 don vi tu lo AK-PARA-2026-001.');
+
+INSERT INTO chiTietBanLe (id, banLeId, loThuocId, soLuong, donGia, thanhTien)
+VALUES
+    (1, 1, 1, 2, 10000.00, 20000.00);
+
+-- 17. Bảng blockchainIdentity (Bổ sung id = 10 liên kết toChucId = 11)
 INSERT INTO blockchainIdentity
     (id, toChucId, signerKeyId, diaChiVi, network, trangThai)
 VALUES
@@ -886,25 +781,23 @@ ON DUPLICATE KEY UPDATE
     `network`     = VALUES(`network`),
     `trangThai`   = VALUES(`trangThai`);
 
--- 19. Bảng blockchainTransaction
+-- 24. Bảng blockchainTransaction
+-- Du lieu blockchain demo chi la mau nghiep vu: khong gan txHash/blockNumber gia.
+-- Moi giao dich duoc danh dau FAILED va txHash=NULL cho den khi co giao dich Sepolia that.
 INSERT INTO blockchainTransaction
-    (id, txHash, blockNumber, eventName, businessId, thoiGian, network, trangThai, toChucId, loThuocId, chuyenGiaoId, donViSanPhamId, banLeId)
+    (id, txHash, blockNumber, eventName, doiTuongToChucId, businessId, payloadHash, thoiGian, network, trangThai, soLanThu, loiCuoi, toChucId, sanPhamId, loThuocId, chuyenGiaoId, banLeId, chiTietBanLeId)
 VALUES
-    (1, '0x1111111111111111111111111111111111111111111111111111111111111111', 100001, 'BatchRegistered', 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', '2026-10-02 08:30:00', 'Polygon Testnet', 'CONFIRMED', 1, 1, NULL, NULL, NULL),
-    (2, '0x2222222222222222222222222222222222222222222222222222222222222222', 100120, 'TransferReceived', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', '2026-10-03 10:00:00', 'Polygon Testnet', 'CONFIRMED', 2, 1, 1, NULL, NULL),
-    (3, '0x3333333333333333333333333333333333333333333333333333333333333333', 100180, 'TransferReceived', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', '2026-10-04 11:00:00', 'Polygon Testnet', 'CONFIRMED', 3, 1, 2, NULL, NULL),
-    (4, '0x4444444444444444444444444444444444444444444444444444444444444444', 100240, 'BatchRecalled', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '2026-10-05 17:00:00', 'Polygon Testnet', 'CONFIRMED', 4, 2, NULL, NULL, NULL),
-    (5, '0x5555555555555555555555555555555555555555555555555555555555555555', 100230, 'RetailSale', 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', '2026-10-05 16:30:00', 'Polygon Testnet', 'CONFIRMED', 3, 1, NULL, 1, 1),
-    (6, '0x6666666666666666666666666666666666666666666666666666666666666666', NULL, 'TransferCreated', 'ffffffff-ffff-4fff-8fff-ffffffffffff', '2026-10-05 17:00:00', 'Polygon Testnet', 'PENDING', 1, 1, 3, NULL, NULL),
-    (7, '0x7777777777777777777777777777777777777777777777777777777777777777', 100002, 'BatchRegistered', 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', '2026-10-02 09:00:00', 'Polygon Testnet', 'CONFIRMED', 1, 2, NULL, NULL, NULL),
-    (8, '0xfea5fa4b0e463c934a4406806b1ff4daf32ca0d16eca6772c9af65d910d5c4d5', 101000, 'BatchRegistered', 'DEMO-EXP-2026-B001', '2026-09-01 08:30:00', 'Polygon Testnet', 'CONFIRMED', 1, 3, NULL, NULL, NULL),
-    (9, '0x171a31057f6de2f2aa1d9f31eae2b3b0be6209aa4f4a83fd2058604ab28a923b', 101010, 'BatchRegistered', 'DEMO-EXP-2026-B002', '2026-09-02 08:30:00', 'Polygon Testnet', 'CONFIRMED', 6, 4, NULL, NULL, NULL),
-    (10, '0xf3e6c6ec64554a99d2d9f059cb884c56b8f14b11259f55def09e1b8897bee83c', 101020, 'BatchRegistered', 'DEMO-EXP-2026-B003', '2026-09-03 08:30:00', 'Polygon Testnet', 'CONFIRMED', 6, 5, NULL, NULL, NULL),
-    (11, '0x5868d077f280a0333b520b3f74ac83cc95c0ca4ce8537efcf854dfd26853504b', 101100, 'TransferCreated', '42d4abbd-0314-4f7c-a0ba-7bfc1a2f9663', '2026-09-03 10:00:00', 'Polygon Testnet', 'CONFIRMED', 6, 3, 4, NULL, NULL),
-    (12, '0x10070959ce4113c739013aa8aff26bb9ed167a9f26d9d2ec61a485d7a7b5e017', 101101, 'TransferCreated', 'c821c892-24d4-438e-b2d7-77db36ce187a', '2026-09-05 11:00:00', 'Polygon Testnet', 'PENDING', 8, 3, 5, NULL, NULL),
-    (13, '0xdc8eba212ec6bba1595516555328c4662fcaf0f9fb1bf2a6a035cecbc61f4b2f', 101102, 'TransferCreated', 'b7c773bd-b2cd-4c46-9742-ea4c529a2d4a', '2026-09-06 12:00:00', 'Polygon Testnet', 'PENDING', 6, 4, 6, NULL, NULL),
-    (14, '0x311b72917b5bc0a11b0fdd821511f986c452375056d68c228a6a52c66a8a5c79', 101200, 'RetailSale', 'e12144ac-ec46-4496-a688-6e8c4ddc8d21', '2026-10-07 14:00:00', 'Polygon Testnet', 'CONFIRMED', 9, 3, NULL, 27, 2),
-    (15, '0x2b4894999a5371ed92e0ad7b9b63cc317dc897c9df3959fb230c309edf5f0323', 101201, 'RetailSale', '457df10c-396d-4195-b5bc-86c2af9a7448', '2026-10-08 14:00:00', 'Polygon Testnet', 'CONFIRMED', 9, 4, NULL, 43, 3),
-    (16, '0xf2b4d7ad4883fe0395cdd284015c1455bd040aa3546cd8e285dec34806db34b0', 101300, 'BatchRecalled', 'DEMO-EXP-2026-B003', '2026-09-12 15:00:00', 'Polygon Testnet', 'CONFIRMED', 10, 5, NULL, NULL, NULL);
+    (1, NULL, NULL, 'BatchRegistered', NULL, 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', NULL, '2026-10-02 08:30:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 1, 1, 1, NULL, NULL, NULL),
+    (2, NULL, NULL, 'TransferReceived', 2, 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', NULL, '2026-10-03 10:00:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 2, 1, 1, 1, NULL, NULL),
+    (3, NULL, NULL, 'TransferReceived', 3, 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', NULL, '2026-10-04 11:00:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 3, 1, 1, 2, NULL, NULL),
+    (4, NULL, NULL, 'BatchRecalled', NULL, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', NULL, '2026-10-05 17:00:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 4, 2, 2, NULL, NULL, NULL),
+    (7, NULL, NULL, 'BatchRegistered', NULL, 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', NULL, '2026-10-02 09:00:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 1, 2, 2, NULL, NULL, NULL),
+    (8, NULL, NULL, 'BatchRegistered', NULL, '264cdb4f-7a26-4390-a18d-b57bfbb4dafb', NULL, '2026-09-01 08:30:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 1, 54, 3, NULL, NULL, NULL),
+    (9, NULL, NULL, 'BatchRegistered', NULL, 'e060159a-c060-4a7f-837c-dc509fc4acac', NULL, '2026-09-02 08:30:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 6, 89, 4, NULL, NULL, NULL),
+    (10, NULL, NULL, 'BatchRegistered', NULL, 'bf546894-2af5-476e-93a0-9f96183a2b11', NULL, '2026-09-03 08:30:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 6, 90, 5, NULL, NULL, NULL),
+    (11, NULL, NULL, 'TransferReceived', 8, '42d4abbd-0314-4f7c-a0ba-7bfc1a2f9663', NULL, '2026-09-04 10:00:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 8, 54, 3, 4, NULL, NULL),
+    (13, NULL, NULL, 'TransferReceived', 8, 'b7c773bd-b2cd-4c46-9742-ea4c529a2d4a', NULL, '2026-09-07 12:00:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 8, 89, 4, 6, NULL, NULL),
+    (14, NULL, NULL, 'TransferSubmitted', 9, 'd980c7c3-bcbc-4313-b417-372c2e46fc56', NULL, '2026-09-07 13:00:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 8, 89, 4, 7, NULL, NULL),
+    (15, NULL, NULL, 'SOLD', NULL, 'a1111111-1111-4111-8111-111111111111', NULL, '2026-10-05 16:30:00', 'Ethereum Sepolia Testnet', 'FAILED', 0, 'Du lieu demo; chua gui giao dich len Sepolia.', 3, 1, 1, NULL, 1, 1);
 
 COMMIT;

@@ -1,4 +1,5 @@
--- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION v8)
+-- HỆ THỐNG TRUY XUẤT NGUỒN GỐC DƯỢC PHẨM (VERSION v9)
+-- v9: chuyen giao nguyen lo; ton kho moi lo chi co mot chu so huu; ban le theo so luong; QR theo lo; txHash that moi duoc luu.
 
 CREATE DATABASE IF NOT EXISTS truyxuatthuoc CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE truyxuatthuoc;
@@ -106,6 +107,7 @@ CREATE TABLE sanPham (
     quyCachDongGoi VARCHAR(255),
     nhaSanXuatId BIGINT NOT NULL,
     trangThaiDuyet ENUM('CHO_DUYET','DA_DUYET','TU_CHOI') NOT NULL DEFAULT 'CHO_DUYET',
+    hashHoSo CHAR(66) NULL COMMENT 'Keccak-256 cua snapshot ho so san pham da duyet; khong tu dong thay doi khi sua ho so',
     FOREIGN KEY (nhaSanXuatId) REFERENCES toChuc(id)
 );
 
@@ -135,8 +137,8 @@ CREATE TABLE loThuoc (
     maLo CHAR(36) NOT NULL UNIQUE,
     maLoNghiepVu VARCHAR(50) NOT NULL UNIQUE,
     sanPhamId BIGINT NOT NULL,
-    toChucId BIGINT NOT NULL,
-    soLuong INT NOT NULL,
+    toChucId BIGINT NOT NULL COMMENT 'To chuc san xuat tao lo; chu so huu hien tai duoc quan ly tai tonKhoLo',
+    soLuong INT NOT NULL COMMENT 'Tong so luong ban dau cua lo',
     ngaySanXuat DATE NOT NULL,
     hanSuDung DATE NOT NULL,
     trangThai ENUM('CREATED','IN_TRANSIT','RECALLED') NOT NULL DEFAULT 'CREATED',
@@ -146,82 +148,52 @@ CREATE TABLE loThuoc (
     CONSTRAINT chk_lo_han CHECK (hanSuDung > ngaySanXuat)
 );
 
--- 10. Bảng banLe
-CREATE TABLE banLe (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    maBanLe CHAR(36) NOT NULL UNIQUE,
-    toChucId BIGINT NOT NULL,
-    ngayBan DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    soLuong INT NOT NULL,
-    trangThai ENUM('PENDING','CONFIRMED','CANCELLED') NOT NULL DEFAULT 'CONFIRMED',
-    FOREIGN KEY (toChucId) REFERENCES toChuc(id),
-    CONSTRAINT chk_banle_soluong CHECK (soLuong > 0)
-);
-
--- 11. Bảng donViSanPham
-CREATE TABLE donViSanPham (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    maDonVi VARCHAR(50) NOT NULL UNIQUE,
-    loThuocId BIGINT NOT NULL,
-    banLeId BIGINT NULL,
-    trangThai ENUM('AVAILABLE','DISPENSED') NOT NULL DEFAULT 'AVAILABLE',
-    ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    ngayBan DATETIME NULL,
-    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
-    FOREIGN KEY (banLeId) REFERENCES banLe(id)
-);
-
--- 12. Bảng qrCode
+-- 10. Bảng qrCode (Quản lý theo Lô hàng - 01 mã QR đại diện cho toàn bộ lô)
 CREATE TABLE qrCode (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     giaTriQR VARCHAR(255) NOT NULL UNIQUE,
-    loaiQR ENUM('BATCH','UNIT') NOT NULL,
-    loThuocId BIGINT NULL,
-    donViSanPhamId BIGINT NULL UNIQUE,
+    loThuocId BIGINT NOT NULL UNIQUE,
     ngayTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     trangThai ENUM('ACTIVE','INACTIVE') NOT NULL DEFAULT 'ACTIVE',
-    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
-    FOREIGN KEY (donViSanPhamId) REFERENCES donViSanPham(id),
-    CONSTRAINT chk_qr_loai CHECK (
-        (loaiQR = 'BATCH' AND loThuocId IS NOT NULL AND donViSanPhamId IS NULL) OR
-        (loaiQR = 'UNIT'  AND donViSanPhamId IS NOT NULL AND loThuocId IS NULL)
-    )
+    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id)
 );
 
--- 13. Bảng tonKhoLo
+-- 11. Bảng tonKhoLo
 CREATE TABLE tonKhoLo (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    loThuocId BIGINT NOT NULL,
-    toChucId BIGINT NOT NULL,
-    soLuong INT NOT NULL DEFAULT 0,
+    loThuocId BIGINT NOT NULL COMMENT 'Moi lo chi co mot dong ton kho; cap nhat toChucId khi chuyen giao thanh cong',
+    toChucId BIGINT NOT NULL COMMENT 'To chuc dang so huu lo hien tai',
+    soLuong INT NOT NULL DEFAULT 0 COMMENT 'So luong con lai dang nam trong kho cua chu so huu hien tai',
     ngayCapNhat DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (toChucId) REFERENCES toChuc(id),
-    UNIQUE KEY uq_ton_kho (loThuocId, toChucId),
+    UNIQUE KEY uq_ton_kho_lo (loThuocId),
     CONSTRAINT chk_tonkho_soluong CHECK (soLuong >= 0)
 );
 
--- 14. Bảng chuyenGiao
+-- 12. Bảng chuyenGiao
 CREATE TABLE chuyenGiao (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maChuyenGiao CHAR(36) NOT NULL UNIQUE,
     loThuocId BIGINT NOT NULL,
     benGuiId BIGINT NOT NULL,
     benNhanId BIGINT NOT NULL,
-    soLuong INT NOT NULL,
+    soLuong INT NOT NULL COMMENT 'Bat buoc bang toan bo ton kho hien tai cua lo tai thoi diem gui',
     thoiGianKhoiTao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     thoiGianXacNhan DATETIME NULL,
     trangThai ENUM('PENDING','RECEIVED','CANCELLED','REJECTED') NOT NULL DEFAULT 'PENDING', -- v7
     lyDoTuChoi VARCHAR(500) NULL, -- v8
+    loThuocDangCho BIGINT GENERATED ALWAYS AS (CASE WHEN trangThai = 'PENDING' THEN loThuocId ELSE NULL END) STORED,
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (benGuiId) REFERENCES toChuc(id),
     FOREIGN KEY (benNhanId) REFERENCES toChuc(id),
     CONSTRAINT chk_soluong CHECK (soLuong > 0),
     CONSTRAINT chk_khac_to_chuc CHECK (benGuiId <> benNhanId),
-    CONSTRAINT chk_xac_nhan CHECK (trangThai <> 'RECEIVED' OR thoiGianXacNhan IS NOT NULL)
+    CONSTRAINT chk_xac_nhan CHECK (trangThai <> 'RECEIVED' OR thoiGianXacNhan IS NOT NULL),
+    UNIQUE KEY uq_chuyengiao_moi_lo (loThuocDangCho)
 );
 
--- 15. Bảng baoCaoNghiVan
+-- 13. Bảng baoCaoNghiVan
 CREATE TABLE baoCaoNghiVan (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maBaoCao VARCHAR(255) NOT NULL UNIQUE,
@@ -236,7 +208,7 @@ CREATE TABLE baoCaoNghiVan (
     FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id)
 );
 
--- 16. Bảng minhChungBaoCao
+-- 14. Bảng minhChungBaoCao
 CREATE TABLE minhChungBaoCao (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     baoCaoId BIGINT NOT NULL,
@@ -247,7 +219,7 @@ CREATE TABLE minhChungBaoCao (
     FOREIGN KEY (baoCaoId) REFERENCES baoCaoNghiVan(id)
 );
 
--- 17. Bảng ketQuaXuLyBaoCao
+-- 15. Bảng ketQuaXuLyBaoCao
 CREATE TABLE ketQuaXuLyBaoCao (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     baoCaoId BIGINT NOT NULL UNIQUE,
@@ -260,7 +232,7 @@ CREATE TABLE ketQuaXuLyBaoCao (
     FOREIGN KEY (coQuanXuLyId) REFERENCES taiKhoan(id)
 );
 
--- 18. Bảng thuHoiLoHang
+-- 16. Bảng thuHoiLoHang
 CREATE TABLE thuHoiLoHang (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     loThuocId BIGINT NOT NULL UNIQUE,
@@ -271,6 +243,37 @@ CREATE TABLE thuHoiLoHang (
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (coQuanQuyetDinhId) REFERENCES taiKhoan(id),
     FOREIGN KEY (ketQuaXuLyBaoCaoId) REFERENCES ketQuaXuLyBaoCao(id)
+);
+
+-- 17. Bảng banLe (Hóa đơn bán lẻ tại nhà thuốc; trạng thái bán tách biệt đồng bộ Blockchain)
+CREATE TABLE banLe (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    maHoaDon CHAR(36) NOT NULL UNIQUE,
+    toChucId BIGINT NOT NULL,
+    taiKhoanId BIGINT NOT NULL,
+    tongTien DECIMAL(15,2) NOT NULL DEFAULT 0,
+    trangThai ENUM('DA_HOAN_TAT','DA_HUY') NOT NULL DEFAULT 'DA_HOAN_TAT',
+    ngayBan DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    ghiChu VARCHAR(500) NULL,
+    FOREIGN KEY (toChucId) REFERENCES toChuc(id),
+    FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id),
+    CONSTRAINT chk_banle_tongtien CHECK (tongTien >= 0)
+);
+
+-- 18. Bảng chiTietBanLe (Một dòng cho mỗi lô trong hóa đơn; không quản lý từng đơn vị sản phẩm)
+CREATE TABLE chiTietBanLe (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    banLeId BIGINT NOT NULL,
+    loThuocId BIGINT NOT NULL,
+    soLuong INT NOT NULL,
+    donGia DECIMAL(15,2) NOT NULL,
+    thanhTien DECIMAL(15,2) NOT NULL,
+    FOREIGN KEY (banLeId) REFERENCES banLe(id),
+    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
+    UNIQUE KEY uq_chitiet_banle_lo (banLeId, loThuocId),
+    CONSTRAINT chk_chitiet_soluong CHECK (soLuong > 0),
+    CONSTRAINT chk_chitiet_dongia CHECK (donGia >= 0),
+    CONSTRAINT chk_chitiet_thanhtien CHECK (thanhTien >= 0)
 );
 
 -- 19. Bảng blockchainIdentity
@@ -285,31 +288,38 @@ CREATE TABLE blockchainIdentity (
     FOREIGN KEY (toChucId) REFERENCES toChuc(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 20. Bảng blockchainTransaction
+-- 20. Bảng blockchainTransaction (chỉ lưu txHash thật do Signer trả về; NULL khi chưa submit thành công)
 CREATE TABLE blockchainTransaction (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    txHash VARCHAR(66) NULL UNIQUE,
+    txHash CHAR(66) NULL,
     blockNumber BIGINT NULL,
     eventName VARCHAR(100) NOT NULL,
     doiTuongToChucId BIGINT NULL,
-    businessId VARCHAR(36) NOT NULL,
+    businessId CHAR(36) NOT NULL,
+    payloadHash CHAR(66) NULL COMMENT 'Keccak-256 payload gui len contract',
     thoiGian DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     network VARCHAR(50) NOT NULL DEFAULT 'Ethereum Sepolia Testnet',
     trangThai ENUM('PENDING','CONFIRMED','FAILED') NOT NULL DEFAULT 'PENDING',
+    soLanThu TINYINT UNSIGNED NOT NULL DEFAULT 0,
+    lanThuCuoi DATETIME NULL,
+    loiCuoi TEXT NULL,
     toChucId BIGINT NOT NULL,
     sanPhamId BIGINT NULL,
     loThuocId BIGINT NULL,
     chuyenGiaoId BIGINT NULL,
-    donViSanPhamId BIGINT NULL,
     banLeId BIGINT NULL,
+    chiTietBanLeId BIGINT NULL,
     FOREIGN KEY (toChucId) REFERENCES toChuc(id),
+    FOREIGN KEY (doiTuongToChucId) REFERENCES toChuc(id),
     FOREIGN KEY (sanPhamId) REFERENCES sanPham(id),
     FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
     FOREIGN KEY (chuyenGiaoId) REFERENCES chuyenGiao(id),
-    FOREIGN KEY (donViSanPhamId) REFERENCES donViSanPham(id),
-    FOREIGN KEY (banLeId) REFERENCES banLe(id)
+    FOREIGN KEY (banLeId) REFERENCES banLe(id),
+    FOREIGN KEY (chiTietBanLeId) REFERENCES chiTietBanLe(id),
+    CONSTRAINT chk_bctx_confirmed_hash CHECK (trangThai <> 'CONFIRMED' OR txHash IS NOT NULL),
+    UNIQUE KEY uq_bctx_idempotency (loThuocId, businessId, eventName)
 );
--- 22. Bảng lưu hàng đợi xử lý ngầm (Jobs) v8
+-- 21. Bảng lưu hàng đợi xử lý ngầm (Jobs)
 CREATE TABLE IF NOT EXISTS `jobs` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `queue` VARCHAR(255) NOT NULL,
@@ -321,7 +331,7 @@ CREATE TABLE IF NOT EXISTS `jobs` (
   INDEX `jobs_queue_index` (`queue`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 23. Bảng lưu các Job bị lỗi (Failed Jobs) v8 
+-- 22. Bảng lưu các Job bị lỗi (Failed Jobs)
 CREATE TABLE IF NOT EXISTS `failed_jobs` (
   `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   `uuid` VARCHAR(255) NOT NULL UNIQUE,
@@ -332,7 +342,7 @@ CREATE TABLE IF NOT EXISTS `failed_jobs` (
   `failed_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 21. Các Index tối ưu truy vấn
+-- 23. Các Index tối ưu truy vấn
 CREATE INDEX idx_taikhoan_tochuc ON taiKhoan(toChucId);
 CREATE INDEX idx_nhatky_taikhoan ON nhatKyHeThong(taiKhoanId);
 CREATE INDEX idx_nhatky_doituong ON nhatKyHeThong(doiTuongId);
@@ -342,13 +352,10 @@ CREATE INDEX idx_sanpham_nhasanxuat ON sanPham(nhaSanXuatId);
 CREATE INDEX idx_yeucausp_sanpham ON yeuCauDangKySanPham(sanPhamId);
 CREATE INDEX idx_lothuoc_sanpham ON loThuoc(sanPhamId);
 CREATE INDEX idx_lothuoc_tochuc ON loThuoc(toChucId);
-CREATE INDEX idx_donvi_lothuoc ON donViSanPham(loThuocId);
-CREATE INDEX idx_donvi_banle ON donViSanPham(banLeId);
 CREATE INDEX idx_tonkho_tochuc ON tonKhoLo(toChucId);
 CREATE INDEX idx_chuyengiao_lothuoc ON chuyenGiao(loThuocId);
 CREATE INDEX idx_chuyengiao_bengui ON chuyenGiao(benGuiId);
 CREATE INDEX idx_chuyengiao_bennhan ON chuyenGiao(benNhanId);
-CREATE INDEX idx_banle_tochuc ON banLe(toChucId);
 CREATE INDEX idx_baocao_lothuoc ON baoCaoNghiVan(loThuocId);
 CREATE INDEX idx_thuhoi_lothuoc ON thuHoiLoHang(loThuocId);
 CREATE INDEX idx_bctx_lothuoc ON blockchainTransaction(loThuocId);
@@ -356,10 +363,14 @@ CREATE INDEX idx_bctx_tochuc ON blockchainTransaction(toChucId);
 CREATE INDEX idx_bctx_businessid ON blockchainTransaction(businessId);
 CREATE INDEX idx_lothuoc_trangthai ON loThuoc(trangThai);
 CREATE INDEX idx_chuyengiao_trangthai ON chuyenGiao(trangThai);
-CREATE INDEX idx_donvi_trangthai ON donViSanPham(trangThai);
 CREATE INDEX idx_baocao_trangthai ON baoCaoNghiVan(trangThai);
 CREATE INDEX idx_yeucaudk_trangthai ON yeuCauDangKy(trangThai);
 CREATE INDEX idx_yeucausp_trangthai ON yeuCauDangKySanPham(trangThai);
 CREATE INDEX idx_nhatky_ketqua ON nhatKyHeThong(ketQua);
 CREATE INDEX idx_bctx_eventname ON blockchainTransaction(eventName);
 CREATE INDEX idx_bctx_chuyengiao ON blockchainTransaction(chuyenGiaoId);
+CREATE INDEX idx_banle_tochuc_ngayban ON banLe(toChucId, ngayBan);
+CREATE INDEX idx_chitietbanle_lothuoc ON chiTietBanLe(loThuocId);
+CREATE INDEX idx_bctx_banle ON blockchainTransaction(banLeId);
+CREATE INDEX idx_bctx_chitietbanle ON blockchainTransaction(chiTietBanLeId);
+CREATE INDEX idx_bctx_trangthai ON blockchainTransaction(trangThai);
