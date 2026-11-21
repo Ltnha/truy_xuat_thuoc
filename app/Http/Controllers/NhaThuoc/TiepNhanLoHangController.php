@@ -11,6 +11,7 @@ use App\Services\ChuoiCungUng\ChuyenGiaoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class TiepNhanLoHangController extends Controller
@@ -176,7 +177,7 @@ class TiepNhanLoHangController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã gửi yêu cầu tiếp nhận. Hệ thống đang chờ giao dịch TransferReceived được xác nhận trên blockchain.',
+                'message' => 'Đã ký và xác nhận TransferReceived trên Ethereum Sepolia. Lô hàng đã được cộng vào kho.',
             ]);
         } catch (NghiepVuException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
