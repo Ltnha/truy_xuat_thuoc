@@ -180,8 +180,16 @@ class TiepNhanLoHangController extends Controller
                 'message' => 'Đã ký và xác nhận TransferReceived trên Ethereum Sepolia. Lô hàng đã được cộng vào kho.',
             ]);
         } catch (NghiepVuException $e) {
+            Log::warning('[TiepNhanLoHangController] Không thể xác nhận tiếp nhận lô.', [
+                'chuyenGiaoId' => $chuyenGiao->id,
+                'reason' => $e->getMessage(),
+            ]);
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         } catch (\Throwable $e) {
+            Log::error('[TiepNhanLoHangController] Lỗi khi xác nhận tiếp nhận lô.', [
+                'chuyenGiaoId' => $chuyenGiao->id,
+                'exception' => $e->getMessage(),
+            ]);
             report($e);
             return response()->json(['success' => false, 'message' => 'Có lỗi hệ thống, vui lòng thử lại.'], 500);
         }
