@@ -84,7 +84,7 @@ class LoThuocController extends Controller
                     ->first();
 
                 if ($cgGanNhat) {
-                    $st = $cgGanNhat->trangThai instanceof \\App\\Enums\\TransferStatus
+                    $st = $cgGanNhat->trangThai instanceof \App\Enums\TransferStatus
                         ? $cgGanNhat->trangThai->value
                         : (string) $cgGanNhat->trangThai;
                     $lo->chuyenGiaoGanNhat = [
