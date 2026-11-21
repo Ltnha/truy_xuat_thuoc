@@ -40,7 +40,8 @@
             tenNSX: nsx.tenToChuc || '--',
             nsxId: nsx.id || null,
             maSanPham: sp.maSanPham || '--',
-            txHash: bctx ? bctx.txHash : null
+            txHash: bctx ? bctx.txHash : null,
+            txStatus: bctx ? bctx.trangThai : null
         };
     });
 
@@ -105,7 +106,7 @@
 
     let hoSoDangChon = null;
 
-    // 2. HÀM HiỂN THỊ MODAL THÔNG BÁO POPUP KẾT QUẢ
+    // 2. HÀM HIỂN THỊ MODAL THÔNG BÁO POPUP KẾT QUẢ
     function hienThiModalThongBao(loai, tieuDe, noiDung) {
         if (!modalResult) return;
 
@@ -133,7 +134,6 @@
         location.reload();
     });
 
-    // Tự động kiểm tra Flash Session để mở Popup nếu có
     if (window.flashThanhCong) {
         hienThiModalThongBao('thanhCong', 'Thao Tác Thành Công', window.flashThanhCong);
     } else if (window.flashLoi) {
@@ -327,16 +327,23 @@
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50 transition-colors border-b border-slate-100';
 
-            const txHtml = sp.txHash ? `
-                <div class="flex items-center gap-1.5">
-                    <a href="https://sepolia.etherscan.io/tx/${sp.txHash}" target="_blank" class="font-mono text-[11px] font-bold text-cyan-800 hover:underline">
-                        ${sp.txHash.substring(0, 10)}...${sp.txHash.substring(sp.txHash.length - 4)}
-                    </a>
-                    <button type="button" class="btn-sao-chep-table-tx p-1 text-slate-400 hover:text-indigo-700 text-xs transition-all cursor-pointer" data-hash="${sp.txHash}" title="Sao chép TxHash">
-                        <i class="fa-regular fa-copy"></i>
-                    </button>
-                </div>
-            ` : `<span class="text-amber-600 italic text-[11px]">Chưa ghi nhận</span>`;
+            let txHtml = '';
+            if (sp.txHash) {
+                txHtml = `
+                    <div class="flex items-center gap-1.5">
+                        <a href="https://sepolia.etherscan.io/tx/${sp.txHash}" target="_blank" class="font-mono text-[11px] font-bold text-cyan-800 hover:underline">
+                            ${sp.txHash.substring(0, 10)}...${sp.txHash.substring(sp.txHash.length - 4)}
+                        </a>
+                        <button type="button" class="btn-sao-chep-table-tx p-1 text-slate-400 hover:text-indigo-700 text-xs transition-all cursor-pointer" data-hash="${sp.txHash}" title="Sao chép TxHash">
+                            <i class="fa-regular fa-copy"></i>
+                        </button>
+                    </div>
+                `;
+            } else if (sp.txStatus === 'FAILED') {
+                txHtml = `<span class="px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-200 font-semibold text-[10px]"><i class="fa-solid fa-circle-exclamation mr-1"></i>Lỗi ghi On-Chain</span>`;
+            } else {
+                txHtml = `<span class="px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold text-[10px]"><i class="fa-solid fa-spinner fa-spin mr-1"></i>Đang đồng bộ Queue...</span>`;
+            }
 
             tr.innerHTML = `
                 <td class="py-3 px-3 font-semibold text-slate-900 leading-tight">
@@ -395,8 +402,12 @@
             linkEl.href = `https://sepolia.etherscan.io/tx/${sp.txHash}`;
             btnCopy.style.display = 'inline-flex';
             ganSuKienSaoChep(btnCopy, sp.txHash);
+        } else if (sp.txStatus === 'FAILED') {
+            linkEl.textContent = 'Đồng bộ On-Chain thất bại (kiểm tra queue/logs)';
+            linkEl.href = '#';
+            btnCopy.style.display = 'none';
         } else {
-            linkEl.textContent = 'Chưa có dữ liệu On-Chain';
+            linkEl.textContent = 'Đang xử lý trong hàng đợi Blockchain...';
             linkEl.href = '#';
             btnCopy.style.display = 'none';
         }
@@ -511,7 +522,7 @@
 
     document.querySelectorAll(".dong-modal-hoso-sp").forEach(b => b.addEventListener("click", () => modalXemHoSoSP.classList.add("hidden")));
 
-    // 11. PHÊ DUYỆT (AJAX 2 BƯỚC)
+    // 11. PHÊ DUYỆT (BẤT ĐỒNG BỘ QUA QUEUE)
     const nutMoDuyet = document.getElementById("panelNutMoModalDuyetSP");
     if (nutMoDuyet) {
         nutMoDuyet.addEventListener("click", function () {
@@ -533,8 +544,8 @@
 
             iconTienTrinh.className = "text-4xl text-indigo-600 animate-spin mx-auto";
             iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-notch"></i>`;
-            tieuDeTienTrinh.textContent = "Bước 1/2: Đang kết nối Ethereum Sepolia...";
-            noiDungTienTrinh.innerHTML = `Đang mã hóa dữ liệu hồ sơ và chờ Smart Contract ký ghi nhận On-Chain. Vui lòng không tắt trình duyệt...`;
+            tieuDeTienTrinh.textContent = "Đang tiếp nhận phê duyệt...";
+            noiDungTienTrinh.innerHTML = `Đang lưu trạng thái phê duyệt và đẩy tác vụ ký Blockchain vào hàng đợi...`;
             cumNutDongTienTrinh.classList.add("hidden");
             modalTienTrinh.classList.remove("hidden");
 
@@ -553,17 +564,17 @@
                 if (data.success) {
                     iconTienTrinh.className = "text-5xl text-emerald-600 mx-auto animate-bounce";
                     iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
-                    tieuDeTienTrinh.textContent = "Bước 2/2: Phê Duyệt & Ghi On-Chain Thành Công!";
+                    tieuDeTienTrinh.textContent = "Đã Phê Duyệt & Đẩy Vào Hàng Đợi!";
                     noiDungTienTrinh.innerHTML = `
-                        Thuốc <strong>${data.tenSanPham}</strong> đã được phê duyệt lưu hành toàn quốc.<br>
-                        <span class="font-mono text-[11px] text-cyan-800 block pt-1 font-bold">TxHash: ${data.txHash}</span>
+                        Thuốc <strong>${data.tenSanPham}</strong> đã được phê duyệt lưu hành.<br>
+                        <span class="text-slate-600 text-[11px] block pt-1">Giao dịch Ethereum Sepolia đang được Queue Worker xử lý ngầm. Vui lòng tải lại trang sau vài giây để xem TxHash.</span>
                     `;
                     cumNutDongTienTrinh.classList.remove("hidden");
                 } else {
                     iconTienTrinh.className = "text-5xl text-red-600 mx-auto";
                     iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
-                    tieuDeTienTrinh.textContent = "Thất Bại: Không Thể Ghi Blockchain!";
-                    noiDungTienTrinh.innerHTML = `<span class="text-red-600 font-semibold">${data.message}</span><br><span class="text-slate-500 text-[11px]">Hồ sơ vẫn được giữ nguyên ở trạng thái Chờ Duyệt trong CSDL.</span>`;
+                    tieuDeTienTrinh.textContent = "Phê Duyệt Thất Bại!";
+                    noiDungTienTrinh.innerHTML = `<span class="text-red-600 font-semibold">${data.message}</span>`;
                     cumNutDongTienTrinh.classList.remove("hidden");
                 }
             })
@@ -571,7 +582,7 @@
                 iconTienTrinh.className = "text-5xl text-red-600 mx-auto";
                 iconTienTrinh.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
                 tieuDeTienTrinh.textContent = "Lỗi Kết Nối Máy Chủ!";
-                noiDungTienTrinh.textContent = err.message || "Không thể kết nối đến máy chủ Signer Blockchain.";
+                noiDungTienTrinh.textContent = err.message || "Không thể kết nối đến máy chủ.";
                 cumNutDongTienTrinh.classList.remove("hidden");
             });
         });

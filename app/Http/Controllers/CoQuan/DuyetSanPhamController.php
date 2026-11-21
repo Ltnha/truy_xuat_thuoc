@@ -3,15 +3,12 @@
 namespace App\Http\Controllers\CoQuan;
 
 use App\Http\Controllers\Controller;
-use App\Models\BlockchainIdentity;
+use App\Jobs\ProcessProductRegistrationJob;
 use App\Models\BlockchainTransaction;
 use App\Models\NhatKyHeThong;
 use App\Models\SanPham;
 use App\Models\ToChuc;
 use App\Models\YeuCauDangKySanPham;
-use App\Services\Blockchain\SignerClient;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -39,9 +36,9 @@ class DuyetSanPhamController extends Controller
     }
 
     /**
-     * Phê duyệt hồ sơ sản phẩm: Ghi Blockchain trước -> Mới lưu CSDL
+     * Phê duyệt hồ sơ sản phẩm: Lưu CSDL & đẩy Job đồng bộ Blockchain vào Queue
      */
-    public function pheDuyet(Request $request, YeuCauDangKySanPham $yeuCau, SignerClient $signerClient)
+    public function pheDuyet(Request $request, YeuCauDangKySanPham $yeuCau)
     {
         $user = $request->user();
 
@@ -66,64 +63,11 @@ class DuyetSanPhamController extends Controller
             return back()->with('loi', $thongBaoLoi);
         }
 
-        // Contract v2: approveProduct chỉ cho địa chỉ có ROLE_CO_QUAN.
-        // Owner deploy contract mặc định có ROLE_CO_QUAN; dùng admin key tương ứng owner.
-        $keyId = config('truyXuat.blockchain.adminKeyId', env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY'));
-
-        $productIdBytes32 = '0x' . hash('sha256', 'PRODUCT_' . (string) $sanPham->maSanPham);
-        $productPayload = [
-            'maSanPham' => (string) $sanPham->maSanPham,
-            'tenSanPham' => (string) $sanPham->tenSanPham,
-            'soDangKy' => (string) $sanPham->soDangKy,
-            'thanhPhan' => $sanPham->thanhPhan,
-            'hamLuong' => $sanPham->hamLuong,
-            'dangBaoChe' => $sanPham->dangBaoChe,
-            'quyCachDongGoi' => $sanPham->quyCachDongGoi,
-            'nhaSanXuatId' => (int) $sanPham->nhaSanXuatId,
-        ];
-        $payloadJson = json_encode($productPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
-        if ($payloadJson === false) {
-            throw new \RuntimeException('Không thể chuẩn hóa hồ sơ sản phẩm để tạo payloadHash.');
-        }
-        $payloadHashBytes32 = '0x' . hash('sha256', $payloadJson);
-
         try {
-            // Idempotent recovery: nếu ProductApproved đã mined thì không gửi approveProduct lần hai.
-            $approvalState = $signerClient->isProductApproved($productIdBytes32);
-            $blockTimestamp = isset($approvalState['blockTimestamp']) ? (int) $approvalState['blockTimestamp'] : null;
-            if (! empty($approvalState['isApproved'])) {
-                if (strtolower((string) ($approvalState['payloadHash'] ?? '')) !== strtolower($payloadHashBytes32)) {
-                    throw new \RuntimeException('Sản phẩm đã được duyệt với payloadHash khác; contract không hỗ trợ duyệt lại.');
-                }
-                $txHash = $approvalState['txHash'] ?? BlockchainTransaction::query()
-                    ->where('sanPhamId', $sanPham->id)
-                    ->where('eventName', 'ProductApproved')
-                    ->where('trangThai', 'CONFIRMED')
-                    ->whereNotNull('txHash')
-                    ->latest('id')
-                    ->value('txHash');
-            } else {
-                $signerClient->ensureGas($keyId);
-                $response = $signerClient->sendTransaction([
-                    'keyId' => $keyId,
-                    'action' => 'approveProduct',
-                    'params' => [
-                        'productId' => $productIdBytes32,
-                        'payloadHash' => $payloadHashBytes32,
-                    ],
-                ]);
-                $txHash = $response['txHash'] ?? null;
-                $blockTimestamp = isset($response['blockTimestamp']) ? (int) $response['blockTimestamp'] : $blockTimestamp;
-            }
+            $now = now();
 
-            if (! is_string($txHash) || ! preg_match('/^0x[a-fA-F0-9]{64}$/', $txHash)) {
-                throw new \RuntimeException('Không truy xuất được txHash ProductApproved thật từ receipt/event.');
-            }
-
-            // BƯỚC 4: BLOCKCHAIN THÀNH CÔNG -> TIẾN HÀNH LƯU VÀO CSDL
-            DB::transaction(function () use ($yeuCau, $sanPham, $user, $txHash, $toChucCoQuan, $blockTimestamp, $payloadHashBytes32): void {
-                $now = $blockTimestamp ? \Illuminate\Support\Carbon::createFromTimestamp($blockTimestamp) : now();
-
+            // BƯỚC 2: LƯU TRẠNG THÁI DUYỆT OFF-CHAIN & TẠO GIAO DỊCH PENDING
+            DB::transaction(function () use ($yeuCau, $sanPham, $user, $toChucCoQuan, $now): void {
                 $yeuCau->update([
                     'trangThai' => 'DA_DUYET',
                     'nguoiXuLyId' => $user->id,
@@ -132,7 +76,6 @@ class DuyetSanPhamController extends Controller
 
                 $sanPham->update([
                     'trangThaiDuyet' => 'DA_DUYET',
-                    'hashHoSo' => $payloadHashBytes32,
                 ]);
 
                 BlockchainTransaction::updateOrCreate(
@@ -141,43 +84,45 @@ class DuyetSanPhamController extends Controller
                         'eventName' => 'ProductApproved',
                     ],
                     [
-                        'txHash' => $txHash,
+                        'txHash' => null,
                         'businessId' => $sanPham->maSanPham,
                         'toChucId' => $toChucCoQuan->id,
                         'network' => 'Ethereum Sepolia Testnet',
-                        'trangThai' => 'CONFIRMED',
+                        'trangThai' => 'PENDING',
                         'thoiGian' => $now,
                     ]
                 );
 
                 NhatKyHeThong::create([
                     'taiKhoanId' => $user->id,
-                    'doiTuongId' => $user->id,
+                    'doiTuongId' => $sanPham->id,
                     'hanhDong' => 'PHE_DUYET_SAN_PHAM',
                     'ketQua' => 'THANH_CONG',
-                    'chiTiet' => "Đã phê duyệt & ghi Blockchain thành công cho thuốc [{$sanPham->tenSanPham}] - TxHash: {$txHash}",
+                    'chiTiet' => "Đã phê duyệt off-chain cho thuốc [{$sanPham->tenSanPham}] và đẩy vào hàng đợi đồng bộ Blockchain.",
                 ]);
             });
+
+            // BƯỚC 3: ĐẨY JOB VÀO HÀNG ĐỢI QUEUE
+            ProcessProductRegistrationJob::dispatch($sanPham->id, $yeuCau->id, $user->id);
 
             if ($request->ajax()) {
                 return response()->json([
                     'success' => true,
-                    'message' => "Phê duyệt & Đồng bộ On-Chain thành công!",
-                    'txHash' => $txHash,
+                    'message' => "Đã phê duyệt hồ sơ! Hệ thống đang ghi nhận On-Chain trong hàng đợi...",
                     'tenSanPham' => $sanPham->tenSanPham,
                 ]);
             }
 
-            return back()->with('thanhCong', "Đã phê duyệt sản phẩm [{$sanPham->tenSanPham}] thành công lên Blockchain. TxHash: {$txHash}");
+            return back()->with('thanhCong', "Đã phê duyệt sản phẩm [{$sanPham->tenSanPham}] và đẩy vào hàng đợi ghi Blockchain.");
         } catch (\Throwable $e) {
             if ($request->ajax()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Lỗi ghi Blockchain: ' . $e->getMessage(),
+                    'message' => 'Lỗi phê duyệt hồ sơ: ' . $e->getMessage(),
                 ], 500);
             }
 
-            return back()->with('loi', 'Lỗi đồng bộ Blockchain sản phẩm: ' . $e->getMessage());
+            return back()->with('loi', 'Lỗi phê duyệt sản phẩm: ' . $e->getMessage());
         }
     }
 

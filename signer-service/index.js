@@ -103,6 +103,39 @@ function requireBytes32(value, name) {
     return value;
 }
 
+function formatLocalTime(date = new Date()) {
+    return date.toLocaleString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' }) + '.' + String(date.getMilliseconds()).padStart(3, '0');
+}
+
+const LOG_DIVIDER = '----------------------------------------';
+const LOG_START_EVENTS = new Set(['TX_START']);
+const LOG_END_EVENTS = new Set([
+    'GAS_ENSURE_READY',
+    'GAS_ENSURE_FAILED',
+    'TX_CONFIRMED',
+    'TX_REVERTED',
+    'TX_FAILED',
+    'TRANSFER_EVENT_CHECK_FAILED'
+]);
+
+function logSigner(event, details = {}) {
+    if (LOG_START_EVENTS.has(event)) {
+        console.log(`\n${LOG_DIVIDER}`);
+    }
+
+    console.log(`[SIGNER] [${formatLocalTime()}] ${event}`);
+
+    for (const [key, value] of Object.entries(details)) {
+        if (value !== undefined && value !== null && value !== '') {
+            console.log(`  ${key}: ${typeof value === 'object' ? JSON.stringify(value) : value}`);
+        }
+    }
+
+    if (LOG_END_EVENTS.has(event)) {
+        console.log(`${LOG_DIVIDER}\n`);
+    }
+}
+
 app.post('/wallets', authMiddleware, async (req, res) => {
     try {
         const toChucId = Number(req.body.toChucId);
@@ -126,9 +159,7 @@ app.post('/wallets', authMiddleware, async (req, res) => {
 });
 
 app.post('/gas/ensure', authMiddleware, async (req, res) => {
-    const requestId = crypto.randomUUID();
     const requestedTarget = String(req.body?.target || '');
-    logSigner('GAS_ENSURE_START', { requestId, target: requestedTarget });
     try {
         const target = String(req.body.target || '');
         let targetAddress = target;
@@ -154,24 +185,20 @@ app.post('/gas/ensure', authMiddleware, async (req, res) => {
             const tx = await adminWallet.sendTransaction({ to: targetAddress, value: amount });
             const receipt = await tx.wait();
             if (!receipt || receipt.status !== 1) throw new Error('Giao dịch nạp gas không thành công.');
+            logSigner('GAS_ENSURE_READY', {
+                target: targetAddress,
+                balance: ethers.formatEther(await provider.getBalance(targetAddress)),
+                txHash: receipt.hash
+            });
             return res.json({ ok: true, txHash: receipt.hash, blockNumber: Number(receipt.blockNumber) });
         }
-        logSigner('GAS_ENSURE_READY', { requestId, target: targetAddress, balance: ethers.formatEther(balance) });
+        logSigner('GAS_ENSURE_READY', { target: targetAddress, balance: ethers.formatEther(balance) });
         return res.json({ ok: true, toppedUp: false, balance: ethers.formatEther(balance) });
     } catch (err) {
-        logSigner('GAS_ENSURE_FAILED', { requestId, target: requestedTarget, reason: err.shortMessage || err.message });
+        logSigner('GAS_ENSURE_FAILED', { target: requestedTarget, reason: err.shortMessage || err.message });
         return res.status(400).json({ ok: false, reason: err.shortMessage || err.message });
     }
 });
-
-function logSigner(event, details = {}) {
-    const record = {
-        time: new Date().toISOString(),
-        event,
-        ...details
-    };
-    console.log('[SIGNER]', JSON.stringify(record));
-}
 
 function findRevertData(value, depth = 0) {
     if (!value || depth > 5) return null;
@@ -199,12 +226,7 @@ function describeContractError(contract, err) {
     return { data, selector, decoded };
 }
 
-
 app.post('/tx', authMiddleware, async (req, res) => {
-    logSigner('TX_REQUEST_RECEIVED', {
-        action: String(req.body?.action || 'UNKNOWN'),
-        keyId: String(req.body?.keyId || '')
-    });
     let actionName = 'UNKNOWN';
     let signerAddress = null;
     let txHash = null;
@@ -216,33 +238,14 @@ app.post('/tx', authMiddleware, async (req, res) => {
 
         const wallet = getWallet(String(keyId));
         signerAddress = wallet.address;
-        const network = await provider.getNetwork();
         logSigner('TX_START', {
             action: actionName,
             keyId: String(keyId),
-            signer: signerAddress,
-            chainId: Number(network.chainId),
-            contract: CONTRACT_ADDRESS
+            signer: signerAddress
         });
 
         const contract = contractFor(wallet);
         let tx;
-
-        logSigner('TX_SIGNING', {
-            action: actionName,
-            signer: signerAddress
-        });
-
-        if (action === 'rejectTransfer') {
-            logSigner('TRANSFER_REJECTION_SIGNING', {
-                message: 'Đang ký giao dịch từ chối tiếp nhận; quyền sở hữu lô vẫn thuộc bên gửi và được giữ nguyên.',
-                signer: signerAddress,
-                transferId: params.transferId,
-                reasonHash: params.reasonHash,
-                chainId: Number(network.chainId),
-                contract: CONTRACT_ADDRESS
-            });
-        }
 
         switch (action) {
             case 'grantRole':
@@ -302,24 +305,11 @@ app.post('/tx', authMiddleware, async (req, res) => {
         }
 
         txHash = tx.hash;
-        logSigner('TX_BROADCAST', {
-            action: actionName,
-            signer: signerAddress,
-            txHash
-        });
-
         const requiredConfirmations = Math.max(1, Number(process.env.BLOCKCHAIN_CONFIRMATIONS || 1));
-        logSigner('TX_WAIT_CONFIRMATIONS', {
-            action: actionName,
-            txHash,
-            requiredConfirmations
-        });
-
         const receipt = await tx.wait(requiredConfirmations);
         if (!receipt || receipt.status !== 1) {
             logSigner('TX_REVERTED', {
                 action: actionName,
-                signer: signerAddress,
                 txHash,
                 blockNumber: receipt?.blockNumber ?? null
             });
@@ -336,24 +326,9 @@ app.post('/tx', authMiddleware, async (req, res) => {
         };
 
         logSigner('TX_CONFIRMED', {
-            action: actionName,
-            signer: signerAddress,
-            txHash: result.txHash,
             blockNumber: result.blockNumber,
-            confirmations: result.confirmations,
             explorer: 'https://sepolia.etherscan.io/tx/' + result.txHash
         });
-
-        if (action === 'rejectTransfer') {
-            logSigner('TRANSFER_REJECTION_CONFIRMED', {
-                message: 'Giao dịch từ chối đã được xác nhận on-chain; lô vẫn thuộc quyền sở hữu của bên gửi.',
-                signer: signerAddress,
-                transferId: params.transferId,
-                txHash: result.txHash,
-                blockNumber: result.blockNumber,
-                explorer: 'https://sepolia.etherscan.io/tx/' + result.txHash
-            });
-        }
 
         return res.json(result);
     } catch (err) {
@@ -371,19 +346,8 @@ app.post('/tx', authMiddleware, async (req, res) => {
             action: actionName,
             signer: signerAddress,
             txHash,
-            reason,
-            errorSelector: contractError.selector,
-            revertData: contractError.data
+            reason
         });
-        if (actionName === 'rejectTransfer') {
-            logSigner('TRANSFER_REJECTION_FAILED', {
-                message: 'Không thể ký hoặc xác nhận giao dịch từ chối chuyển giao.',
-                signer: signerAddress,
-                transferId: req.body?.params?.transferId ?? null,
-                txHash,
-                reason
-            });
-        }
         return res.status(400).json({ ok: false, reason });
     }
 });
@@ -413,7 +377,6 @@ app.get('/roles/check', authMiddleware, async (req, res) => {
         logSigner('ROLE_CHECK_FAILED', {
             account: String(req.query.account || ''),
             role: String(req.query.role || ''),
-            contract: CONTRACT_ADDRESS,
             reason
         });
         return res.status(502).json({ ok: false, reason });
@@ -496,9 +459,7 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
 });
 
 app.get('/transfers/check', authMiddleware, async (req, res) => {
-    const requestId = crypto.randomUUID();
     const requestedEvent = String(req.query.eventName || '');
-    logSigner('TRANSFER_EVENT_CHECK_START', { requestId, eventName: requestedEvent, transferId: String(req.query.transferId || '') });
     try {
         const transferId = requireBytes32(String(req.query.transferId || ''), 'transferId');
         const eventName = String(req.query.eventName || '');
@@ -510,7 +471,6 @@ app.get('/transfers/check', authMiddleware, async (req, res) => {
         const logs = await contract.queryFilter(filter, Math.max(0, latest - 40000), latest);
         const found = logs.length ? logs[logs.length - 1] : null;
         const block = found ? await provider.getBlock(found.blockNumber) : null;
-        logSigner('TRANSFER_EVENT_CHECK_COMPLETE', { requestId, eventName, transferId, found: Boolean(found) });
         return res.json({
             ok: true, isRecorded: Boolean(found),
             txHash: found ? found.transactionHash : null,
@@ -518,7 +478,11 @@ app.get('/transfers/check', authMiddleware, async (req, res) => {
             blockTimestamp: block ? Number(block.timestamp) : null
         });
     } catch (err) {
-        logSigner('TRANSFER_EVENT_CHECK_FAILED', { requestId, eventName: requestedEvent, transferId: String(req.query.transferId || ''), reason: err.shortMessage || err.message });
+        logSigner('TRANSFER_EVENT_CHECK_FAILED', {
+            eventName: requestedEvent,
+            transferId: String(req.query.transferId || ''),
+            reason: err.shortMessage || err.message
+        });
         return res.status(400).json({ ok: false, isRecorded: false, txHash: null, blockNumber: null, reason: err.shortMessage || err.message });
     }
 });

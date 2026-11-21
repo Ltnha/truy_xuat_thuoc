@@ -5,6 +5,7 @@ namespace App\Jobs;
 use App\Models\BlockchainTransaction;
 use App\Models\NhatKyHeThong;
 use App\Models\SanPham;
+use App\Models\ToChuc;
 use App\Services\Blockchain\SignerClient;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -48,7 +49,9 @@ class ProcessProductRegistrationJob implements ShouldQueue
             'nhaSanXuatId' => (int) $sanPham->nhaSanXuatId,
         ];
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
-        if ($json === false) throw new RuntimeException('Không thể chuẩn hóa hồ sơ sản phẩm.');
+        if ($json === false) {
+            throw new RuntimeException('Không thể chuẩn hóa hồ sơ sản phẩm.');
+        }
         $payloadHash = '0x' . hash('sha256', $json);
 
         $existing = $signer->isProductApproved($productId);
@@ -62,9 +65,13 @@ class ProcessProductRegistrationJob implements ShouldQueue
         } else {
             $adminKeyId = config('truyXuat.blockchain.adminKeyId', env('ADMIN_MASTER_KEY_ID', 'ADMIN_MASTER_KEY'));
             $signer->ensureGas($adminKeyId);
-            $result = $signer->tx($adminKeyId, 'approveProduct', [
-                'productId' => $productId,
-                'payloadHash' => $payloadHash,
+            $result = $signer->sendTransaction([
+                'keyId' => $adminKeyId,
+                'action' => 'approveProduct',
+                'params' => [
+                    'productId' => $productId,
+                    'payloadHash' => $payloadHash,
+                ],
             ]);
             if (empty($result['ok']) || empty($result['txHash'])) {
                 throw new RuntimeException('approveProduct thất bại: ' . ($result['reason'] ?? 'Signer không trả txHash.'));
@@ -77,14 +84,20 @@ class ProcessProductRegistrationJob implements ShouldQueue
             throw new RuntimeException('Không truy xuất được txHash ProductApproved thật; không tạo hash thay thế.');
         }
 
-        DB::transaction(function () use ($sanPham, $txHash, $blockNumber): void {
+        $toChucCoQuanId = ToChuc::where('loaiToChuc', 'CO_QUAN_QUAN_LY')->value('id') ?? $sanPham->nhaSanXuatId;
+
+        DB::transaction(function () use ($sanPham, $txHash, $blockNumber, $payloadHash, $toChucCoQuanId): void {
+            $sanPham->update([
+                'hashHoSo' => $payloadHash,
+            ]);
+
             BlockchainTransaction::query()->updateOrCreate(
                 ['sanPhamId' => $sanPham->id, 'eventName' => 'ProductApproved'],
                 [
                     'txHash' => $txHash,
                     'blockNumber' => $blockNumber,
                     'businessId' => (string) $sanPham->maSanPham,
-                    'toChucId' => $sanPham->nhaSanXuatId,
+                    'toChucId' => $toChucCoQuanId,
                     'network' => config('truyXuat.blockchain.mang', 'Ethereum Sepolia Testnet'),
                     'trangThai' => 'CONFIRMED',
                     'thoiGian' => now(),
