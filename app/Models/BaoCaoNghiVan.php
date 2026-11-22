@@ -27,9 +27,19 @@ class BaoCaoNghiVan extends Model
         return $this->belongsTo(LoThuoc::class, 'loThuocId');
     }
 
+    public function loBiLamGia(): BelongsTo
+    {
+        return $this->belongsTo(LoThuoc::class, 'loBiLamGiaId');
+    }
+
     public function taiKhoan(): BelongsTo
     {
         return $this->belongsTo(TaiKhoan::class, 'taiKhoanId');
+    }
+
+    public function toChuc(): BelongsTo
+    {
+        return $this->belongsTo(ToChuc::class, 'toChucId');
     }
 
     /**

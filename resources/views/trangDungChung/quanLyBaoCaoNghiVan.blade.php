@@ -1,6 +1,6 @@
 @extends('layoutDungChung.master')
 
-@section('title', 'Quản lý báo cáo nghi vấn - PharmaChain')
+@section('title', 'Quản lý báo cáo nghi vấn theo lô - PharmaChain')
 
 @push('styles')
 <link rel="stylesheet" href="{{ asset('assets/css/trangDungChung/quanLyBaoCaoNghiVan.css') }}">
@@ -12,34 +12,39 @@
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
         <div>
             <h1 class="text-base sm:text-lg font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-clipboard-list text-emerald-700"></i> Quản Lý Báo Cáo Nghi Vấn
+                <i class="fa-solid fa-clipboard-list text-emerald-700"></i> Quản Lý Báo Cáo Nghi Vấn Theo Lô
             </h1>
-            <p class="text-xs text-slate-500 mt-1">Danh sách các báo cáo nghi vấn chất lượng dược phẩm do tổ chức gửi tới Cơ quan quản lý.</p>
+            <p class="text-xs text-slate-500 mt-1">Theo dõi và lập báo cáo sự cố lô thuốc trong vòng đời hoặc cảnh báo lô giả mạo gửi Cơ quan quản lý.</p>
         </div>
         <button type="button" id="nutMoModalGuiBaoCao" class="px-4 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer self-start sm:self-auto shrink-0">
-            <i class="fa-solid fa-plus-circle"></i> Gửi Báo Cáo Mới
+            <i class="fa-solid fa-plus-circle"></i> Gửi Báo Cáo Lô Nghi Vấn
         </button>
     </div>
 
     <!-- THANH LỌC & BẢNG DỮ LIỆU -->
     <div class="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div class="p-5 border-b border-slate-100 space-y-3">
-            <!-- Ô TÌM KIẾM -->
             <div class="relative w-full">
                 <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 pointer-events-none">
                     <i class="fa-solid fa-magnifying-glass text-xs"></i>
                 </span>
-                <input type="text" id="oTimKiemBaoCao" placeholder="Tìm theo mã báo cáo, mã lô..." class="w-full pl-9 pr-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-emerald-700 outline-none">
+                <input type="text" id="oTimKiemBaoCao" placeholder="Tìm theo mã báo cáo, mã lô hoặc tên thuốc..." class="w-full pl-9 pr-3 py-2.5 bg-slate-50/50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:bg-white focus:border-emerald-700 outline-none">
             </div>
 
-            <!-- BỘ LỌC TRẠNG THÁI & HIỂN THỊ -->
-            <div class="flex items-center justify-between text-xs pt-1">
-                <select id="locTrangThaiBaoCao" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 focus:border-emerald-700 outline-none cursor-pointer">
-                    <option value="TAT_CA">Tất cả trạng thái</option>
-                    <option value="DA_GUI">Đã gửi</option>
-                    <option value="DANG_XU_LY">Đang xử lý</option>
-                    <option value="DA_XU_LY">Đã xử lý</option>
-                </select>
+            <div class="flex flex-wrap items-center justify-between gap-2 text-xs pt-1">
+                <div class="flex flex-wrap items-center gap-2">
+                    <select id="locLoaiBaoCao" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 focus:border-emerald-700 outline-none cursor-pointer">
+                        <option value="TAT_CA">Tất cả phân loại</option>
+                        <option value="TRONG_VONG_DOI">Lô trong vòng đời đơn vị</option>
+                        <option value="NGOAI_HE_THONG">Lô ngoài hệ thống / Nghi giả</option>
+                    </select>
+                    <select id="locTrangThaiBaoCao" class="px-3 py-1.5 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 focus:border-emerald-700 outline-none cursor-pointer">
+                        <option value="TAT_CA">Tất cả trạng thái</option>
+                        <option value="DA_GUI">Đã gửi</option>
+                        <option value="DANG_XU_LY">Đang xử lý</option>
+                        <option value="DA_XU_LY">Đã xử lý</option>
+                    </select>
+                </div>
                 <span id="soLuongBaoCaoBadge" class="font-bold text-slate-500 font-mono text-[11px]">Hiển thị: 0 báo cáo</span>
             </div>
         </div>
@@ -50,7 +55,8 @@
                 <thead>
                     <tr class="bg-slate-50/80 text-slate-600 uppercase border-b border-slate-100 text-[11px]">
                         <th class="py-3 px-4 font-bold">Mã Hồ Sơ</th>
-                        <th class="py-3 px-4 font-bold">Mã Lô Khai Báo</th>
+                        <th class="py-3 px-4 font-bold">Phân Loại</th>
+                        <th class="py-3 px-4 font-bold">Lô Thuốc Báo Cáo</th>
                         <th class="py-3 px-4 font-bold">Lý Do Nghi Vấn</th>
                         <th class="py-3 px-4 font-bold text-center">Thời Gian Gửi</th>
                         <th class="py-3 px-4 font-bold text-center">Trạng Thái</th>
@@ -69,64 +75,84 @@
     </div>
 </div>
 
-<!-- MODAL: FORM GỬI BÁO CÁO MỚI -->
+<!-- MODAL: FORM GỬI BÁO CÁO MỚI THEO 2 TAB -->
 <div id="modalGuiBaoCaoMoi" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-4 shadow-xl max-h-[90vh] overflow-y-auto">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-file-circle-plus text-emerald-700"></i> Gửi Báo Cáo Nghi Vấn Mới
+                <i class="fa-solid fa-file-circle-plus text-emerald-700"></i> Lập Báo Cáo Nghi Vấn Theo Lô
             </h3>
             <button type="button" class="dong-modal-gui text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
 
+        <!-- THANH CHUYỂN 2 TAB -->
+        <div class="grid grid-cols-2 gap-1.5 p-1 bg-slate-100 rounded-xl text-xs font-bold">
+            <button type="button" id="tabBtnTrongVongDoi" class="py-2 px-3 rounded-lg bg-white text-emerald-800 shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-boxes-stacked"></i>
+                <span>Lô Trong Vòng Đời</span>
+            </button>
+            <button type="button" id="tabBtnNgoaiHeThong" class="py-2 px-3 rounded-lg text-slate-600 hover:text-slate-900 transition-all cursor-pointer flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Lô Ngoài Hệ Thống / Giả Mạo</span>
+            </button>
+        </div>
+
         <form id="formSubmitBaoCao" class="space-y-4 text-xs" enctype="multipart/form-data">
             @csrf
+            <input type="hidden" name="loaiBaoCao" id="inputLoaiBaoCao" value="TRONG_VONG_DOI">
 
-            <!-- Chọn Mã Lô -->
-            <div class="space-y-1 relative" id="khungChonMaLo">
-                <label for="nhapMaLoLienQuan" class="block font-bold text-slate-700 uppercase">
-                    Mã Lô Thuốc Nghi Vấn <span class="text-red-500">*</span>
+            <!-- NỘI DUNG TAB 1: LÔ TRONG VÒNG ĐỜI CỦA ĐƠN VỊ -->
+            <div id="panelTrongVongDoi" class="space-y-2">
+                <label for="selectLoTrongVongDoi" class="block font-bold text-slate-700 uppercase">
+                    Chọn Lô Thuốc Thuộc Đơn Vị <span class="text-red-500">*</span>
                 </label>
-                <div class="relative">
-                    <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 pointer-events-none">
-                        <i class="fa-solid fa-barcode"></i>
-                    </span>
-                    <input type="text" id="nhapMaLoLienQuan" name="maLo" required autocomplete="off" placeholder="Nhập hoặc chọn mã lô..." class="w-full pl-9 pr-8 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-semibold uppercase text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                    <button type="button" id="nutMoMenuLo" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-emerald-700 cursor-pointer">
-                        <i class="fa-solid fa-chevron-down" id="iconMuiTenLo"></i>
-                    </button>
+                <select id="selectLoTrongVongDoi" name="loThuocId" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:border-emerald-700 outline-none cursor-pointer">
+                    <option value="">-- Chọn lô thuốc đang sở hữu hoặc từng lưu thông --</option>
+                    @foreach($loThuocs as $lo)
+                    <option value="{{ $lo->id }}">
+                        {{ $lo->maLoNghiepVu }} — {{ $lo->sanPham?->tenSanPham ?? 'Dược phẩm' }} ({{ number_format((int) $lo->soLuong, 0, ',', '.') }} {{ $lo->donViTinh ?? 'Hộp' }})
+                    </option>
+                    @endforeach
+                </select>
+
+                <!-- Thẻ đối soát thông tin lô Tab 1 -->
+                <div id="khungThongTinLoTab1" class="hidden p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 text-xs space-y-1.5"></div>
+            </div>
+
+            <!-- NỘI DUNG TAB 2: LÔ NGOÀI HỆ THỐNG / NGHI LÀM GIẢ -->
+            <div id="panelNgoaiHeThong" class="space-y-3 hidden">
+                <div class="space-y-1">
+                    <label for="inputMaLoNgoaiHeThong" class="block font-bold text-slate-700 uppercase">
+                        Mã Lô Nghi Giả Phát Hiện Trên Thị Trường <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="inputMaLoNgoaiHeThong" name="maLo" autocomplete="off" placeholder="Nhập mã lô in trên vỏ hộp/thùng thuốc phát hiện..." class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-semibold uppercase text-slate-900 focus:bg-white focus:border-amber-600 outline-none">
                 </div>
 
-                <div id="menuGoiYMaLo" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
-                    @if(isset($loThuocs) && count($loThuocs) > 0)
-                    @foreach($loThuocs as $lo)
-                    <div class="item-lo p-2.5 hover:bg-emerald-50 cursor-pointer flex items-center justify-between" data-malo="{{ $lo->maLoNghiepVu }}">
-                        <div>
-                            <div class="font-mono font-bold text-cyan-900">{{ $lo->maLoNghiepVu }}</div>
-                            <div class="text-[11px] text-slate-500">{{ $lo->sanPham?->tenSanPham ?? 'Dược phẩm hệ thống' }}</div>
-                        </div>
-                        <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">CSDL Hệ thống</span>
-                    </div>
-                    @endforeach
-                    @endif
+                <div class="space-y-1.5">
+                    <label for="selectLoBiLamGia" class="block font-bold text-slate-700 uppercase">
+                        Lô Thật Của Đơn Vị Bị Nghi Làm Giả <span class="text-slate-400 font-normal normal-case">(Tùy chọn để đối chiếu)</span>
+                    </label>
+                    <select id="selectLoBiLamGia" name="loBiLamGiaId" class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-amber-600 outline-none cursor-pointer">
+                        <option value="">-- Không chọn / Không xác định được lô gốc bị sao chép --</option>
+                        @foreach($loThuocs as $lo)
+                        <option value="{{ $lo->id }}">
+                            {{ $lo->maLoNghiepVu }} — {{ $lo->sanPham?->tenSanPham ?? 'Dược phẩm' }} (HSD: {{ $lo->hanSuDung ? date('d/m/Y', strtotime($lo->hanSuDung)) : 'N/A' }})
+                        </option>
+                        @endforeach
+                    </select>
+                    <p class="text-[11px] text-slate-500">Chỉ hiển thị danh mục lô thuộc đơn vị của bạn. Chọn lô gốc giúp Cơ quan quản lý đối chiếu bao bì, không làm thu hồi nhầm lô thật.</p>
+                    <div id="khungThongTinLoTab2" class="hidden p-3 rounded-xl border border-amber-200 bg-amber-50/60 text-xs space-y-1.5"></div>
                 </div>
             </div>
 
-            <!-- Lý do nghi vấn -->
+            <!-- Nhóm lý do nghi vấn (tự động đổi danh sách theo Tab) -->
             <div class="space-y-1">
                 <label for="nhapLyDo" class="block font-bold text-slate-700 uppercase">
-                    Lý Do Nghi Vấn <span class="text-red-500">*</span>
+                    Nhóm Lý Do Nghi Vấn <span class="text-red-500">*</span>
                 </label>
-                <select id="nhapLyDo" name="lyDo" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-emerald-700 outline-none cursor-pointer">
-                    <option value="">-- Chọn nhóm lý do nghi vấn --</option>
-                    <option value="Bao bì có dấu hiệu làm giả / in đè nhãn">Bao bì có dấu hiệu làm giả / in đè nhãn</option>
-                    <option value="Hạn sử dụng bị sửa đổi / tẩy xóa">Hạn sử dụng bị sửa đổi / tẩy xóa</option>
-                    <option value="Mã QR không quét được hoặc không hợp lệ">Mã QR không quét được hoặc không hợp lệ</option>
-                    <option value="Thuốc có dấu hiệu biến chất / đổi màu / ẩm mốc">Thuốc có dấu hiệu biến chất / đổi màu / ẩm mốc</option>
-                    <option value="Khác">Lý do bất thường khác</option>
-                </select>
+                <select id="nhapLyDo" name="lyDo" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-emerald-700 outline-none cursor-pointer"></select>
             </div>
 
             <!-- Mô tả -->
@@ -134,20 +160,20 @@
                 <label for="nhapMoTa" class="block font-bold text-slate-700 uppercase">
                     Mô Tả Chi Tiết Hiện Trường <span class="text-red-500">*</span>
                 </label>
-                <textarea id="nhapMoTa" name="moTa" rows="3" required placeholder="Ghi rõ thông tin hiện trường, vị trí đối soát..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none resize-y"></textarea>
+                <textarea id="nhapMoTa" name="moTa" rows="3" required placeholder="Mô tả cụ thể tình trạng lô thuốc, số lượng ảnh hưởng, thời điểm và địa điểm phát hiện..." class="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none resize-y"></textarea>
             </div>
 
-            <!-- Đính kèm nhiều tệp -->
+            <!-- Đính kèm từ 1 đến 5 tệp -->
             <div class="space-y-1">
                 <div class="flex justify-between items-center font-bold text-slate-700 uppercase">
-                    <span>Đính Kèm Tệp Bằng Chứng (Tối đa 5 tệp < 10MB)</span>
-                            <span id="soLuongTepDaChon" class="text-[11px] text-slate-400 font-normal">0/5 tệp</span>
+                    <span>Đính Kèm Bằng Chứng (1–5 tệp &lt; 10MB) <span class="text-red-500">*</span></span>
+                    <span id="soLuongTepDaChon" class="text-[11px] text-slate-400 font-normal">0/5 tệp</span>
                 </div>
                 <div id="khungChonTepMinhChung" class="border-2 border-dashed border-slate-300 hover:border-emerald-700 rounded-xl p-3 text-center bg-slate-50 cursor-pointer transition-all">
                     <input type="file" id="tepMinhChungInput" accept="image/jpeg,image/png,application/pdf" multiple class="hidden">
                     <div class="text-xs text-slate-600 font-semibold flex items-center justify-center gap-2">
                         <i class="fa-solid fa-cloud-arrow-up text-base text-emerald-700"></i>
-                        <span>Nhấp để chọn bằng chứng (JPG, PNG, PDF)</span>
+                        <span>Nhấp để tải ảnh chụp thùng/nhãn lô hoặc biên bản (JPG, PNG, PDF)</span>
                     </div>
                 </div>
                 <div id="danhSachTepDaChon" class="space-y-1 pt-1"></div>
@@ -181,7 +207,7 @@
         <div class="space-y-3.5 text-xs">
             <div class="grid grid-cols-2 gap-2.5 p-3 bg-slate-50 rounded-xl border border-slate-200">
                 <div>
-                    <span class="text-slate-500 block">Mã lô nghi vấn:</span>
+                    <span class="text-slate-500 block">Mã lô khai báo:</span>
                     <span id="chiTietMaLo" class="font-mono font-bold text-slate-900"></span>
                 </div>
                 <div>
@@ -189,8 +215,12 @@
                     <span id="chiTietNgayGui" class="font-semibold text-slate-700 font-mono"></span>
                 </div>
                 <div class="col-span-2">
-                    <span class="text-slate-500 block">Trạng thái xử lý:</span>
-                    <div id="chiTietTrangThaiBadge" class="pt-0.5"></div>
+                    <span class="text-slate-500 block">Thông tin lô / Đối chiếu:</span>
+                    <span id="chiTietSanPhamLo" class="font-bold text-slate-800"></span>
+                </div>
+                <div class="col-span-2 flex items-center justify-between gap-2 pt-1 border-t border-slate-200/70">
+                    <div id="chiTietLoaiBadge"></div>
+                    <div id="chiTietTrangThaiBadge"></div>
                 </div>
             </div>
 
@@ -229,6 +259,7 @@
 @push('scripts')
 <script>
     window.danhSachBaoCaoGoc = @json($baoCaosFormatted ?? []);
+    window.danhSachLoThuocGoc = @json($loThuocsFormatted ?? []);
 </script>
 <script src="{{ asset('assets/js/trangDungChung/quanLyBaoCaoNghiVan.js') }}"></script>
 @endpush

@@ -198,15 +198,20 @@ CREATE TABLE chuyenGiao (
 CREATE TABLE baoCaoNghiVan (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     maBaoCao VARCHAR(255) NOT NULL UNIQUE,
+    loaiBaoCao ENUM('TRONG_VONG_DOI', 'NGOAI_HE_THONG') NOT NULL DEFAULT 'TRONG_VONG_DOI',
     loThuocId BIGINT NULL,
+    loBiLamGiaId BIGINT NULL,
     maLoKhaiBao VARCHAR(50) NOT NULL,
     taiKhoanId BIGINT NULL,
+    toChucId BIGINT NULL COMMENT 'To chuc gui bao cao neu la tai khoan doanh nghiep; NULL neu la nguoi tieu dung',
     lyDo TEXT NOT NULL,
     moTa TEXT NULL,
     ngayGui DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    trangThai ENUM('DA_GUI','DANG_XU_LY','DA_XU_LY') NOT NULL DEFAULT 'DA_GUI',
-    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id),
-    FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id)
+    trangThai ENUM('DA_GUI', 'DANG_XU_LY', 'DA_XU_LY') NOT NULL DEFAULT 'DA_GUI',
+    FOREIGN KEY (loThuocId) REFERENCES loThuoc(id) ON DELETE SET NULL,
+    FOREIGN KEY (loBiLamGiaId) REFERENCES loThuoc(id) ON DELETE SET NULL,
+    FOREIGN KEY (taiKhoanId) REFERENCES taiKhoan(id) ON DELETE SET NULL,
+    FOREIGN KEY (toChucId) REFERENCES toChuc(id) ON DELETE SET NULL
 );
 
 -- 14. Bảng minhChungBaoCao

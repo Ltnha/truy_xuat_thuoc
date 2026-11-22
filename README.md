@@ -73,6 +73,7 @@ truy_xuat_thuoc
 │  ├─ Jobs
 │  │  ├─ ProcessBatchRecallJob.php
 │  │  ├─ ProcessBatchRegistrationJob.php
+│  │  ├─ ProcessBatchSaleEventJob.php
 │  │  ├─ ProcessBatchTransferJob.php
 │  │  ├─ ProcessOrganizationApprovalJob.php
 │  │  ├─ ProcessProductRegistrationJob.php
@@ -84,6 +85,7 @@ truy_xuat_thuoc
 │  │  ├─ BaoCaoNghiVan.php
 │  │  ├─ BlockchainIdentity.php
 │  │  ├─ BlockchainTransaction.php
+│  │  ├─ ChiTietBanLe.php
 │  │  ├─ ChuyenGiao.php
 │  │  ├─ DonViSanPham.php
 │  │  ├─ KetQuaXuLyBaoCao.php
@@ -319,40 +321,40 @@ truy_xuat_thuoc
 │  │     └─ tai-lieu-dang-ky
 │  │        ├─ 2TgoU2JHkbAXL4o2RRhtq9VG54c2xdOJyG5Zmlbs.jpg
 │  │        ├─ 3nvor0DGs5hnZrIOybSTWG81BGWZfxVl3lsShZ3I.jpg
+│  │        ├─ 51ZEUlmnBtrmyPCuhah5dM4KTrWdhVd8NygL4voX.png
+│  │        ├─ aGZPXzf4c077fV4myGNKmCatfb1JWsfIoe9r8VOF.jpg
 │  │        ├─ E3TirZIf6DvC5mRcD7TTdYRElXbNq0o0h4j8dYol.jpg
 │  │        ├─ he5nsz6yHGBAWOW5l6dAZv7qBVGwkvzGkYIAZT47.jpg
+│  │        ├─ oXCfKk2gnHNUKS010kQ7fNZ9SMWOfJPHNZ4ukq4i.jpg
+│  │        ├─ pKgQ6Pd5oeFnUswarBiKoACFiHhs5nkpoYyvrdZH.jpg
+│  │        ├─ T1RgcGrGEejgnOZ8mAATU5lqxYmHyRBmlyvfqWS0.jpg
 │  │        ├─ vGNC55rng98nNDfKnNLMtSZT0fxyv3O8Z8czSCC9.png
+│  │        ├─ wsvPYzvpg1Vj2YgMCQJKHN7GP9xBqkcZ98QMrzBY.jpg
 │  │        └─ Yqbruru3cnadTn2VpD2pZAEmKr0v8QrTuCCaGZOd.jpg
 │  ├─ framework
 │  │  ├─ cache
 │  │  │  └─ data
 │  │  ├─ sessions
-│  │  │  └─ bRbrLed85NNIbv6YgtBBiIu2xpPIBXWpkxzX3hcF
+│  │  │  └─ 4ZsdALyTEbJ1pn6LSrhWumPBt1vpgk3LkRFNatr0
 │  │  ├─ testing
 │  │  └─ views
 │  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
 │  │     ├─ 035731246571d2843ed8806b895b1df3.php
 │  │     ├─ 0421cdad5b572f8bb719588f1d726fa9.php
-│  │     ├─ 06b08864aa63d3ed854e3c6e16fd1cee.php
 │  │     ├─ 0d04c670e3e803c183a03541de2acaa3.php
 │  │     ├─ 0d8b13144357f330d7c8c861a4c9ab2c.php
-│  │     ├─ 0d8e6a2c686e4236ff8e06f337ce5f4c.php
 │  │     ├─ 1773df56c706204342805adcb42a7115.php
 │  │     ├─ 1878de6f35923c583b84d5595cb57dde.php
 │  │     ├─ 1b8e9dac5559a14c209fd36df5a15225.php
-│  │     ├─ 1f28a4d1ab259b1a9ff886c5a97aea55.php
 │  │     ├─ 22eb8eae42c599ba8c9dd4876fc849a7.php
 │  │     ├─ 2305f106441e1f9a23c54e332fd4f3da.php
 │  │     ├─ 28219c8155a2f356df928011d80046b0.php
-│  │     ├─ 37fb0fc92ef29363203344bab840c906.php
 │  │     ├─ 396143b79356ad0b0f1053b49e224ec7.php
 │  │     ├─ 3a21b499124aa2e727ce7f19eba89c83.php
-│  │     ├─ 3b78bdc6ff0f0c48847ec749d94c8409.php
 │  │     ├─ 4a3814166a7e64ed0e5a84c7112895db.php
 │  │     ├─ 4a654bb634a5f6bd496577dc1e7468ef.php
 │  │     ├─ 4b6b03a8365874d03bcd495e4b77ff8d.php
 │  │     ├─ 4be7b176892a5509639bee1b760f8b80.php
-│  │     ├─ 4fb8ce220e53cfd239bbfb961c06705e.php
 │  │     ├─ 50c3ad9c21b4ebd5e5aa809c983c90f6.php
 │  │     ├─ 50f7d82012c2b3e18db56975b1882785.php
 │  │     ├─ 54d74bdf29555370c479a3af59307076.php
@@ -365,22 +367,17 @@ truy_xuat_thuoc
 │  │     ├─ 789fe0400d66a3ce25e508b35006a3db.php
 │  │     ├─ 7d3d11463513c682f5e829a82c2b2df4.php
 │  │     ├─ 7e8c5fb405b097e2cc35e76bcb580f1f.php
-│  │     ├─ 8273b6b455b6a1d9d2a065dde11b4ada.php
 │  │     ├─ 8621b4c20348f86febdc9411ac4bc8e0.php
 │  │     ├─ 887d9f1000bd04da7ecddac96d054b17.php
 │  │     ├─ 8c0cf3c13e4b27bf441bb098299e6494.php
 │  │     ├─ 8ca1b0eea16fb29146e1d683f8c7a85a.php
 │  │     ├─ 8dd846e8df5702fbcb14dadde5a446cb.php
-│  │     ├─ 90e942402fed7819e694b59d917bc2e0.php
-│  │     ├─ 92cdf3283fdb950b52f1d8c6fd963609.php
 │  │     ├─ 95245472938aae797b87da43d15b8f9a.php
-│  │     ├─ 975ecba4f78ec676d860b783a3a522d9.php
 │  │     ├─ 97ab56c3b983bbe1b81c63e51377ff9c.php
 │  │     ├─ 9a21565cdcf3e0661a81b02469a74939.php
 │  │     ├─ a60c944afcd7edc87fbb06a01759eafb.php
 │  │     ├─ ab26b96cc32f28f88682afd59e65469d.php
 │  │     ├─ ab8753b4461257f4fb85f889052e5f11.php
-│  │     ├─ bab67472c92c3a7aff295f5f6367f710.php
 │  │     ├─ bc0d81ad3032929d6ccdbef00c943fae.php
 │  │     ├─ bd505a601cfcb0aa18d9f5ea11becc5c.php
 │  │     ├─ be4c7eec3eb4b90497fa3aee52cec1bc.php
@@ -390,7 +387,6 @@ truy_xuat_thuoc
 │  │     ├─ d2cc06a7e3b34c2db5f7d30b1964491a.php
 │  │     ├─ d9a7ae81257b55531ab0eb0bc4ef6b8c.php
 │  │     ├─ daf4e8367eee70874eb348faa52286b3.php
-│  │     ├─ dc15310d0958c03778257d7d7deeaf4f.php
 │  │     ├─ df99fd61a7bfa684895dfdef8df20304.php
 │  │     ├─ e0702df386324677ea105eed8692b265.php
 │  │     ├─ e718ffa9359ce16c3ea7996405287ba2.php
@@ -399,9 +395,7 @@ truy_xuat_thuoc
 │  │     ├─ ee6f5b342e2a2da600f0da9ac26c373c.php
 │  │     ├─ f3d283dc88ac91e1769c92151406293d.php
 │  │     ├─ f6416e93d5de273fb2236af3973588ab.php
-│  │     ├─ f744b042d758e3560a86eb498ecd227f.php
 │  │     ├─ f803dfbbdc2f8598d084089eec010ee1.php
-│  │     ├─ f95e45b15ea80ddfea0df4b22e7ac57b.php
 │  │     └─ ff4e1f4a1ae284b553dbaee3d587464f.php
 │  └─ logs
 ├─ tests
@@ -414,6 +408,7 @@ truy_xuat_thuoc
 │  │  ├─ ExampleTest.php
 │  │  ├─ KhungDuAnTest.php
 │  │  ├─ SepoliaTransactionSyncTest.php
+│  │  ├─ TonKhoChuyenGiaoReservationTest.php
 │  │  └─ UiLayoutTest.php
 │  ├─ Integration
 │  │  └─ MariaDbSchemaTest.php
@@ -423,8 +418,8 @@ truy_xuat_thuoc
 │     ├─ EnumTest.php
 │     ├─ ExampleTest.php
 │     └─ RoleMiddlewareTest.php
-├─ truyxuatthuoc v8 cấu trúc bảng.sql
-├─ truyxuatthuoc v8.sql
+├─ truyxuatthuoc v9 cấu trúc bảng.sql
+├─ truyxuatthuoc v9.sql
 └─ vite.config.js
 
 ```

@@ -329,7 +329,6 @@
     </div>
 </div>
 @endsection
-s
 @push('scripts')
 <script src="{{ asset('assets/js/nhaSanXuat/quanLyLoThuoc.js') }}"></script>
 @endpush

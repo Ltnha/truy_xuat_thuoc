@@ -16,19 +16,27 @@ $cauHinhVaiTro = [
 $role = $cauHinhVaiTro[$vaiTroVal] ?? $cauHinhVaiTro['NHA_SAN_XUAT'];
 $tenToChucHienThi = $user?->toChuc?->tenToChuc ?? ($user?->tenDangNhap ?? 'Trung Tâm Quản Trị Hệ Thống');
 
+$patternsBaoCao = [
+    'quan-ly-bao-cao-nghi-van*',
+    'nha-san-xuat/bao-cao-nghi-van*',
+    'nha-phan-phoi/bao-cao-nghi-van*',
+    'nha-thuoc/bao-cao-nghi-van*',
+];
+
 $danhSachMenuTheoVaiTro = [
     'NHA_SAN_XUAT' => [
         ['link' => url('/nha-san-xuat/quan-ly-lo-thuoc'), 'icon' => 'fa-boxes-stacked', 'ten' => 'Quản Lý Lô Thuốc', 'pattern' => 'nha-san-xuat/quan-ly-lo-thuoc*'],
-        ['link' => url('/nha-san-xuat/quan-ly-san-pham'), 'icon' => 'fa-pills', 'ten' => 'Quản Lý Sản Phẩm', 'pattern' => 'nha-san-xuat/quan-ly-san-pham*']
+        ['link' => url('/nha-san-xuat/quan-ly-san-pham'), 'icon' => 'fa-pills', 'ten' => 'Quản Lý Sản Phẩm', 'pattern' => 'nha-san-xuat/quan-ly-san-pham*'],
+        ['link' => url('/nha-san-xuat/bao-cao-nghi-van'), 'icon' => 'fa-file-shield', 'ten' => 'Báo Cáo Nghi Vấn', 'pattern' => $patternsBaoCao],
     ],
     'NHA_PHAN_PHOI' => [
         ['link' => url('/nha-phan-phoi/quan-ly-lo-hang'), 'icon' => 'fa-dolly', 'ten' => 'Quản Lý Lô Hàng', 'pattern' => 'nha-phan-phoi/quan-ly-lo-hang*'],
-        ['link' => url('/bao-cao-nghi-van'), 'icon' => 'fa-file-shield', 'ten' => 'Báo Cáo Nghi Vấn', 'pattern' => 'bao-cao-nghi-van*']
+        ['link' => url('/nha-phan-phoi/bao-cao-nghi-van'), 'icon' => 'fa-file-shield', 'ten' => 'Báo Cáo Nghi Vấn', 'pattern' => $patternsBaoCao],
     ],
     'NHA_THUOC' => [
         ['link' => url('/nha-thuoc/tiep-nhan-lo-hang'), 'icon' => 'fa-truck-ramp-box', 'ten' => 'Tiếp Nhận Lô Hàng', 'pattern' => 'nha-thuoc/tiep-nhan-lo-hang*'],
         ['link' => url('/nha-thuoc/quan-ly-ban-hang'), 'icon' => 'fa-cash-register', 'ten' => 'Quản Lý Bán Hàng', 'pattern' => 'nha-thuoc/quan-ly-ban-hang*'],
-        ['link' => url('/bao-cao-nghi-van'), 'icon' => 'fa-file-shield', 'ten' => 'Báo Cáo Nghi Vấn', 'pattern' => 'bao-cao-nghi-van*']
+        ['link' => url('/nha-thuoc/bao-cao-nghi-van'), 'icon' => 'fa-file-shield', 'ten' => 'Báo Cáo Nghi Vấn', 'pattern' => $patternsBaoCao],
     ],
     'QUAN_TRI_VIEN' => [
         ['link' => url('/quan-tri/quan-ly-tai-khoan'), 'icon' => 'fa-users-gear', 'ten' => 'Quản Lý Tài Khoản', 'pattern' => 'quan-tri/quan-ly-tai-khoan*'],
@@ -73,7 +81,10 @@ $menuHienTai = $danhSachMenuTheoVaiTro[$vaiTroVal] ?? [];
         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider px-3 mb-2">QUẢN LÝ NGHIỆP VỤ</div>
 
         @foreach ($menuHienTai as $menu)
-        @php $dangChon = request()->is($menu['pattern']); @endphp
+        @php
+        $patterns = is_array($menu['pattern']) ? $menu['pattern'] : [$menu['pattern']];
+        $dangChon = request()->is(...$patterns);
+        @endphp
         <a href="{{ $menu['link'] }}" class="flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold transition-all {{ $dangChon ? $role['btnClass'] . ' shadow-sm' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900' }}">
             <i class="fa-solid {{ $menu['icon'] }} text-sm w-5 text-center"></i>
             <span>{{ $menu['ten'] }}</span>
