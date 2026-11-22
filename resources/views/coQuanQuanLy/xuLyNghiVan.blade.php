@@ -27,7 +27,7 @@
 
             <select id="locLoaiBaoCao" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
                 <option value="TAT_CA">-- Tất cả phân loại báo cáo --</option>
-                <option value="TRONG_VONG_DOI">Lô trong vòng đời (Có thể thu hồi)</option>
+                <option value="TRONG_VONG_DOI">Lô trong vòng đời</option>
                 <option value="NGOAI_HE_THONG">Lô ngoài hệ thống / Nghi giả</option>
             </select>
         </div>
@@ -107,13 +107,20 @@
                 </div>
             </div>
 
-            <!-- KHUNG LÔ GỐC ĐỐI CHIẾU (CHỈ HIỆN VỚI BÁO CÁO NGOAI_HE_THONG CÓ CHỌN LÔ GỐC) -->
-            <div id="detailKhungLoBiLamGia" class="hidden p-3 bg-amber-50/80 rounded-xl border border-amber-300 text-amber-950 space-y-1">
-                <div class="font-bold text-amber-900 flex items-center gap-1.5 text-[11px] uppercase">
-                    <i class="fa-solid fa-magnifying-glass-chart text-amber-700"></i>
-                    Lô Thật Của Đơn Vị Bị Nghi Sao Chép (Chỉ Đối Chiếu — Không Thu Hồi):
+            <!-- KHUNG LÔ THẬT ĐỐI CHIẾU -->
+            <div id="detailKhungLoBiLamGia" class="hidden p-3 bg-amber-50/80 rounded-xl border border-amber-300 text-amber-950 space-y-1.5">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="font-bold text-amber-900 flex items-center gap-1.5 text-[11px] uppercase">
+                        <i class="fa-solid fa-magnifying-glass-chart text-amber-700"></i>
+                        Lô Thật Của Đơn Vị Bị Nghi Sao Chép (Lô Đối Chiếu):
+                    </span>
+                    <span id="detailBadgeTrangThaiLoGoc"></span>
                 </div>
                 <p id="detailThongTinLoBiLamGia" class="font-semibold text-xs leading-relaxed"></p>
+                <div id="detailTxLoGocWrap" class="hidden pt-1 border-t border-amber-200/80 flex items-center justify-between gap-2 text-[11px] text-red-800">
+                    <span id="detailTxLoGocText" class="font-mono truncate"></span>
+                    <a id="detailTxLoGocLink" href="#" target="_blank" class="font-bold underline shrink-0">Sepolia Etherscan</a>
+                </div>
             </div>
 
             <div class="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -150,12 +157,11 @@
     </div>
 </div>
 
-<!-- MODAL 2: XỬ LÝ BÁO CÁO NGHI VẤN (HỖ TRỢ THU_HOI / GHI_NHAN / TU_CHOI) -->
+<!-- MODAL 2: XỬ LÝ BÁO CÁO NGHI VẤN & THU HỒI LÔ ĐỐI CHIẾU -->
 <div id="modalXuLyThuHoiNghiVan" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-7 space-y-4 bong-xanh max-h-[92vh] flex flex-col">
-        <!-- HEADER MODAL -->
         <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between shrink-0">
-            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+            <h3 id="tieuDeModalXuLyNghiVan" class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-gavel text-indigo-700"></i> Quyết Định Xử Lý Báo Cáo Nghi Vấn
             </h3>
             <button type="button" class="dong-modal-nghivan text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
@@ -163,7 +169,7 @@
             </button>
         </div>
 
-        <!-- MÀN HÌNH 0: FORM CHỌN HÌNH THỨC & NHẬP LÝ DO -->
+        <!-- MÀN HÌNH 0: FORM -->
         <div id="manHinhFormNghiVan" class="flex-1 overflow-y-auto space-y-3.5 text-xs pr-1">
             <div class="p-3 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1">
                 <div class="flex justify-between items-center">
@@ -171,16 +177,15 @@
                     <strong id="modalNghiVanMaBaoCao" class="font-mono text-slate-900 text-sm"></strong>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-slate-500">Mã lô khai báo:</span>
+                    <span id="modalNghiVanNhanMaLo" class="text-slate-500">Mã lô khai báo:</span>
                     <strong id="modalNghiVanMaLo" class="font-mono text-indigo-900"></strong>
                 </div>
             </div>
 
-            <!-- Chọn hướng quyết định phù hợp với phân loại báo cáo -->
-            <div class="space-y-1.5">
+            <!-- Chọn hướng quyết định -->
+            <div id="khungHinhThucQuyetDinh" class="space-y-1.5">
                 <span class="font-bold text-slate-700 uppercase tracking-wide block text-[11px]">Hình Thức Quyết Định:</span>
                 <div id="khungChonCheDoXuLy" class="grid grid-cols-2 gap-2"></div>
-                <p id="ghiChuCheDoXuLy" class="text-[11px] text-slate-500 leading-relaxed"></p>
             </div>
 
             <div class="space-y-1">
@@ -203,18 +208,18 @@
             </div>
         </div>
 
-        <!-- TRẠNG THÁI 1: ĐANG THỰC THI (LOADING POPUP) -->
+        <!-- TRẠNG THÁI 1: LOADING -->
         <div id="manHinhDangGhiNghiVan" class="hidden text-center py-8 space-y-4">
             <div class="w-16 h-16 mx-auto rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-3xl">
                 <i class="fa-solid fa-circle-notch fa-spin"></i>
             </div>
             <div class="space-y-1">
-                <h4 class="text-base font-bold text-slate-900">Đang xử lý báo cáo...</h4>
-                <p id="moTaDangXuLyNghiVan" class="text-xs text-slate-500 max-w-xs mx-auto">Đang cập nhật hồ sơ thẩm định lên hệ thống.</p>
+                <h4 class="text-base font-bold text-slate-900">Đang xử lý...</h4>
+                <p id="moTaDangXuLyNghiVan" class="text-xs text-slate-500 max-w-xs mx-auto">Đang cập nhật dữ liệu lên hệ thống.</p>
             </div>
         </div>
 
-        <!-- TRẠNG THÁI 2: PHẢN HỒI KẾT QUẢ (SUCCESS / ERROR POPUP) -->
+        <!-- TRẠNG THÁI 2: KẾT QUẢ -->
         <div id="manHinhKetQuaNghiVan" class="hidden text-center py-6 space-y-4">
             <div id="iconKetQuaNghiVan" class="w-16 h-16 mx-auto rounded-full flex items-center justify-center text-3xl"></div>
 

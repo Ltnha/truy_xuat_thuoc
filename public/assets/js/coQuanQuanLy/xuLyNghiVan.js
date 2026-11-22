@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let trangHienTai = 1;
     let cachedDanhSachNghiVan = [];
     let baoCaoDangChonId = null;
-    let cheDoXuLyHienTai = 'THU_HOI'; // 'THU_HOI' | 'GHI_NHAN' | 'TU_CHOI'
+    let cheDoXuLyHienTai = 'THU_HOI'; // 'THU_HOI' | 'GHI_NHAN' | 'TU_CHOI' | 'THU_HOI_DOI_CHIEU'
 
     const thanBang = document.getElementById('thanBangNghiVan');
     const oTimKiem = document.getElementById('oTimKiemNghiVan');
@@ -14,7 +14,6 @@ document.addEventListener('DOMContentLoaded', function () {
     const thongTinPhanTrang = document.getElementById('thongTinPhanTrangNghiVan');
     const cumNutPhanTrang = document.getElementById('cumNutPhanTrangNghiVan');
 
-    // Tự động điền từ khóa nếu điều hướng từ trang Quản lý thu hồi (?tuKhoa=...)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('tuKhoa') && oTimKiem) {
         oTimKiem.value = urlParams.get('tuKhoa');
@@ -138,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const maLoText = escapeHtml(item.maLo || 'N/A');
             const tenSanPhamText = escapeHtml(item.tenSanPham || 'N/A');
             const loGocSub = item.loBiLamGia
-                ? `<div class="text-[10px] text-amber-800 font-mono mt-0.5">Đối chiếu lô gốc: ${escapeHtml(item.loBiLamGia.maLoNghiepVu)}</div>`
+                ? `<div class="text-[10px] text-amber-800 font-mono mt-0.5">Đối chiếu lô gốc: ${escapeHtml(item.loBiLamGia.maLoNghiepVu)}${item.loBiLamGia.daThuHoi ? ' (Đã thu hồi)' : ''}</div>`
                 : '';
             const donViText = escapeHtml(item.donViBaoCao || 'N/A');
             const thoiGianText = escapeHtml(dinhDangNgayGio(item.thoiGianGui));
@@ -211,13 +210,31 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('detailLoaiBaoCao').textContent = item.loaiBaoCaoNhan || 'Báo cáo nghi vấn';
         document.getElementById('detailNoiDungBaoCao').textContent = item.noiDung || 'Không có mô tả chi tiết.';
 
-        // Khung lô gốc đối chiếu (chỉ hiển thị nếu NGOAI_HE_THONG và có chọn lô thật bị làm giả)
+        // Khung lô gốc đối chiếu
         const khungLoBiLamGia = document.getElementById('detailKhungLoBiLamGia');
         const thongTinLoBiLamGia = document.getElementById('detailThongTinLoBiLamGia');
+        const badgeLoGoc = document.getElementById('detailBadgeTrangThaiLoGoc');
+        const txLoGocWrap = document.getElementById('detailTxLoGocWrap');
+
         if (khungLoBiLamGia && thongTinLoBiLamGia) {
             if (!laTrongVongDoi && item.loBiLamGia) {
                 const lg = item.loBiLamGia;
                 thongTinLoBiLamGia.textContent = `Mã lô gốc: ${lg.maLoNghiepVu} — ${lg.tenSanPham} (SĐK: ${lg.soDangKy}, NSX: ${lg.nhaSanXuat}, HSD: ${lg.hanSuDung})`;
+
+                if (badgeLoGoc) {
+                    badgeLoGoc.innerHTML = lg.daThuHoi
+                        ? `<span class="badge-chuan px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-red-100 text-red-700 border border-red-300"><i class="fa-solid fa-ban"></i> Lô đối chiếu đã thu hồi</span>`
+                        : '';
+                }
+
+                if (txLoGocWrap && lg.daThuHoi && lg.txHashThuHoi) {
+                    txLoGocWrap.classList.remove('hidden');
+                    document.getElementById('detailTxLoGocText').textContent = `TX thu hồi lô gốc: ${lg.txHashThuHoi}`;
+                    document.getElementById('detailTxLoGocLink').href = `https://sepolia.etherscan.io/tx/${encodeURIComponent(lg.txHashThuHoi)}`;
+                } else if (txLoGocWrap) {
+                    txLoGocWrap.classList.add('hidden');
+                }
+
                 khungLoBiLamGia.classList.remove('hidden');
             } else {
                 khungLoBiLamGia.classList.add('hidden');
@@ -245,6 +262,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const tieuDeKetQua = document.getElementById('detailTieuDeKetQua');
         const noiDungKetQua = document.getElementById('detailNoiDungKetQua');
         const txWrap = document.getElementById('detailTxThuHoiWrap');
+        const khungNutNhanh = document.getElementById('detailKhungNutXuLyNhanh');
 
         if (daXuLy) {
             if (khungKetQua) {
@@ -272,7 +290,22 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
 
-            document.getElementById('detailKhungNutXuLyNhanh').innerHTML = '';
+            // Nếu đã ghi nhận hàng giả và có lô thuốc đối chiếu chưa bị thu hồi -> hiển thị nút Thu hồi lô
+            if (khungNutNhanh) {
+                if (item.quyetDinhXuLy === 'GHI_NHAN' && item.loBiLamGia && !item.loBiLamGia.daThuHoi) {
+                    khungNutNhanh.innerHTML = `
+                        <button type="button" id="nutThuHoiLoDoiChieu" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer">
+                            <i class="fa-solid fa-ban text-[10px]"></i> Thu hồi lô ${escapeHtml(item.loBiLamGia.maLoNghiepVu)}
+                        </button>
+                    `;
+                    document.getElementById('nutThuHoiLoDoiChieu')?.addEventListener('click', () => {
+                        modalDetail.classList.add('hidden');
+                        moModalXuLy(item.id, 'THU_HOI_DOI_CHIEU');
+                    });
+                } else {
+                    khungNutNhanh.innerHTML = '';
+                }
+            }
         } else {
             if (khungKetQua) khungKetQua.classList.add('hidden');
 
@@ -284,12 +317,14 @@ document.addEventListener('DOMContentLoaded', function () {
                        <i class="fa-solid fa-triangle-exclamation text-[10px]"></i> Ghi nhận hàng giả
                    </button>`;
 
-            document.getElementById('detailKhungNutXuLyNhanh').innerHTML = `
-                <button type="button" data-mode="TU_CHOI" class="btn-chon-xu-ly-nhanh px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
-                    <i class="fa-solid fa-circle-xmark text-[10px]"></i> Từ chối báo cáo
-                </button>
-                ${nutChinhHtml}
-            `;
+            if (khungNutNhanh) {
+                khungNutNhanh.innerHTML = `
+                    <button type="button" data-mode="TU_CHOI" class="btn-chon-xu-ly-nhanh px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 cursor-pointer">
+                        <i class="fa-solid fa-circle-xmark text-[10px]"></i> Từ chối báo cáo
+                    </button>
+                    ${nutChinhHtml}
+                `;
+            }
 
             document.querySelectorAll('.btn-chon-xu-ly-nhanh').forEach(btn => {
                 btn.addEventListener('click', () => {
@@ -307,7 +342,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', () => modalDetail?.classList.add('hidden'));
     });
 
-    // ══ 4. MODAL XỬ LÝ BÁO CÁO (THU_HOI / GHI_NHAN / TU_CHOI) ══
+    // ══ 4. MODAL XỬ LÝ BÁO CÁO & THU HỒI LÔ ĐỐI CHIẾU ══
     const modalXuLy = document.getElementById('modalXuLyThuHoiNghiVan');
     const manHinhFormNghiVan = document.getElementById('manHinhFormNghiVan');
     const manHinhDangGhiNghiVan = document.getElementById('manHinhDangGhiNghiVan');
@@ -317,8 +352,8 @@ document.addEventListener('DOMContentLoaded', function () {
     const tieuDeKetQua = document.getElementById('tieuDeKetQuaNghiVan');
     const noiDungKetQua = document.getElementById('noiDungKetQuaNghiVan');
 
+    const khungHinhThucQuyetDinh = document.getElementById('khungHinhThucQuyetDinh');
     const khungChonCheDo = document.getElementById('khungChonCheDoXuLy');
-    const ghiChuCheDo = document.getElementById('ghiChuCheDoXuLy');
     const nhapLyDoXuLy = document.getElementById('nhapLyDoXuLyNghiVan');
     const demKyTuNghiVan = document.getElementById('demKyTuNghiVan');
     const nutXacNhanXuLy = document.getElementById('nutXacNhanThuHoiNghiVan');
@@ -327,7 +362,15 @@ document.addEventListener('DOMContentLoaded', function () {
         cheDoXuLyHienTai = mode;
         const laTrongVongDoi = (item.loaiBaoCao === 'TRONG_VONG_DOI' && item.loThuocId);
 
-        if (khungChonCheDo) {
+        if (khungHinhThucQuyetDinh) {
+            if (mode === 'THU_HOI_DOI_CHIEU') {
+                khungHinhThucQuyetDinh.classList.add('hidden');
+            } else {
+                khungHinhThucQuyetDinh.classList.remove('hidden');
+            }
+        }
+
+        if (khungChonCheDo && mode !== 'THU_HOI_DOI_CHIEU') {
             const optionChinh = laTrongVongDoi
                 ? { mode: 'THU_HOI', label: 'Thu hồi toàn bộ lô', icon: 'fa-ban', activeClass: 'border-red-600 bg-red-50 text-red-800' }
                 : { mode: 'GHI_NHAN', label: 'Ghi nhận hàng giả', icon: 'fa-triangle-exclamation', activeClass: 'border-amber-600 bg-amber-50 text-amber-900' };
@@ -352,18 +395,6 @@ document.addEventListener('DOMContentLoaded', function () {
             });
         }
 
-        if (ghiChuCheDo) {
-            if (mode === 'THU_HOI') {
-                ghiChuCheDo.innerHTML = `<span class="text-red-700 font-semibold">Lệnh thu hồi sẽ đóng băng toàn bộ tồn kho của lô [${escapeHtml(item.maLo)}] trên chuỗi cung ứng và ký giao dịch recallBatch lên Ethereum Sepolia.</span>`;
-            } else if (mode === 'GHI_NHAN') {
-                ghiChuCheDo.innerHTML = item.loBiLamGia
-                    ? `<span class="text-amber-800 font-semibold">Ghi nhận mã lô giả [${escapeHtml(item.maLo)}] lưu hành ngoài hệ thống. Lô thật đối chiếu [${escapeHtml(item.loBiLamGia.maLoNghiepVu)}] vẫn giữ nguyên trạng thái lưu hành.</span>`
-                    : `<span class="text-amber-800 font-semibold">Ghi nhận cảnh báo mã lô bất hợp pháp [${escapeHtml(item.maLo)}] lưu hành ngoài hệ thống.</span>`;
-            } else {
-                ghiChuCheDo.innerHTML = `Đóng hồ sơ báo cáo do không đủ căn cứ vi phạm; không tác động tới dữ liệu lô thuốc trên hệ thống.`;
-            }
-        }
-
         capNhatTrangThaiNutXuLy();
     }
 
@@ -375,10 +406,26 @@ document.addEventListener('DOMContentLoaded', function () {
         const laTrongVongDoi = (item.loaiBaoCao === 'TRONG_VONG_DOI' && item.loThuocId);
         const defaultMode = preferredMode || (laTrongVongDoi ? 'THU_HOI' : 'GHI_NHAN');
 
+        const tieuDeModal = document.getElementById('tieuDeModalXuLyNghiVan');
+        const nhanMaLo = document.getElementById('modalNghiVanNhanMaLo');
+
         document.getElementById('modalNghiVanMaBaoCao').textContent = item.maBaoCao || ('BC-' + item.id);
-        document.getElementById('modalNghiVanMaLo').innerHTML = laTrongVongDoi
-            ? escapeHtml(item.maLo || 'N/A')
-            : `<span class="text-amber-800">${escapeHtml(item.maLo || 'N/A')} (Ngoài hệ thống)</span>`;
+
+        if (defaultMode === 'THU_HOI_DOI_CHIEU' && item.loBiLamGia) {
+            if (tieuDeModal) {
+                tieuDeModal.innerHTML = `<i class="fa-solid fa-ban text-red-600"></i> Thu Hồi Lô Thuốc Đối Chiếu`;
+            }
+            if (nhanMaLo) nhanMaLo.textContent = 'Lô đối chiếu thu hồi:';
+            document.getElementById('modalNghiVanMaLo').innerHTML = `<span class="text-red-700">${escapeHtml(item.loBiLamGia.maLoNghiepVu)} — ${escapeHtml(item.loBiLamGia.tenSanPham)}</span>`;
+        } else {
+            if (tieuDeModal) {
+                tieuDeModal.innerHTML = `<i class="fa-solid fa-gavel text-indigo-700"></i> Quyết Định Xử Lý Báo Cáo Nghi Vấn`;
+            }
+            if (nhanMaLo) nhanMaLo.textContent = 'Mã lô khai báo:';
+            document.getElementById('modalNghiVanMaLo').innerHTML = laTrongVongDoi
+                ? escapeHtml(item.maLo || 'N/A')
+                : `<span class="text-amber-800">${escapeHtml(item.maLo || 'N/A')}</span>`;
+        }
 
         if (nhapLyDoXuLy) nhapLyDoXuLy.value = '';
         if (demKyTuNghiVan) demKyTuNghiVan.textContent = '0/500';
@@ -428,6 +475,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const lyDo = nhapLyDoXuLy ? nhapLyDoXuLy.value.trim() : '';
         if (!lyDo || !baoCaoDangChonId) return;
 
+        const itemDangChon = cachedDanhSachNghiVan.find(x => x.id == baoCaoDangChonId);
         const mode = cheDoXuLyHienTai;
         const moTaLoading = document.getElementById('moTaDangXuLyNghiVan');
 
@@ -435,15 +483,27 @@ document.addEventListener('DOMContentLoaded', function () {
         if (manHinhKetQuaNghiVan) manHinhKetQuaNghiVan.classList.add('hidden');
         if (manHinhDangGhiNghiVan) manHinhDangGhiNghiVan.classList.remove('hidden');
 
+        const laThuHoi = (mode === 'THU_HOI' || mode === 'THU_HOI_DOI_CHIEU');
         if (moTaLoading) {
-            moTaLoading.textContent = mode === 'THU_HOI'
-                ? 'Đang cập nhật hồ sơ nghi vấn và kích hoạt Job đồng bộ quyết định Thu hồi lên Blockchain...'
+            moTaLoading.textContent = laThuHoi
+                ? 'Đang phong tỏa tồn kho và đồng bộ quyết định Thu hồi lên Blockchain...'
                 : 'Đang lưu kết quả thẩm định hồ sơ nghi vấn...';
         }
 
         try {
             let apiUrl = `/co-quan/xu-ly-nghi-van/thu-hoi/${baoCaoDangChonId}`;
-            if (mode === 'GHI_NHAN') {
+            let payloadBody = { lyDo: lyDo, gopCungLo: true };
+
+            if (mode === 'THU_HOI_DOI_CHIEU') {
+                if (!itemDangChon?.loBiLamGia?.id) {
+                    throw new Error('Không tìm thấy thông tin lô thuốc đối chiếu để thu hồi.');
+                }
+                apiUrl = '/co-quan/quan-ly-thu-hoi/thu-hoi';
+                payloadBody = {
+                    loThuocId: itemDangChon.loBiLamGia.id,
+                    lyDo: lyDo
+                };
+            } else if (mode === 'GHI_NHAN') {
                 apiUrl = `/co-quan/xu-ly-nghi-van/${baoCaoDangChonId}/ghi-nhan-hang-gia`;
             } else if (mode === 'TU_CHOI') {
                 apiUrl = `/co-quan/xu-ly-nghi-van/${baoCaoDangChonId}/tu-choi`;
@@ -456,10 +516,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': CSRF_TOKEN
                 },
-                body: JSON.stringify({
-                    lyDo: lyDo,
-                    gopCungLo: true
-                })
+                body: JSON.stringify(payloadBody)
             });
 
             const text = await response.text();
@@ -467,15 +524,15 @@ document.addEventListener('DOMContentLoaded', function () {
             try {
                 data = JSON.parse(text);
             } catch (err) {
-                throw new Error(`Phản hồi từ máy chủ không hợp lệ (Mã ${response.status}): ${text.substring(0, 120)}...`);
+                throw new Error(`Phản hồi từ máy chủ không hợp lệ (Mã ${response.status}).`);
             }
 
             if (!response.ok || !data.success) {
-                throw new Error(data.message || 'Xử lý báo cáo thất bại.');
+                throw new Error(data.message || 'Xử lý thất bại.');
             }
 
-            // Trường hợp GHI_NHAN hoặc TU_CHOI (không phát sinh giao dịch thu hồi on-chain)
-            if (mode !== 'THU_HOI') {
+            // Trường hợp GHI_NHAN hoặc TU_CHOI
+            if (!laThuHoi) {
                 if (manHinhDangGhiNghiVan) manHinhDangGhiNghiVan.classList.add('hidden');
                 if (manHinhKetQuaNghiVan) manHinhKetQuaNghiVan.classList.remove('hidden');
 
@@ -484,7 +541,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     iconKetQua.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
                     tieuDeKetQua.className = 'text-base font-bold text-amber-900';
                     tieuDeKetQua.textContent = 'Đã Ghi Nhận Cảnh Báo Hàng Giả!';
-                    noiDungKetQua.innerHTML = `${escapeHtml(data.message)}<br><span class="text-slate-500 text-[11px]">Lô thuốc gốc trên hệ thống không bị thu hồi.</span>`;
+                    noiDungKetQua.textContent = data.message || 'Đã ghi nhận cảnh báo hàng giả.';
                 } else {
                     iconKetQua.className = 'w-16 h-16 mx-auto rounded-full bg-slate-100 text-slate-700 flex items-center justify-center text-3xl';
                     iconKetQua.innerHTML = `<i class="fa-solid fa-circle-xmark"></i>`;
@@ -497,7 +554,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            // Trường hợp THU_HOI: Polling chờ Blockchain CONFIRMED
+            // Trường hợp THU_HOI hoặc THU_HOI_DOI_CHIEU: Polling chờ Blockchain CONFIRMED
             const thuHoiId = data.data?.id;
             if (!thuHoiId) {
                 if (manHinhDangGhiNghiVan) manHinhDangGhiNghiVan.classList.add('hidden');
@@ -526,7 +583,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         iconKetQua.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
                         tieuDeKetQua.className = 'text-base font-bold text-emerald-800';
                         tieuDeKetQua.textContent = 'Thu Hồi & Neo Blockchain Thành Công!';
-                        noiDungKetQua.innerHTML = `Báo cáo nghi vấn đã được đóng và toàn bộ lô thuốc đã thu hồi chính thức.<br><span class="font-mono text-[11px] text-cyan-800 font-bold break-all">TxHash: ${escapeHtml(statusData.txHash)}</span>`;
+                        noiDungKetQua.innerHTML = `Lô thuốc đã được thu hồi chính thức.<br><span class="font-mono text-[11px] text-cyan-800 font-bold break-all">TxHash: ${escapeHtml(statusData.txHash)}</span>`;
 
                         loadDanhSachBaoCao();
                     } else if (statusData.success && statusData.trangThai === 'FAILED') {
@@ -538,7 +595,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         iconKetQua.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
                         tieuDeKetQua.className = 'text-base font-bold text-red-700';
                         tieuDeKetQua.textContent = 'Giao Dịch Blockchain Thất Bại!';
-                        noiDungKetQua.textContent = 'Hồ sơ đã chuyển trạng thái nhưng giao dịch ký On-chain bị lỗi. Vui lòng kiểm tra lại Queue Worker / Signer Service.';
+                        noiDungKetQua.textContent = 'Hồ sơ đã lưu nhưng giao dịch ký On-chain bị lỗi. Vui lòng kiểm tra lại Queue Worker / Signer Service.';
 
                         loadDanhSachBaoCao();
                     } else if (numTries >= maxTries) {
@@ -549,8 +606,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         iconKetQua.className = 'w-16 h-16 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-3xl';
                         iconKetQua.innerHTML = `<i class="fa-solid fa-clock"></i>`;
                         tieuDeKetQua.className = 'text-base font-bold text-amber-800';
-                        tieuDeKetQua.textContent = 'Đã Xử Lý (Đang Chờ Đào Block)';
-                        noiDungKetQua.textContent = 'Báo cáo đã xử lý, tiến trình neo Blockchain vẫn đang được thực hiện ngầm.';
+                        tieuDeKetQua.textContent = 'Đã Ban Hành (Đang Chờ Đào Block)';
+                        noiDungKetQua.textContent = 'Quyết định đã được đưa vào hàng chờ Queue. Tiến trình Blockchain vẫn đang được xử lý ngầm.';
 
                         loadDanhSachBaoCao();
                     }

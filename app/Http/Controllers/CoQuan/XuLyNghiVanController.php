@@ -6,6 +6,8 @@ use App\Enums\DecisionType;
 use App\Enums\ReportStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BaoCaoNghiVan;
+use App\Models\NhatKyHeThong;
+use App\Models\ThuHoiLoHang;
 use App\Services\CoQuan\ThuHoiLoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -20,7 +22,7 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * API Lấy danh sách báo cáo nghi vấn (Hỗ trợ tìm kiếm, lọc trạng thái và phân loại TRONG_VONG_DOI / NGOAI_HE_THONG)
+     * API Lấy danh sách báo cáo nghi vấn
      */
     public function danhSach(Request $request): JsonResponse
     {
@@ -36,7 +38,6 @@ class XuLyNghiVanController extends Controller
                 'ketQuaXuLyBaoCao.thuHoiLoHang.blockchainTx',
             ]);
 
-            // 1. Tìm kiếm theo từ khóa
             if ($request->filled('tuKhoa')) {
                 $tuKhoa = trim($request->tuKhoa);
                 $query->where(function ($q) use ($tuKhoa) {
@@ -58,7 +59,6 @@ class XuLyNghiVanController extends Controller
                 });
             }
 
-            // 2. Lọc theo trạng thái báo cáo
             if ($request->filled('trangThai') && $request->trangThai !== 'TAT_CA') {
                 $tt = $request->trangThai;
                 if ($tt === 'CHO_XU_LY') {
@@ -83,7 +83,6 @@ class XuLyNghiVanController extends Controller
                 }
             }
 
-            // 3. Lọc theo phân loại báo cáo (TRONG_VONG_DOI / NGOAI_HE_THONG)
             if ($request->filled('loaiBaoCao') && $request->loaiBaoCao !== 'TAT_CA') {
                 $loai = $request->loaiBaoCao;
                 if ($loai === 'TRONG_VONG_DOI') {
@@ -105,6 +104,22 @@ class XuLyNghiVanController extends Controller
 
             $danhSach = $query->orderByDesc('id')->paginate(10);
 
+            // Kiểm tra trạng thái thu hồi của các lô đối chiếu (loBiLamGiaId)
+            $loDoiChieuIds = $danhSach->getCollection()
+                ->pluck('loBiLamGiaId')
+                ->filter()
+                ->unique()
+                ->values();
+
+            $thuHoiDoiChieuMap = $loDoiChieuIds->isNotEmpty()
+                ? ThuHoiLoHang::with('blockchainTx')
+                ->whereIn('loThuocId', $loDoiChieuIds)
+                ->orderByDesc('id')
+                ->get()
+                ->unique('loThuocId')
+                ->keyBy('loThuocId')
+                : collect();
+
             $nhanVaiTroMap = [
                 'NHA_SAN_XUAT' => 'NSX',
                 'NHA_PHAN_PHOI' => 'NPP',
@@ -112,7 +127,7 @@ class XuLyNghiVanController extends Controller
                 'CO_QUAN_QUAN_LY' => 'Cơ quan QL',
             ];
 
-            $danhSach->getCollection()->transform(function ($bc) use ($nhanVaiTroMap) {
+            $danhSach->getCollection()->transform(function ($bc) use ($nhanVaiTroMap, $thuHoiDoiChieuMap) {
                 $loaiBaoCao = $bc->loaiBaoCao ?: ($bc->loThuocId ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG');
 
                 $maLo = $loaiBaoCao === 'TRONG_VONG_DOI'
@@ -148,14 +163,26 @@ class XuLyNghiVanController extends Controller
                     : (string) ($bc->ketQuaXuLyBaoCao?->quyetDinh ?? '');
 
                 $loGoc = $bc->loBiLamGia;
-                $loBiLamGiaData = $loGoc ? [
-                    'id' => $loGoc->id,
-                    'maLoNghiepVu' => $loGoc->maLoNghiepVu ?? $loGoc->maLo,
-                    'tenSanPham' => $loGoc->sanPham?->tenSanPham ?? 'N/A',
-                    'soDangKy' => $loGoc->sanPham?->soDangKy ?? 'N/A',
-                    'nhaSanXuat' => $loGoc->toChuc?->tenToChuc ?? 'N/A',
-                    'hanSuDung' => $loGoc->hanSuDung ? date('d/m/Y', strtotime($loGoc->hanSuDung)) : 'N/A',
-                ] : null;
+                $loBiLamGiaData = null;
+                if ($loGoc) {
+                    $trangThaiLoGoc = $loGoc->trangThai instanceof \BackedEnum
+                        ? $loGoc->trangThai->value
+                        : (string) $loGoc->trangThai;
+                    $banGhiThuHoiLoGoc = $thuHoiDoiChieuMap->get($loGoc->id);
+                    $daThuHoiLoGoc = ($trangThaiLoGoc === 'RECALLED') || ($banGhiThuHoiLoGoc !== null);
+
+                    $loBiLamGiaData = [
+                        'id' => $loGoc->id,
+                        'maLoNghiepVu' => $loGoc->maLoNghiepVu ?? $loGoc->maLo,
+                        'tenSanPham' => $loGoc->sanPham?->tenSanPham ?? 'N/A',
+                        'soDangKy' => $loGoc->sanPham?->soDangKy ?? 'N/A',
+                        'nhaSanXuat' => $loGoc->toChuc?->tenToChuc ?? 'N/A',
+                        'hanSuDung' => $loGoc->hanSuDung ? date('d/m/Y', strtotime($loGoc->hanSuDung)) : 'N/A',
+                        'trangThai' => $trangThaiLoGoc,
+                        'daThuHoi' => $daThuHoiLoGoc,
+                        'txHashThuHoi' => $banGhiThuHoiLoGoc?->blockchainTx?->txHash,
+                    ];
+                }
 
                 $minhChungs = $bc->minhChungs ? $bc->minhChungs->map(function ($mc) {
                     return [
@@ -202,7 +229,7 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * Thực hiện thu hồi lô từ Báo cáo Nghi vấn (Chỉ áp dụng cho TRONG_VONG_DOI)
+     * Thực hiện thu hồi lô từ Báo cáo Nghi vấn (TRONG_VONG_DOI)
      */
     public function thuHoi(Request $request, int $id): JsonResponse
     {
@@ -217,7 +244,7 @@ class XuLyNghiVanController extends Controller
             if ($loaiBaoCao !== 'TRONG_VONG_DOI' || ! $baoCao->loThuocId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Báo cáo lô ngoài hệ thống / nghi làm giả không được phép thu hồi lô thật. Vui lòng chọn Ghi nhận cảnh báo hàng giả hoặc Từ chối.',
+                    'message' => 'Báo cáo lô ngoài hệ thống không thu hồi trực tiếp tại bước này. Vui lòng ghi nhận hàng giả trước, sau đó thu hồi lô đối chiếu trong phần Chi tiết nếu cần.',
                 ], 422);
             }
 
@@ -244,16 +271,13 @@ class XuLyNghiVanController extends Controller
         }
     }
 
-    /**
-     * Alias định tuyến cho thu hồi từ báo cáo
-     */
     public function thuHoiTuBaoCao(Request $request, int $id): JsonResponse
     {
         return $this->thuHoi($request, $id);
     }
 
     /**
-     * Từ chối báo cáo nghi vấn (Áp dụng cho cả TRONG_VONG_DOI và NGOAI_HE_THONG)
+     * Từ chối báo cáo nghi vấn
      */
     public function tuChoi(Request $request, int $id): JsonResponse
     {
@@ -284,7 +308,7 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * Ghi nhận cảnh báo hàng giả / lô ngoài hệ thống (Không thu hồi lô gốc đối chiếu)
+     * Ghi nhận cảnh báo hàng giả (kèm ghi nhận lô thuốc đối chiếu nếu có)
      */
     public function ghiNhanHangGia(Request $request, int $id): JsonResponse
     {
@@ -294,16 +318,34 @@ class XuLyNghiVanController extends Controller
 
         try {
             $taiKhoanId = auth()->id() ?? 1;
+            $baoCao = BaoCaoNghiVan::with('loBiLamGia')->findOrFail($id);
+
             $kq = $this->thuHoiLoService->ghiKetQuaXuLyBaoCao(
-                $id,
+                $baoCao->id,
                 $taiKhoanId,
                 DecisionType::ghiNhan,
                 $request->lyDo
             );
 
+            $maLoGoc = $baoCao->loBiLamGia?->maLoNghiepVu ?? $baoCao->loBiLamGia?->maLo;
+            $chiTietLog = $maLoGoc
+                ? "Ghi nhận cảnh báo hàng giả [{$baoCao->maLoKhaiBao}] từ báo cáo [{$baoCao->maBaoCao}], đối chiếu lô gốc [{$maLoGoc}]."
+                : "Ghi nhận cảnh báo hàng giả [{$baoCao->maLoKhaiBao}] từ báo cáo [{$baoCao->maBaoCao}].";
+
+            NhatKyHeThong::create([
+                'taiKhoanId' => $taiKhoanId,
+                'doiTuongId' => $baoCao->loBiLamGiaId ?? $baoCao->id,
+                'hanhDong' => 'GHI_NHAN_CANH_BAO_HANG_GIA',
+                'ketQua' => 'THANH_CONG',
+                'thoiGian' => now(),
+                'chiTiet' => $chiTietLog,
+            ]);
+
             return response()->json([
                 'success' => true,
-                'message' => 'Đã ghi nhận cảnh báo lô giả mạo ngoài hệ thống.',
+                'message' => $maLoGoc
+                    ? "Đã ghi nhận cảnh báo hàng giả và liên kết lô đối chiếu [{$maLoGoc}]."
+                    : 'Đã ghi nhận cảnh báo hàng giả ngoài hệ thống.',
                 'data' => $kq,
             ]);
         } catch (\Throwable $e) {
