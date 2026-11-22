@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
-    const EXPLORER_BASE_URL = "https://sepolia.etherscan.io/tx/";
+    const EXPLORER_BASE_URL = 'https://sepolia.etherscan.io/tx/';
     const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-    
+
     let trangHienTai = 1;
     let cachedDanhSachLo = [];
     let loDangXemDetail = null;
@@ -11,9 +11,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const oTimKiem = document.getElementById('oTimKiemThuHoi');
     const locNSX = document.getElementById('locNhaSanXuat');
     const locTrangThai = document.getElementById('locTrangThaiLo');
+    const locNghiVan = document.getElementById('locNghiVanLo');
     const soLuongBadge = document.getElementById('soLuongLoBadge');
     const thongTinPhanTrang = document.getElementById('thongTinPhanTrang');
     const cumNutPhanTrang = document.getElementById('cumNutPhanTrang');
+
+    function escapeHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
 
     function dinhDangNgay(ngayYMD) {
         if (!ngayYMD) return '--';
@@ -27,19 +37,26 @@ document.addEventListener('DOMContentLoaded', function () {
         return lo.phanBoKho.reduce((sum, item) => sum + (item.giu || 0), 0);
     }
 
+    function tinhSoLuongDaBanLe(lo) {
+        if (!lo.phanBoKho) return 0;
+        return lo.phanBoKho.reduce((sum, item) => sum + (item.daBan || 0), 0);
+    }
+
     // ══ 1. TẢI DỮ LIỆU TỪ BACKEND API ══
     async function loadDanhSachLo() {
         thanBang.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 italic"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu từ máy chủ...</td></tr>`;
 
         const params = new URLSearchParams({
             page: trangHienTai,
-            tuKhoa: oTimKiem.value.trim(),
-            nhaSanXuatId: locNSX.value,
-            trangThaiLo: locTrangThai.value
+            tuKhoa: oTimKiem ? oTimKiem.value.trim() : '',
+            nhaSanXuatId: locNSX ? locNSX.value : 'TAT_CA',
+            trangThaiLo: locTrangThai ? locTrangThai.value : 'TAT_CA'
         });
 
         try {
-            const response = await fetch(`/co-quan/quan-ly-thu-hoi/data?${params.toString()}`);
+            const response = await fetch(`/co-quan/quan-ly-thu-hoi/data?${params.toString()}`, {
+                headers: { 'Accept': 'application/json' }
+            });
             if (!response.ok) throw new Error('Không thể lấy danh sách lô thuốc từ API');
 
             const data = await response.json();
@@ -54,15 +71,21 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ══ 2. RENDER BẢNG VÀ PHÂN TRANG ══
     function renderBang(apiResponse) {
-        const duLieu = apiResponse.data || [];
-        const tongSo = apiResponse.total || duLieu.length;
-        
+        let duLieu = apiResponse.data || [];
+        if (locNghiVan && locNghiVan.value === 'CO_BAO_CAO') {
+            duLieu = duLieu.filter(item => (item.soBaoCaoNghiVan || 0) > 0);
+        }
+
+        const tongSo = (locNghiVan && locNghiVan.value === 'CO_BAO_CAO')
+            ? duLieu.length
+            : (apiResponse.total || duLieu.length);
+
         soLuongBadge.textContent = `Hiển thị: ${tongSo} lô`;
         thanBang.innerHTML = '';
 
         if (duLieu.length === 0) {
             thanBang.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 italic">Không tìm thấy lô thuốc nào phù hợp với bộ lọc.</td></tr>`;
-            thongTinPhanTrang.textContent = "Không có bản ghi nào";
+            thongTinPhanTrang.textContent = 'Không có bản ghi nào';
             cumNutPhanTrang.innerHTML = '';
             return;
         }
@@ -75,6 +98,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const biThuHoi = (item.trangThaiLo === 'RECALLED');
             const daHetHan = (item.hanDung < homNay);
             const dangLuuThong = tinhSoLuongDangLuuThong(item);
+            const daBanLe = tinhSoLuongDaBanLe(item);
 
             let badgeTrangThai = '';
             if (biThuHoi) {
@@ -88,22 +112,23 @@ document.addEventListener('DOMContentLoaded', function () {
             let nutThuHoiHtml = '';
             if (!biThuHoi) {
                 nutThuHoiHtml = `
-                    <button type="button" class="btn-mo-modal-thu-hoi px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition-all flex items-center gap-1 border border-red-200 shadow-2xs whitespace-nowrap" data-id="${item.id}">
+                    <button type="button" class="btn-mo-modal-thu-hoi px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 font-bold text-xs transition-all flex items-center gap-1 border border-red-200 shadow-2xs whitespace-nowrap cursor-pointer" data-id="${item.id}">
                         <i class="fa-solid fa-ban text-[10px]"></i> Thu hồi
                     </button>
                 `;
             }
 
+            const nhanTonKho = biThuHoi ? 'Phong tỏa' : 'Lưu thông';
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50 transition-colors';
             tr.innerHTML = `
-                <td class="py-3 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">${item.maLo}</td>
-                <td class="py-3 px-3 font-bold text-slate-900 leading-tight">${item.tenSanPham}</td>
-                <td class="py-3 px-3 text-slate-800 font-semibold leading-tight">${item.nhaSanXuat}</td>
-                <td class="py-3 px-2.5 text-center whitespace-nowrap font-mono text-xs">${dinhDangNgay(item.hanDung)}</td>
+                <td class="py-3 px-3 font-mono font-bold text-slate-900 whitespace-nowrap">${escapeHtml(item.maLo)}</td>
+                <td class="py-3 px-3 font-bold text-slate-900 leading-tight">${escapeHtml(item.tenSanPham)}</td>
+                <td class="py-3 px-3 text-slate-800 font-semibold leading-tight">${escapeHtml(item.nhaSanXuat)}</td>
+                <td class="py-3 px-2.5 text-center whitespace-nowrap font-mono text-xs">${escapeHtml(dinhDangNgay(item.hanDung))}</td>
                 <td class="py-3 px-3 text-right whitespace-nowrap">
                     <span class="font-mono font-bold text-indigo-900 block">${(item.tongSoLuong || 0).toLocaleString('vi-VN')} hộp</span>
-                    <span class="text-[10px] text-slate-500 font-mono">(Lưu thông: ${dangLuuThong.toLocaleString('vi-VN')})</span>
+                    <span class="text-[10px] text-slate-500 font-mono">(${nhanTonKho}: ${dangLuuThong.toLocaleString('vi-VN')} • Đã bán: ${daBanLe.toLocaleString('vi-VN')})</span>
                 </td>
                 <td class="py-3 px-2.5 text-center whitespace-nowrap">${badgeTrangThai}</td>
                 <td class="py-3 px-2.5 text-center whitespace-nowrap">
@@ -113,7 +138,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 </td>
                 <td class="py-3 px-3 text-center whitespace-nowrap">
                     <div class="inline-flex items-center justify-center gap-1.5">
-                        <button type="button" class="btn-xem-chi-tiet-lo px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold text-xs transition-all flex items-center gap-1 border border-indigo-200 shadow-2xs whitespace-nowrap" data-id="${item.id}">
+                        <button type="button" class="btn-xem-chi-tiet-lo px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold text-xs transition-all flex items-center gap-1 border border-indigo-200 shadow-2xs whitespace-nowrap cursor-pointer" data-id="${item.id}">
                             <i class="fa-solid fa-eye text-indigo-700 text-[10px]"></i> Chi tiết
                         </button>
                         ${nutThuHoiHtml}
@@ -133,11 +158,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
         for (let i = 1; i <= tongSoTrang; i++) {
             const btnPage = document.createElement('button');
-            btnPage.className = `w-7 h-7 rounded-lg text-xs font-bold transition-all ${trangHienTai === i ? 'bg-indigo-700 text-white shadow-2xs' : 'border border-slate-200 text-slate-700 hover:bg-slate-100'}`;
+            btnPage.type = 'button';
+            btnPage.className = `w-7 h-7 rounded-lg text-xs font-bold transition-all cursor-pointer ${trangHienTai === i ? 'bg-indigo-700 text-white shadow-2xs' : 'border border-slate-200 text-slate-700 hover:bg-slate-100'}`;
             btnPage.textContent = i;
-            btnPage.addEventListener('click', () => { 
-                trangHienTai = i; 
-                loadDanhSachLo(); 
+            btnPage.addEventListener('click', () => {
+                trangHienTai = i;
+                loadDanhSachLo();
             });
             cumNutPhanTrang.appendChild(btnPage);
         }
@@ -158,6 +184,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const biThuHoi = (loDangXemDetail.trangThaiLo === 'RECALLED');
         const daHetHan = (loDangXemDetail.hanDung < homNay);
         const dangLuuThong = tinhSoLuongDangLuuThong(loDangXemDetail);
+        const daBanLe = tinhSoLuongDaBanLe(loDangXemDetail);
 
         document.getElementById('detailMaLoTitle').textContent = loDangXemDetail.maLo;
 
@@ -174,11 +201,23 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('detailNhaSanXuat').textContent = loDangXemDetail.nhaSanXuat;
         document.getElementById('detailHanDung').textContent = dinhDangNgay(loDangXemDetail.hanDung);
         document.getElementById('detailTongSoLuong').textContent = `${(loDangXemDetail.tongSoLuong || 0).toLocaleString('vi-VN')} hộp`;
-        document.getElementById('detailDangLuuThong').textContent = `${dangLuuThong.toLocaleString('vi-VN')} hộp`;
-        document.getElementById('detailNgaySanXuat').textContent = dinhDangNgay(loDangXemDetail.ngaySanXuat);
+
+        const nhanTonKho = document.getElementById('detailNhanTonKho');
+        if (nhanTonKho) nhanTonKho.textContent = biThuHoi ? 'Tồn kho bị phong tỏa:' : 'Đang lưu thông:';
+        const elDangLuuThong = document.getElementById('detailDangLuuThong');
+        if (elDangLuuThong) {
+            elDangLuuThong.textContent = `${dangLuuThong.toLocaleString('vi-VN')} hộp`;
+            elDangLuuThong.className = biThuHoi ? 'font-mono font-bold text-red-700' : 'font-mono font-bold text-emerald-700';
+        }
+
+        const elDaBan = document.getElementById('detailDaBanRaThiTruong');
+        if (elDaBan) elDaBan.textContent = `${daBanLe.toLocaleString('vi-VN')} hộp`;
 
         document.getElementById('detailSoBaoCaoNghiVan').textContent = `${loDangXemDetail.soBaoCaoNghiVan || 0} báo cáo`;
         document.getElementById('detailLinkSangNghiVan').href = `/co-quan/xu-ly-nghi-van?tuKhoa=${encodeURIComponent(loDangXemDetail.maLo)}`;
+
+        const thGiu = document.getElementById('thCotSoLuongGiu');
+        if (thGiu) thGiu.textContent = biThuHoi ? 'Tồn Kho Bị Phong Tỏa' : 'Số Lượng Giữ';
 
         if (biThuHoi && loDangXemDetail.thongTinThuHoi) {
             detailBannerDaThuHoi.classList.remove('hidden');
@@ -186,11 +225,10 @@ document.addEventListener('DOMContentLoaded', function () {
             document.getElementById('detailLyDoThuHoiText').textContent = loDangXemDetail.thongTinThuHoi.lyDo;
             document.getElementById('detailNgayThuHoiText').textContent = loDangXemDetail.thongTinThuHoi.ngayThuHoi;
             document.getElementById('detailDongBoText').textContent = loDangXemDetail.thongTinThuHoi.trangThaiDongBo;
-            
-            // YÊU CẦU 1: HIỂN THỊ THẲNG TXHASH (KHÔNG ĐỂ ĐANG ĐỒNG BỘ...)
+
             const hash = loDangXemDetail.thongTinThuHoi.hashBlockchain || 'N/A';
             document.getElementById('detailTxHashThuHoiText').textContent = hash;
-            
+
             if (hash.startsWith('0x')) {
                 document.getElementById('detailTxHashThuHoiLink').href = `${EXPLORER_BASE_URL}${hash}`;
             } else {
@@ -206,7 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             detailKhungNutThuHoiNhanh.innerHTML = `
-                <button type="button" id="nutMoThuHoiTuDetail" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-md">
+                <button type="button" id="nutMoThuHoiTuDetail" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shadow-md cursor-pointer">
                     <i class="fa-solid fa-ban text-[10px]"></i> Ban hành quyết định thu hồi
                 </button>
             `;
@@ -222,11 +260,11 @@ document.addEventListener('DOMContentLoaded', function () {
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50';
             tr.innerHTML = `
-                <td class="p-2 font-bold text-slate-800 text-xs">${pb.donVi}</td>
+                <td class="p-2 font-bold text-slate-800 text-xs">${escapeHtml(pb.donVi)}</td>
                 <td class="p-2 text-center font-sans">
-                    <span class="badge-chuan px-2 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${pb.vaiTro}</span>
+                    <span class="badge-chuan px-2 py-0.2 rounded text-[10px] font-bold bg-slate-100 text-slate-700">${escapeHtml(pb.vaiTro)}</span>
                 </td>
-                <td class="p-2 text-right font-bold text-indigo-900">${(pb.giu || 0).toLocaleString('vi-VN')} hộp</td>
+                <td class="p-2 text-right font-bold ${biThuHoi ? 'text-red-700' : 'text-indigo-900'}">${(pb.giu || 0).toLocaleString('vi-VN')} hộp</td>
                 <td class="p-2 text-right text-slate-600">${(pb.daBan || 0).toLocaleString('vi-VN')} hộp</td>
             `;
             thanBangPhanBo.appendChild(tr);
@@ -255,11 +293,11 @@ document.addEventListener('DOMContentLoaded', function () {
     const manHinhFormThuHoi = document.getElementById('manHinhFormThuHoi');
     const manHinhDangGhiBlockchain = document.getElementById('manHinhDangGhiBlockchain');
     const manHinhKetQuaThuHoi = document.getElementById('manHinhKetQuaThuHoi');
-    
+
     const iconKetQua = document.getElementById('iconKetQuaThuHoi');
     const tieuDeKetQua = document.getElementById('tieuDeKetQuaThuHoi');
     const noiDungKetQua = document.getElementById('noiDungKetQuaThuHoi');
-    
+
     const nhapLyDoThuHoi = document.getElementById('nhapLyDoThuHoiLo');
     const demKyTuThuHoi = document.getElementById('demKyTuThuHoi');
     const nutXacNhanThuHoi = document.getElementById('nutXacNhanThuHoiBlockchain');
@@ -269,9 +307,14 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!lo) return;
 
         loDangThuHoiId = id;
+        const daBanLe = tinhSoLuongDaBanLe(lo);
+
         document.getElementById('thuHoiModalMaLo').textContent = lo.maLo;
         document.getElementById('thuHoiModalTenThuoc').textContent = lo.tenSanPham;
         document.getElementById('thuHoiModalNSX').textContent = lo.nhaSanXuat;
+
+        const elModalDaBan = document.getElementById('thuHoiModalDaBan');
+        if (elModalDaBan) elModalDaBan.textContent = `${daBanLe.toLocaleString('vi-VN')} hộp`;
 
         const containerBenGiu = document.getElementById('thuHoiModalDanhSachBenGiu');
         containerBenGiu.innerHTML = '';
@@ -279,7 +322,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const div = document.createElement('div');
             div.className = 'flex justify-between items-center py-0.5';
             div.innerHTML = `
-                <span class="text-slate-700 font-sans truncate mr-2">• ${pb.donVi}:</span>
+                <span class="text-slate-700 font-sans truncate mr-2">• ${escapeHtml(pb.donVi)}:</span>
                 <span class="font-bold text-slate-900 shrink-0">${(pb.giu || 0).toLocaleString('vi-VN')} hộp</span>
             `;
             containerBenGiu.appendChild(div);
@@ -301,10 +344,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (len >= 5) {
             nutXacNhanThuHoi.disabled = false;
-            nutXacNhanThuHoi.className = "px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5";
+            nutXacNhanThuHoi.className = 'px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-md transition-all cursor-pointer flex items-center gap-1.5';
         } else {
             nutXacNhanThuHoi.disabled = true;
-            nutXacNhanThuHoi.className = "px-6 py-2 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all cursor-not-allowed shadow-none flex items-center gap-1.5";
+            nutXacNhanThuHoi.className = 'px-6 py-2 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all cursor-not-allowed shadow-none flex items-center gap-1.5';
         }
     }
 
@@ -314,12 +357,10 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', () => modalThuHoi.classList.add('hidden'));
     });
 
-    // YÊU CẦU 2: CHỜ XÁC NHẬN BLOCKCHAIN HOÀN TẤT MỚI CHUYỂN SANG MÀN HÌNH 2
     nutXacNhanThuHoi?.addEventListener('click', async function () {
         const lyDo = nhapLyDoThuHoi.value.trim();
         if (!lyDo || !loDangThuHoiId) return;
 
-        // BƯỚC 1: BẬT MÀN HÌNH LOADING (MÀN HÌNH 1)
         manHinhFormThuHoi.classList.add('hidden');
         manHinhKetQuaThuHoi.classList.add('hidden');
         manHinhDangGhiBlockchain.classList.remove('hidden');
@@ -329,6 +370,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Accept': 'application/json',
                     'X-CSRF-TOKEN': CSRF_TOKEN
                 },
                 body: JSON.stringify({
@@ -337,84 +379,88 @@ document.addEventListener('DOMContentLoaded', function () {
                 })
             });
 
-            const data = await response.json();
-            if (!data.success) {
+            const text = await response.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (err) {
+                throw new Error(`Phản hồi từ máy chủ không hợp lệ (Mã ${response.status}).`);
+            }
+
+            if (!response.ok || !data.success) {
                 throw new Error(data.message || 'Tạo quyết định thu hồi thất bại.');
             }
 
             const thuHoiId = data.data.id;
 
-            // BƯỚC 2: TIẾP TỤC GIỮ MÀN HÌNH LOADING & POLLING CHỜ BLOCKCHAIN CONFIRMED
             let numTries = 0;
-            const maxTries = 30; // Chờ tối đa 60 giây (30 x 2s)
+            const maxTries = 30;
 
             const checkTimer = setInterval(async () => {
                 numTries++;
                 try {
-                    const resCheck = await fetch(`/co-quan/quan-ly-thu-hoi/check-status/${thuHoiId}`);
+                    const resCheck = await fetch(`/co-quan/quan-ly-thu-hoi/check-status/${thuHoiId}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
                     const statusData = await resCheck.json();
 
                     if (statusData.success && statusData.trangThai === 'CONFIRMED') {
-                        // KHI BLOCKCHAIN ĐÃ HOÀN TẤT -> CHUYỂN SANG MÀN HÌNH 2 THÀNH CÔNG
                         clearInterval(checkTimer);
                         manHinhDangGhiBlockchain.classList.add('hidden');
                         manHinhKetQuaThuHoi.classList.remove('hidden');
 
-                        iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl";
+                        iconKetQua.className = 'w-16 h-16 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-3xl';
                         iconKetQua.innerHTML = `<i class="fa-solid fa-circle-check"></i>`;
-                        
-                        tieuDeKetQua.className = "text-base font-bold text-emerald-800";
-                        tieuDeKetQua.textContent = "Thu Hồi & Neo Blockchain Thành Công!";
-                        
-                        noiDungKetQua.innerHTML = `Lô thuốc đã thu hồi chính thức.<br><span class="font-mono text-[11px] text-cyan-800 font-bold break-all">TxHash: ${statusData.txHash}</span>`;
+
+                        tieuDeKetQua.className = 'text-base font-bold text-emerald-800';
+                        tieuDeKetQua.textContent = 'Thu Hồi & Neo Blockchain Thành Công!';
+
+                        noiDungKetQua.innerHTML = `Lô thuốc đã thu hồi và phong tỏa tồn kho chính thức.<br><span class="font-mono text-[11px] text-cyan-800 font-bold break-all">TxHash: ${escapeHtml(statusData.txHash)}</span>`;
 
                         loadDanhSachLo();
                     } else if (statusData.success && statusData.trangThai === 'FAILED') {
-                        // KHI BLOCKCHAIN BỊ LỖI -> CHUYỂN SANG MÀN HÌNH 2 THẤT BẠI
                         clearInterval(checkTimer);
                         manHinhDangGhiBlockchain.classList.add('hidden');
                         manHinhKetQuaThuHoi.classList.remove('hidden');
 
-                        iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl";
+                        iconKetQua.className = 'w-16 h-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl';
                         iconKetQua.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
-                        
-                        tieuDeKetQua.className = "text-base font-bold text-red-700";
-                        tieuDeKetQua.textContent = "Giao Dịch Blockchain Thất Bại!";
-                        
-                        noiDungKetQua.textContent = "Cơ sở dữ liệu đã thu hồi nhưng giao dịch ký On-chain bị lỗi. Vui lòng kiểm tra lại Queue Worker / Signer Service.";
+
+                        tieuDeKetQua.className = 'text-base font-bold text-red-700';
+                        tieuDeKetQua.textContent = 'Giao Dịch Blockchain Thất Bại!';
+
+                        noiDungKetQua.textContent = 'Hồ sơ đã lưu nhưng giao dịch ký On-chain bị lỗi. Vui lòng kiểm tra lại Queue Worker / Signer Service.';
 
                         loadDanhSachLo();
                     } else if (numTries >= maxTries) {
-                        // NẾU HẾT THỜI GIAN CHỜ -> THÔNG BÁO VẪN ĐANG CHẠY NGẦM
                         clearInterval(checkTimer);
                         manHinhDangGhiBlockchain.classList.add('hidden');
                         manHinhKetQuaThuHoi.classList.remove('hidden');
 
-                        iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-3xl";
+                        iconKetQua.className = 'w-16 h-16 mx-auto rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-3xl';
                         iconKetQua.innerHTML = `<i class="fa-solid fa-clock"></i>`;
-                        
-                        tieuDeKetQua.className = "text-base font-bold text-amber-800";
-                        tieuDeKetQua.textContent = "Đã Ban Hành (Đang Chờ Đào Block)";
-                        
-                        noiDungKetQua.textContent = "Quyết định đã được đưa vào hàng chờ Queue. Tiến trình Blockchain vẫn đang được xử lý ngầm.";
+
+                        tieuDeKetQua.className = 'text-base font-bold text-amber-800';
+                        tieuDeKetQua.textContent = 'Đã Ban Hành (Đang Chờ Đào Block)';
+
+                        noiDungKetQua.textContent = 'Quyết định đã được đưa vào hàng chờ Queue. Tiến trình Blockchain vẫn đang được xử lý ngầm.';
 
                         loadDanhSachLo();
                     }
                 } catch (err) {
-                    console.error("Lỗi khi polling:", err);
+                    console.error('Lỗi khi polling:', err);
                 }
             }, 2000);
-
         } catch (error) {
             manHinhDangGhiBlockchain.classList.add('hidden');
             manHinhKetQuaThuHoi.classList.remove('hidden');
 
-            iconKetQua.className = "w-16 h-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl";
+            iconKetQua.className = 'w-16 h-16 mx-auto rounded-full bg-red-100 text-red-600 flex items-center justify-center text-3xl';
             iconKetQua.innerHTML = `<i class="fa-solid fa-triangle-exclamation"></i>`;
-            
-            tieuDeKetQua.className = "text-base font-bold text-red-700";
-            tieuDeKetQua.textContent = "Ban Hành Thất Bại!";
-            
+
+            tieuDeKetQua.className = 'text-base font-bold text-red-700';
+            tieuDeKetQua.textContent = 'Ban Hành Thất Bại!';
+
             noiDungKetQua.textContent = error.message;
         }
     });
@@ -436,6 +482,7 @@ document.addEventListener('DOMContentLoaded', function () {
     oTimKiem?.addEventListener('input', () => { trangHienTai = 1; loadDanhSachLo(); });
     locNSX?.addEventListener('change', () => { trangHienTai = 1; loadDanhSachLo(); });
     locTrangThai?.addEventListener('change', () => { trangHienTai = 1; loadDanhSachLo(); });
+    locNghiVan?.addEventListener('change', () => { trangHienTai = 1; loadDanhSachLo(); });
 
     loadDanhSachLo();
 });

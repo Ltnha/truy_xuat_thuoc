@@ -11,7 +11,7 @@
 
     <!-- THANH CÔNG CỤ TÌM KIẾM VÀ BỘ LỌC -->
     <div class="bg-white p-5 rounded-2xl border border-emerald-900/10 bong-xanh">
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div class="relative">
                 <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
                     <i class="fa-solid fa-magnifying-glass"></i>
@@ -33,6 +33,11 @@
                 <option value="DANG_LUU_HANH">Đang lưu thông</option>
                 <option value="DA_THU_HOI">Đã thu hồi</option>
                 <option value="HET_HAN">Hết hạn</option>
+            </select>
+
+            <select id="locNghiVanLo" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
+                <option value="TAT_CA">-- Tất cả hồ sơ nghi vấn --</option>
+                <option value="CO_BAO_CAO">Có báo cáo nghi vấn</option>
             </select>
         </div>
     </div>
@@ -81,7 +86,7 @@
                 <span id="detailMaLoTitle" class="font-mono font-bold text-indigo-900 bg-indigo-50 px-2.5 py-0.5 rounded text-xs border border-indigo-200"></span>
                 <span id="detailTrangThaiLoBadge"></span>
             </div>
-            <button type="button" class="dong-modal-detail text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-detail text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -89,7 +94,7 @@
         <div id="detailBannerDaThuHoi" class="hidden p-3 bg-red-50 border border-red-200 rounded-xl text-xs space-y-1.5 shrink-0">
             <div class="flex items-center justify-between">
                 <span class="font-bold text-red-700 flex items-center gap-1.5 text-xs">
-                    <i class="fa-solid fa-ban text-sm"></i> LÔ THUỐC ĐÃ CÓ QUYẾT ĐỊNH THU HỒI
+                    <i class="fa-solid fa-ban text-sm"></i> LÔ THUỐC ĐÃ CÓ QUYẾT ĐỊNH THU HỒI — TOÀN BỘ TỒN KHO ĐÃ BỊ PHONG TỎA
                 </span>
                 <span class="badge-chuan px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-200 text-red-800 border border-red-300">Đã thu hồi</span>
             </div>
@@ -107,7 +112,7 @@
                     <a id="detailTxHashThuHoiLink" href="#" target="_blank" class="flex-1 font-mono text-[11px] text-cyan-800 hover:underline break-all truncate">
                         <span id="detailTxHashThuHoiText">0x...</span>
                     </a>
-                    <button type="button" id="nutCopyDetailTxThuHoi" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold shrink-0">
+                    <button type="button" id="nutCopyDetailTxThuHoi" class="px-2 py-0.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded text-[10px] font-bold shrink-0 cursor-pointer">
                         <i class="fa-regular fa-copy"></i>
                     </button>
                 </div>
@@ -144,12 +149,12 @@
                     <span id="detailTongSoLuong" class="font-mono font-bold text-indigo-900"></span>
                 </div>
                 <div>
-                    <span class="text-slate-500 block text-[11px]">Đang lưu thông:</span>
+                    <span id="detailNhanTonKho" class="text-slate-500 block text-[11px]">Tồn kho chuỗi:</span>
                     <span id="detailDangLuuThong" class="font-mono font-bold text-emerald-700"></span>
                 </div>
                 <div>
-                    <span class="text-slate-500 block text-[11px]">Ngày sản xuất:</span>
-                    <span id="detailNgaySanXuat" class="font-mono text-slate-700"></span>
+                    <span class="text-slate-500 block text-[11px]">Đã xuất bán lẻ:</span>
+                    <span id="detailDaBanRaThiTruong" class="font-mono font-bold text-amber-800">0 hộp</span>
                 </div>
                 <div>
                     <span class="text-slate-500 block text-[11px]">Báo cáo nghi vấn:</span>
@@ -164,7 +169,7 @@
 
             <div class="space-y-1.5">
                 <span class="font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5 text-[11px]">
-                    <i class="fa-solid fa-warehouse text-slate-500"></i> Phân Bổ Tồn Kho Trong Chuỗi Cung Ứng:
+                    <i class="fa-solid fa-warehouse text-slate-500"></i> Phân Bổ Tồn Kho & Tiêu Thụ Trong Chuỗi Cung Ứng:
                 </span>
                 <div class="border border-slate-200 rounded-xl overflow-hidden">
                     <table class="w-full text-left border-collapse text-xs">
@@ -172,7 +177,7 @@
                             <tr>
                                 <th class="p-2.5 font-bold">Đơn Vị Lưu Giữ</th>
                                 <th class="p-2.5 font-bold text-center">Vai Trò</th>
-                                <th class="p-2.5 font-bold text-right">Số Lượng Giữ</th>
+                                <th id="thCotSoLuongGiu" class="p-2.5 font-bold text-right">Số Lượng Giữ</th>
                                 <th id="thCotBanLe" class="p-2.5 font-bold text-right">Đã Xuất Bán Lẻ</th>
                             </tr>
                         </thead>
@@ -183,7 +188,7 @@
         </div>
 
         <div class="border-t border-slate-100 pt-3 flex items-center justify-between shrink-0">
-            <button type="button" class="dong-modal-detail px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all">
+            <button type="button" class="dong-modal-detail px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs transition-all cursor-pointer">
                 Đóng
             </button>
             <div id="detailKhungNutThuHoiNhanh"></div>
@@ -199,7 +204,7 @@
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
                 <i class="fa-solid fa-ban text-red-600"></i> Quyết Định Thu Hồi Lô Thuốc
             </h3>
-            <button type="button" class="dong-modal-thuhoi text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-thuhoi text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -219,17 +224,19 @@
                     <span class="text-slate-500">Nhà sản xuất:</span>
                     <span id="thuHoiModalNSX" class="font-semibold text-slate-800"></span>
                 </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-slate-500">Đã bán lẻ ra thị trường:</span>
+                    <span id="thuHoiModalDaBan" class="font-mono font-bold text-amber-800">0 hộp</span>
+                </div>
                 <div class="pt-1 border-t border-slate-200">
-                    <span class="text-slate-500 block text-[11px] mb-1">Số lượng đang giữ tại các đơn vị:</span>
+                    <span class="text-slate-500 block text-[11px] mb-1">Số lượng tồn kho sẽ bị phong tỏa tại các đơn vị:</span>
                     <div id="thuHoiModalDanhSachBenGiu" class="space-y-1 bg-white p-2 rounded-lg border border-slate-200 text-[11px] font-mono"></div>
                 </div>
             </div>
 
-            <div id="thuHoiKhungChuyenGiaoTreo" class="hidden p-2.5 bg-amber-50 rounded-xl border border-amber-300 text-amber-950 text-[11px] space-y-1">
-                <div class="font-bold flex items-center gap-1 text-amber-800">
-                    <i class="fa-solid fa-triangle-exclamation"></i> Chuyển giao đang chờ xác nhận:
-                </div>
-                <p id="thuHoiChuyenGiaoTreoText"></p>
+            <div class="p-2.5 bg-red-50 rounded-xl border border-red-200 text-red-900 text-[11px] leading-relaxed">
+                <i class="fa-solid fa-circle-info mr-1 text-red-700"></i>
+                Khi ban hành thu hồi, toàn bộ tồn kho còn lại tại NSX/NPP/Nhà thuốc sẽ bị khóa giao dịch chuyển giao & bán lẻ, đồng thời các báo cáo nghi vấn trong vòng đời của lô này sẽ tự động được cập nhật kết quả thu hồi.
             </div>
 
             <div class="space-y-1">
@@ -243,7 +250,7 @@
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                <button type="button" class="dong-modal-thuhoi px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
+                <button type="button" class="dong-modal-thuhoi px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all cursor-pointer">
                     Hủy
                 </button>
                 <button type="button" id="nutXacNhanThuHoiBlockchain" disabled class="px-6 py-2 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-not-allowed">
@@ -259,7 +266,7 @@
             </div>
             <div class="space-y-1">
                 <h4 class="text-base font-bold text-slate-900">Đang thực thi thu hồi...</h4>
-                <p class="text-xs text-slate-500 max-w-xs mx-auto">Hệ thống đang cập nhật dữ liệu và kích hoạt Job đồng bộ Blockchain vào hàng chờ Queue.</p>
+                <p class="text-xs text-slate-500 max-w-xs mx-auto">Hệ thống đang phong tỏa tồn kho và đồng bộ quyết định Thu hồi lên Blockchain.</p>
             </div>
         </div>
 
@@ -273,7 +280,7 @@
             </div>
 
             <div class="pt-2 border-t border-slate-100 flex justify-center">
-                <button type="button" class="dong-modal-thuhoi px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all shadow-md">
+                <button type="button" class="dong-modal-thuhoi px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer">
                     <i class="fa-solid fa-check mr-1"></i> Hoàn Tất & Đóng
                 </button>
             </div>

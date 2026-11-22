@@ -16,7 +16,7 @@
                 <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
                     <i class="fa-solid fa-magnifying-glass"></i>
                 </span>
-                <input type="text" id="oTimKiemNghiVan" placeholder="Tìm theo mã báo cáo, mã lô hoặc tên sản phẩm..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-indigo-700 outline-none">
+                <input type="text" id="oTimKiemNghiVan" placeholder="Tìm theo mã báo cáo, mã lô, tên thuốc hoặc đơn vị..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-medium text-slate-900 focus:bg-white focus:border-indigo-700 outline-none">
             </div>
 
             <select id="locTrangThaiNghiVan" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
@@ -26,10 +26,9 @@
             </select>
 
             <select id="locLoaiBaoCao" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
-                <option value="TAT_CA">-- Tất cả loại nghi vấn --</option>
-                <option value="THUOC_GIA">Nghi vấn thuốc giả</option>
-                <option value="VI_PHAM_CHAT_LUONG">Vi phạm chất lượng</option>
-                <option value="KHAC">Nghi vấn khác</option>
+                <option value="TAT_CA">-- Tất cả phân loại báo cáo --</option>
+                <option value="TRONG_VONG_DOI">Lô trong vòng đời (Có thể thu hồi)</option>
+                <option value="NGOAI_HE_THONG">Lô ngoài hệ thống / Nghi giả</option>
             </select>
         </div>
     </div>
@@ -48,10 +47,11 @@
                 <thead>
                     <tr class="bg-slate-50 text-slate-600 uppercase tracking-wider border-b border-slate-100 text-[11px]">
                         <th class="py-3.5 px-3 font-bold whitespace-nowrap">Mã Báo Cáo</th>
-                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Mã Lô Thuốc</th>
-                        <th class="py-3.5 px-3 font-bold">Sản Phẩm</th>
+                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Phân Loại</th>
+                        <th class="py-3.5 px-3 font-bold whitespace-nowrap">Mã Lô Khai Báo</th>
+                        <th class="py-3.5 px-3 font-bold">Sản Phẩm / Đối Chiếu</th>
                         <th class="py-3.5 px-3 font-bold">Đơn Vị Báo Cáo</th>
-                        <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Thời Gian Gui</th>
+                        <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Thời Gian Gửi</th>
                         <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Trạng Thái</th>
                         <th class="py-3.5 px-3 font-bold text-center whitespace-nowrap">Hành Động</th>
                     </tr>
@@ -72,12 +72,13 @@
 <div id="modalChiTietNghiVan" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-3 sm:p-5 hidden">
     <div class="bg-white rounded-2xl max-w-2xl w-full p-5 sm:p-6 space-y-4 bong-xanh max-h-[92vh] flex flex-col">
         <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between shrink-0">
-            <div class="flex items-center gap-2.5 flex-wrap">
+            <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-base font-bold text-slate-900">Chi Tiết Báo Cáo:</span>
                 <span id="detailMaBaoCaoTitle" class="font-mono font-bold text-amber-900 bg-amber-50 px-2.5 py-0.5 rounded text-xs border border-amber-200"></span>
+                <span id="detailLoaiBaoCaoBadge"></span>
                 <span id="detailTrangThaiBadge"></span>
             </div>
-            <button type="button" class="dong-modal-detail-nghivan text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-detail-nghivan text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
@@ -85,11 +86,11 @@
         <div class="flex-1 overflow-y-auto space-y-3.5 text-xs pr-1">
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 bg-nenChinh rounded-xl border border-emerald-900/10">
                 <div>
-                    <span class="text-slate-500 block text-[11px]">Mã lô liên quan:</span>
+                    <span class="text-slate-500 block text-[11px]">Mã lô khai báo:</span>
                     <span id="detailMaLoThuoc" class="font-mono font-bold text-indigo-900"></span>
                 </div>
                 <div>
-                    <span class="text-slate-500 block text-[11px]">Tên sản phẩm:</span>
+                    <span class="text-slate-500 block text-[11px]">Sản phẩm liên quan:</span>
                     <span id="detailTenSanPham" class="font-bold text-slate-900"></span>
                 </div>
                 <div>
@@ -100,10 +101,19 @@
                     <span class="text-slate-500 block text-[11px]">Thời gian gửi:</span>
                     <span id="detailThoiGianGui" class="font-mono text-slate-700"></span>
                 </div>
-                <div>
-                    <span class="text-slate-500 block text-[11px]">Loại nghi vấn:</span>
-                    <span id="detailLoaiBaoCao" class="font-bold text-amber-800"></span>
+                <div class="col-span-2">
+                    <span class="text-slate-500 block text-[11px]">Phân loại thẩm định:</span>
+                    <span id="detailLoaiBaoCao" class="font-bold text-slate-800"></span>
                 </div>
+            </div>
+
+            <!-- KHUNG LÔ GỐC ĐỐI CHIẾU (CHỈ HIỆN VỚI BÁO CÁO NGOAI_HE_THONG CÓ CHỌN LÔ GỐC) -->
+            <div id="detailKhungLoBiLamGia" class="hidden p-3 bg-amber-50/80 rounded-xl border border-amber-300 text-amber-950 space-y-1">
+                <div class="font-bold text-amber-900 flex items-center gap-1.5 text-[11px] uppercase">
+                    <i class="fa-solid fa-magnifying-glass-chart text-amber-700"></i>
+                    Lô Thật Của Đơn Vị Bị Nghi Sao Chép (Chỉ Đối Chiếu — Không Thu Hồi):
+                </div>
+                <p id="detailThongTinLoBiLamGia" class="font-semibold text-xs leading-relaxed"></p>
             </div>
 
             <div class="space-y-1 bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -120,38 +130,40 @@
                 <div id="detailDanhSachMinhChung" class="flex flex-wrap gap-2 pt-1"></div>
             </div>
 
-            <div id="detailKhungKetQuaXuLy" class="hidden space-y-1 bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-emerald-950">
-                <span class="font-bold text-emerald-900 uppercase tracking-wide block text-[11px]">
-                    <i class="fa-solid fa-gavel text-emerald-700 mr-1"></i> Kết quả xử lý từ Cơ quan quản lý:
-                </span>
-                <p id="detailNoiDungKetQua" class="font-semibold text-emerald-900 leading-relaxed"></p>
-                <div class="text-[10px] text-emerald-700 pt-1 font-mono" id="detailThoiGianXuLy"></div>
+            <div id="detailKhungKetQuaXuLy" class="hidden space-y-1.5 p-3 rounded-xl border">
+                <span id="detailTieuDeKetQua" class="font-bold uppercase tracking-wide block text-[11px]"></span>
+                <p id="detailNoiDungKetQua" class="font-semibold leading-relaxed"></p>
+                <div id="detailTxThuHoiWrap" class="hidden pt-1 border-t border-red-200/80 flex items-center justify-between gap-2 text-[11px]">
+                    <span id="detailTxThuHoiText" class="font-mono truncate"></span>
+                    <a id="detailTxThuHoiLink" href="#" target="_blank" class="font-bold underline shrink-0">Sepolia Etherscan</a>
+                </div>
+                <div class="text-[10px] opacity-80 pt-0.5 font-mono" id="detailThoiGianXuLy"></div>
             </div>
         </div>
 
-        <div class="border-t border-slate-100 pt-3 flex items-center justify-between shrink-0">
-            <button type="button" class="dong-modal-detail-nghivan px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs">
+        <div class="border-t border-slate-100 pt-3 flex items-center justify-between gap-2 shrink-0">
+            <button type="button" class="dong-modal-detail-nghivan px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-xs cursor-pointer">
                 Đóng
             </button>
-            <div id="detailKhungNutXuLyNhanh"></div>
+            <div id="detailKhungNutXuLyNhanh" class="flex items-center gap-2 flex-wrap justify-end"></div>
         </div>
     </div>
 </div>
 
-<!-- MODAL 2: XỬ LÝ BÁO CÁO NGHI VẤN (POPUP 2 TRẠNG THÁI) -->
+<!-- MODAL 2: XỬ LÝ BÁO CÁO NGHI VẤN (HỖ TRỢ THU_HOI / GHI_NHAN / TU_CHOI) -->
 <div id="modalXuLyThuHoiNghiVan" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-lg w-full p-5 sm:p-7 space-y-4 bong-xanh max-h-[92vh] flex flex-col">
         <!-- HEADER MODAL -->
         <div class="border-b border-slate-100 pb-2.5 flex items-center justify-between shrink-0">
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                <i class="fa-solid fa-shield-cat text-amber-600"></i> Quyết Định Xử Lý Báo Cáo Nghi Vấn
+                <i class="fa-solid fa-gavel text-indigo-700"></i> Quyết Định Xử Lý Báo Cáo Nghi Vấn
             </h3>
-            <button type="button" class="dong-modal-nghivan text-slate-400 hover:text-slate-700 text-lg">
+            <button type="button" class="dong-modal-nghivan text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
             </button>
         </div>
 
-        <!-- MÀN HÌNH 0: FORM NHẬP LÝ DO THU HỒI / XỬ LÝ -->
+        <!-- MÀN HÌNH 0: FORM CHỌN HÌNH THỨC & NHẬP LÝ DO -->
         <div id="manHinhFormNghiVan" class="flex-1 overflow-y-auto space-y-3.5 text-xs pr-1">
             <div class="p-3 bg-nenChinh rounded-xl border border-emerald-900/10 space-y-1">
                 <div class="flex justify-between items-center">
@@ -159,27 +171,34 @@
                     <strong id="modalNghiVanMaBaoCao" class="font-mono text-slate-900 text-sm"></strong>
                 </div>
                 <div class="flex justify-between items-center">
-                    <span class="text-slate-500">Lô thuốc liên quan:</span>
-                    <strong id="modalNghiVanMaLo" class="font-mono text-red-700"></strong>
+                    <span class="text-slate-500">Mã lô khai báo:</span>
+                    <strong id="modalNghiVanMaLo" class="font-mono text-indigo-900"></strong>
                 </div>
+            </div>
+
+            <!-- Chọn hướng quyết định phù hợp với phân loại báo cáo -->
+            <div class="space-y-1.5">
+                <span class="font-bold text-slate-700 uppercase tracking-wide block text-[11px]">Hình Thức Quyết Định:</span>
+                <div id="khungChonCheDoXuLy" class="grid grid-cols-2 gap-2"></div>
+                <p id="ghiChuCheDoXuLy" class="text-[11px] text-slate-500 leading-relaxed"></p>
             </div>
 
             <div class="space-y-1">
                 <div class="flex items-center justify-between">
                     <label for="nhapLyDoXuLyNghiVan" class="font-bold text-slate-700 uppercase tracking-wide block text-[11px]">
-                        Lý Do Xử Lý / Căn Cứ Thu Hồi <span class="text-red-500">*</span>
+                        Căn Cứ / Kết Luận Thẩm Định <span class="text-red-500">*</span>
                     </label>
                     <span id="demKyTuNghiVan" class="text-[10px] text-slate-400 font-mono">0/500</span>
                 </div>
-                <textarea id="nhapLyDoXuLyNghiVan" maxlength="500" rows="3" required placeholder="Nhập lý do ban hành quyết định thu hồi lô thuốc từ báo cáo nghi vấn này..." class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-red-600 outline-none resize-y"></textarea>
+                <textarea id="nhapLyDoXuLyNghiVan" maxlength="500" rows="3" required placeholder="Nhập nội dung kết luận thẩm định hoặc căn cứ ban hành quyết định..." class="w-full p-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-medium text-slate-900 focus:bg-white focus:border-indigo-700 outline-none resize-y"></textarea>
             </div>
 
             <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-100">
-                <button type="button" class="dong-modal-nghivan px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all">
+                <button type="button" class="dong-modal-nghivan px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all cursor-pointer">
                     Hủy
                 </button>
                 <button type="button" id="nutXacNhanThuHoiNghiVan" disabled class="px-6 py-2 bg-slate-200 text-slate-400 font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-not-allowed">
-                    <i class="fa-solid fa-ban"></i> Ban Hành Thu Hồi Lô
+                    <i class="fa-solid fa-check"></i> Xác Nhận Quyết Định
                 </button>
             </div>
         </div>
@@ -191,7 +210,7 @@
             </div>
             <div class="space-y-1">
                 <h4 class="text-base font-bold text-slate-900">Đang xử lý báo cáo...</h4>
-                <p class="text-xs text-slate-500 max-w-xs mx-auto">Đang cập nhật hồ sơ nghi vấn và kích hoạt Job đồng bộ quyết định Thu hồi lên Blockchain.</p>
+                <p id="moTaDangXuLyNghiVan" class="text-xs text-slate-500 max-w-xs mx-auto">Đang cập nhật hồ sơ thẩm định lên hệ thống.</p>
             </div>
         </div>
 
@@ -205,7 +224,7 @@
             </div>
 
             <div class="pt-2 border-t border-slate-100 flex justify-center">
-                <button type="button" class="dong-modal-nghivan px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all shadow-md">
+                <button type="button" class="dong-modal-nghivan px-6 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs transition-all shadow-md cursor-pointer">
                     <i class="fa-solid fa-check mr-1"></i> Hoàn Tất & Đóng
                 </button>
             </div>

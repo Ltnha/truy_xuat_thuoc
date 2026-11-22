@@ -20,19 +20,23 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * API Lấy danh sách báo cáo nghi vấn (Hỗ trợ tìm kiếm, lọc trạng thái, lọc loại nghi vấn chuẩn xác)
+     * API Lấy danh sách báo cáo nghi vấn (Hỗ trợ tìm kiếm, lọc trạng thái và phân loại TRONG_VONG_DOI / NGOAI_HE_THONG)
      */
     public function danhSach(Request $request): JsonResponse
     {
         try {
             $query = BaoCaoNghiVan::with([
                 'loThuoc.sanPham',
+                'loThuoc.toChuc',
+                'loBiLamGia.sanPham',
+                'loBiLamGia.toChuc',
+                'toChuc',
                 'taiKhoan.toChuc',
                 'minhChungs',
-                'ketQuaXuLyBaoCao'
+                'ketQuaXuLyBaoCao.thuHoiLoHang.blockchainTx',
             ]);
 
-            // 1. Tìm kiếm theo từ khóa (Mã báo cáo, mã lô khai báo, lý do, mô tả, tên sản phẩm)
+            // 1. Tìm kiếm theo từ khóa
             if ($request->filled('tuKhoa')) {
                 $tuKhoa = trim($request->tuKhoa);
                 $query->where(function ($q) use ($tuKhoa) {
@@ -44,15 +48,20 @@ class XuLyNghiVanController extends Controller
                             $l->where('maLoNghiepVu', 'like', "%{$tuKhoa}%")
                                 ->orWhere('maLo', 'like', "%{$tuKhoa}%")
                                 ->orWhereHas('sanPham', fn($sp) => $sp->where('tenSanPham', 'like', "%{$tuKhoa}%"));
-                        });
+                        })
+                        ->orWhereHas('loBiLamGia', function ($lg) use ($tuKhoa) {
+                            $lg->where('maLoNghiepVu', 'like', "%{$tuKhoa}%")
+                                ->orWhere('maLo', 'like', "%{$tuKhoa}%")
+                                ->orWhereHas('sanPham', fn($sp) => $sp->where('tenSanPham', 'like', "%{$tuKhoa}%"));
+                        })
+                        ->orWhereHas('toChuc', fn($tc) => $tc->where('tenToChuc', 'like', "%{$tuKhoa}%"));
                 });
             }
 
-            // 2. Lọc theo trạng thái báo cáo (Bao gồm cả Enum và chuỗi trạng thái trong Database)
+            // 2. Lọc theo trạng thái báo cáo
             if ($request->filled('trangThai') && $request->trangThai !== 'TAT_CA') {
                 $tt = $request->trangThai;
                 if ($tt === 'CHO_XU_LY') {
-                    // Chờ xử lý: gồm các trạng thái chưa có quyết định cuối cùng
                     $query->whereIn('trangThai', [
                         ReportStatus::daGui,
                         ReportStatus::dangXuLy,
@@ -60,99 +69,69 @@ class XuLyNghiVanController extends Controller
                         'DANG_XU_LY',
                         'CHO_XU_LY',
                         'PENDING',
-                        'choXuLy',
-                        'dangXuLy'
                     ]);
                 } elseif ($tt === 'DA_XU_LY') {
-                    // Đã xử lý: gồm đã ban hành thu hồi hoặc đóng hồ sơ
                     $query->whereIn('trangThai', [
                         ReportStatus::daXuLy,
                         'DA_XU_LY',
                         'RESOLVED',
-                        'daXuLy',
                         'APPROVED',
-                        'REJECTED'
+                        'REJECTED',
                     ]);
                 } else {
                     $query->where('trangThai', $tt);
                 }
             }
 
-            // 3. Lọc theo loại báo cáo / nghi vấn (Xử lý thông minh dựa trên nội dung & liên kết lô)
+            // 3. Lọc theo phân loại báo cáo (TRONG_VONG_DOI / NGOAI_HE_THONG)
             if ($request->filled('loaiBaoCao') && $request->loaiBaoCao !== 'TAT_CA') {
                 $loai = $request->loaiBaoCao;
-                if ($loai === 'THUOC_GIA') {
-                    // Nghi vấn thuốc giả: không có lô thuốc trong hệ thống HOẶC lý do/mô tả có chữ 'giả', 'fake'
+                if ($loai === 'TRONG_VONG_DOI') {
                     $query->where(function ($q) {
-                        $q->whereNull('loThuocId')
-                            ->orWhere('lyDo', 'like', '%giả%')
-                            ->orWhere('lyDo', 'like', '%gia%')
-                            ->orWhere('lyDo', 'like', '%fake%')
-                            ->orWhere('moTa', 'like', '%giả%')
-                            ->orWhere('moTa', 'like', '%gia%')
-                            ->orWhere('moTa', 'like', '%fake%');
+                        $q->where('loaiBaoCao', 'TRONG_VONG_DOI')
+                            ->orWhere(function ($sub) {
+                                $sub->whereNull('loaiBaoCao')->whereNotNull('loThuocId');
+                            });
                     });
-                } elseif ($loai === 'VI_PHAM_CHAT_LUONG') {
-                    // Vi phạm chất lượng: nghi ngờ chất lượng viên, bao bì rách, bảo quản sai...
+                } elseif ($loai === 'NGOAI_HE_THONG') {
                     $query->where(function ($q) {
-                        $q->where(function ($sq) {
-                            $sq->where('lyDo', 'like', '%chất lượng%')
-                                ->orWhere('lyDo', 'like', '%chat luong%')
-                                ->orWhere('lyDo', 'like', '%bảo quản%')
-                                ->orWhere('lyDo', 'like', '%bao quan%')
-                                ->orWhere('lyDo', 'like', '%rách%')
-                                ->orWhere('lyDo', 'like', '%rach%')
-                                ->orWhere('lyDo', 'like', '%hỏng%')
-                                ->orWhere('lyDo', 'like', '%hong%')
-                                ->orWhere('lyDo', 'like', '%màu sắc%')
-                                ->orWhere('lyDo', 'like', '%mau sac%')
-                                ->orWhere('moTa', 'like', '%chất lượng%')
-                                ->orWhere('moTa', 'like', '%chat luong%')
-                                ->orWhere('moTa', 'like', '%màu sắc%');
-                        });
+                        $q->where('loaiBaoCao', 'NGOAI_HE_THONG')
+                            ->orWhere(function ($sub) {
+                                $sub->whereNull('loaiBaoCao')->whereNull('loThuocId');
+                            });
                     });
-                } elseif ($loai === 'KHAC') {
-                    // Nhóm khác: các nghi vấn không nằm trong 2 nhóm trên
-                    $query->whereNotNull('loThuocId')
-                        ->where('lyDo', 'not like', '%giả%')
-                        ->where('lyDo', 'not like', '%gia%')
-                        ->where('lyDo', 'not like', '%chất lượng%')
-                        ->where('lyDo', 'not like', '%chat luong%')
-                        ->where('lyDo', 'not like', '%bảo quản%')
-                        ->where('lyDo', 'not like', '%bao quan%');
                 }
             }
 
             $danhSach = $query->orderByDesc('id')->paginate(10);
 
-            // 4. Transform dữ liệu chuẩn hóa, tuyệt đối không bị lỗi 500
-            $danhSach->getCollection()->transform(function ($bc) {
-                // Mã lô: ưu tiên mã lô nghiệp vụ, nếu lô ngoại vi thì lấy mã lô khai báo
-                $maLo = $bc->loThuoc?->maLoNghiepVu
-                    ?? $bc->loThuoc?->maLo
-                    ?? $bc->maLoKhaiBao
-                    ?? ($bc->loThuocId ? "LOT-{$bc->loThuocId}" : 'N/A');
+            $nhanVaiTroMap = [
+                'NHA_SAN_XUAT' => 'NSX',
+                'NHA_PHAN_PHOI' => 'NPP',
+                'NHA_THUOC' => 'Nhà thuốc',
+                'CO_QUAN_QUAN_LY' => 'Cơ quan QL',
+            ];
 
-                // Tên đơn vị / người gửi báo cáo
-                $donVi = $bc->taiKhoan?->toChuc?->tenToChuc
-                    ?? $bc->taiKhoan?->hoTen
-                    ?? ($bc->taiKhoanId ? "Tài khoản #{$bc->taiKhoanId}" : 'Người dân (Ẩn danh)');
+            $danhSach->getCollection()->transform(function ($bc) use ($nhanVaiTroMap) {
+                $loaiBaoCao = $bc->loaiBaoCao ?: ($bc->loThuocId ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG');
 
-                // Phân loại hiển thị
-                $noiDungAll = mb_strtolower(($bc->lyDo ?? '') . ' ' . ($bc->moTa ?? ''));
-                $loaiHienThi = 'Nghi vấn khác';
-                if (!$bc->loThuocId || str_contains($noiDungAll, 'giả') || str_contains($noiDungAll, 'gia') || str_contains($noiDungAll, 'fake')) {
-                    $loaiHienThi = 'Nghi vấn thuốc giả';
-                } elseif (
-                    str_contains($noiDungAll, 'chất lượng') || str_contains($noiDungAll, 'chat luong') ||
-                    str_contains($noiDungAll, 'bảo quản') || str_contains($noiDungAll, 'bao quan') ||
-                    str_contains($noiDungAll, 'rách') || str_contains($noiDungAll, 'rach') ||
-                    str_contains($noiDungAll, 'màu sắc') || str_contains($noiDungAll, 'mau sac')
-                ) {
-                    $loaiHienThi = 'Vi phạm chất lượng';
+                $maLo = $loaiBaoCao === 'TRONG_VONG_DOI'
+                    ? ($bc->loThuoc?->maLoNghiepVu ?? $bc->loThuoc?->maLo ?? $bc->maLoKhaiBao ?? 'N/A')
+                    : ($bc->maLoKhaiBao ?? 'N/A');
+
+                $toChucGui = $bc->toChuc ?? $bc->taiKhoan?->toChuc;
+                if ($toChucGui) {
+                    $vtRaw = $toChucGui->loaiToChuc instanceof \BackedEnum
+                        ? $toChucGui->loaiToChuc->value
+                        : (string) ($toChucGui->loaiToChuc ?? '');
+                    $prefix = $nhanVaiTroMap[$vtRaw] ?? 'Doanh nghiệp';
+                    $donVi = "[{$prefix}] {$toChucGui->tenToChuc}";
+                } elseif ($bc->taiKhoan) {
+                    $donVi = $bc->taiKhoan->hoTen ?? $bc->taiKhoan->tenDangNhap ?? "Tài khoản #{$bc->taiKhoanId}";
+                } else {
+                    $donVi = 'Người tiêu dùng (Công khai)';
                 }
 
-                // Thời gian gửi
                 $thoiGianRaw = $bc->ngayGui ?? $bc->created_at;
                 $thoiGianFormatted = null;
                 if ($thoiGianRaw) {
@@ -162,9 +141,22 @@ class XuLyNghiVanController extends Controller
                 }
 
                 $trangThaiVal = $bc->trangThai instanceof ReportStatus ? $bc->trangThai->value : (string) $bc->trangThai;
-                $isDaXuLy = in_array(strtoupper($trangThaiVal), ['DA_XU_LY', 'RESOLVED', 'APPROVED']);
+                $isDaXuLy = in_array(strtoupper($trangThaiVal), ['DA_XU_LY', 'RESOLVED', 'APPROVED'], true);
 
-                // Danh sách minh chứng đính kèm
+                $quyetDinhVal = $bc->ketQuaXuLyBaoCao?->quyetDinh instanceof DecisionType
+                    ? $bc->ketQuaXuLyBaoCao->quyetDinh->value
+                    : (string) ($bc->ketQuaXuLyBaoCao?->quyetDinh ?? '');
+
+                $loGoc = $bc->loBiLamGia;
+                $loBiLamGiaData = $loGoc ? [
+                    'id' => $loGoc->id,
+                    'maLoNghiepVu' => $loGoc->maLoNghiepVu ?? $loGoc->maLo,
+                    'tenSanPham' => $loGoc->sanPham?->tenSanPham ?? 'N/A',
+                    'soDangKy' => $loGoc->sanPham?->soDangKy ?? 'N/A',
+                    'nhaSanXuat' => $loGoc->toChuc?->tenToChuc ?? 'N/A',
+                    'hanSuDung' => $loGoc->hanSuDung ? date('d/m/Y', strtotime($loGoc->hanSuDung)) : 'N/A',
+                ] : null;
+
                 $minhChungs = $bc->minhChungs ? $bc->minhChungs->map(function ($mc) {
                     return [
                         'id' => $mc->id,
@@ -177,19 +169,26 @@ class XuLyNghiVanController extends Controller
                 return [
                     'id' => $bc->id,
                     'maBaoCao' => $bc->maBaoCao ?? "BC-{$bc->id}",
-                    'loThuocId' => $bc->loThuocId,
+                    'loaiBaoCao' => $loaiBaoCao,
+                    'loaiBaoCaoNhan' => $loaiBaoCao === 'TRONG_VONG_DOI' ? 'Lô trong vòng đời' : 'Lô ngoài hệ thống / Nghi giả',
+                    'loThuocId' => $loaiBaoCao === 'TRONG_VONG_DOI' ? $bc->loThuocId : null,
+                    'loBiLamGia' => $loBiLamGiaData,
                     'maLo' => $maLo,
                     'maLoKhaiBao' => $bc->maLoKhaiBao ?? $maLo,
-                    'tenSanPham' => $bc->loThuoc?->sanPham?->tenSanPham ?? ($bc->loThuocId ? 'N/A' : 'Chưa xác định (Ngoại vi)'),
+                    'tenSanPham' => $loaiBaoCao === 'TRONG_VONG_DOI'
+                        ? ($bc->loThuoc?->sanPham?->tenSanPham ?? 'Dược phẩm hệ thống')
+                        : ($loGoc?->sanPham?->tenSanPham ? "Nghi giả mạo: {$loGoc->sanPham->tenSanPham}" : 'Lô ngoài hệ thống'),
                     'donViBaoCao' => $donVi,
                     'thoiGianGui' => $thoiGianFormatted,
-                    'loaiBaoCao' => $loaiHienThi,
+                    'lyDo' => $bc->lyDo ?? 'Không rõ lý do',
                     'noiDung' => $bc->lyDo ? ($bc->moTa ? "{$bc->lyDo}\nChi tiết: {$bc->moTa}" : $bc->lyDo) : ($bc->moTa ?? 'Không có mô tả chi tiết.'),
                     'trangThai' => $isDaXuLy ? 'DA_XU_LY' : 'CHO_XU_LY',
                     'trangThaiGoc' => strtoupper($trangThaiVal),
                     'minhChungs' => $minhChungs,
+                    'quyetDinhXuLy' => $quyetDinhVal ?: null,
                     'ketQuaXuLy' => $bc->ketQuaXuLyBaoCao?->lyDoXuLy,
                     'thoiGianXuLy' => $bc->ketQuaXuLyBaoCao?->ngayXuLy ? date('Y-m-d H:i:s', strtotime($bc->ketQuaXuLyBaoCao->ngayXuLy)) : null,
+                    'txHashThuHoi' => $bc->ketQuaXuLyBaoCao?->thuHoiLoHang?->blockchainTx?->txHash,
                 ];
             });
 
@@ -203,7 +202,7 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * Thực hiện thu hồi từ Báo cáo Nghi vấn
+     * Thực hiện thu hồi lô từ Báo cáo Nghi vấn (Chỉ áp dụng cho TRONG_VONG_DOI)
      */
     public function thuHoi(Request $request, int $id): JsonResponse
     {
@@ -213,11 +212,12 @@ class XuLyNghiVanController extends Controller
 
         try {
             $baoCao = BaoCaoNghiVan::with('loThuoc')->findOrFail($id);
+            $loaiBaoCao = $baoCao->loaiBaoCao ?: ($baoCao->loThuocId ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG');
 
-            if (!$baoCao->loThuocId) {
+            if ($loaiBaoCao !== 'TRONG_VONG_DOI' || ! $baoCao->loThuocId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Báo cáo nghi vấn này không gắn với mã lô thuốc nào trong hệ thống. Vui lòng ghi nhận xử lý ngoại vi hàng giả.',
+                    'message' => 'Báo cáo lô ngoài hệ thống / nghi làm giả không được phép thu hồi lô thật. Vui lòng chọn Ghi nhận cảnh báo hàng giả hoặc Từ chối.',
                 ], 422);
             }
 
@@ -233,7 +233,7 @@ class XuLyNghiVanController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã tiếp nhận xử lý báo cáo và tạo quyết định thu hồi thành công.',
+                'message' => 'Đã tiếp nhận xử lý báo cáo và ban hành quyết định thu hồi lô thành công.',
                 'data' => $thuHoi,
             ]);
         } catch (\Throwable $e) {
@@ -253,7 +253,7 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * Từ chối báo cáo nghi vấn (Đóng hồ sơ do báo cáo không chính xác / không có căn cứ)
+     * Từ chối báo cáo nghi vấn (Áp dụng cho cả TRONG_VONG_DOI và NGOAI_HE_THONG)
      */
     public function tuChoi(Request $request, int $id): JsonResponse
     {
@@ -284,7 +284,7 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * Ghi nhận hàng giả / chuyển xử lý ngoại vi cho cơ quan công an / QLTT
+     * Ghi nhận cảnh báo hàng giả / lô ngoài hệ thống (Không thu hồi lô gốc đối chiếu)
      */
     public function ghiNhanHangGia(Request $request, int $id): JsonResponse
     {
@@ -303,7 +303,7 @@ class XuLyNghiVanController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Đã ghi nhận chuyển cơ quan chức năng điều tra hàng giả ngoài hệ thống.',
+                'message' => 'Đã ghi nhận cảnh báo lô giả mạo ngoài hệ thống.',
                 'data' => $kq,
             ]);
         } catch (\Throwable $e) {
