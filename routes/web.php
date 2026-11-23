@@ -51,6 +51,7 @@ Route::get('/lich-su-tra-cuu', fn() => view('nguoiTieuDung.lichSuTraCuu'));
 
 // Báo cáo nghi vấn công khai & API Tra cứu cho Người tiêu dùng
 Route::get('/bao-cao-nghi-van', [BaoCaoNghiVanController::class, 'showConsumerForm'])->name('bao-cao.public.form');
+Route::get('/api/bao-cao-nghi-van/kiem-tra-lo', [BaoCaoNghiVanController::class, 'kiemTraMaLoPublic'])->name('api.bao-cao.public.kiem-tra-lo');
 Route::post('/api/bao-cao-nghi-van/gui-bao-cao', [BaoCaoNghiVanController::class, 'storePublic'])->name('api.bao-cao.public.store');
 Route::get('/api/bao-cao-nghi-van/tra-cuu/{maBaoCao}', [BaoCaoNghiVanController::class, 'traCuuPublic'])->name('api.bao-cao.public.tra-cuu');
 

@@ -167,7 +167,8 @@ truy_xuat_thuoc
 ├─ database
 │  ├─ migrations
 │  │  ├─ 2026_11_15_000001_make_blockchain_transaction_tx_hash_nullable.php
-│  │  └─ 2026_11_15_000002_add_ly_do_tu_choi_to_chuyen_giao.php
+│  │  ├─ 2026_11_15_000002_add_ly_do_tu_choi_to_chuyen_giao.php
+│  │  └─ 2026_11_22_000001_update_bao_cao_nghi_van_for_batch_tabs.php
 │  └─ seeders
 ├─ docs
 │  ├─ ai_context_architecture_summary.md
@@ -313,11 +314,18 @@ truy_xuat_thuoc
 │  │  │     └─ OFuGdXAhMEy1jmo67l9OT9yPhji3u1YU0WyD0ThU.jpg
 │  │  └─ public
 │  │     ├─ minh-chung-bao-cao
+│  │     │  ├─ 1ySCTNJHdzh6JjTJpXsIfS7EyTN3Zn27FZZfMQUF.jpg
 │  │     │  ├─ 7yIGUMHyMnwMLLyjOaQvN8ti0RlL8Mcmzp897PAp.jpg
+│  │     │  ├─ 88VICWfg9cduo35O9E4q9lBmzmxzQBKgLtOXCbXm.jpg
 │  │     │  ├─ GmQW6U1AlJX93YxlOpuvL6znbWd3DCC5w7yZoizZ.jpg
+│  │     │  ├─ j2KcHwiyBQFjb474TWUMZWDKWPUbhbsZGeSljjWb.jpg
 │  │     │  ├─ PNWvxFVBDqzcwMaTIMnUw5jEwS9bB92tPZoh0S6O.jpg
+│  │     │  ├─ s6FT71SESESYHQxKQS1d8Zwvn6wQcVnjMrdh5QXU.jpg
 │  │     │  ├─ sknRgI2xfL48JPy8d5VShwHh51H8Zf93JpdXa92n.png
-│  │     │  └─ ws6dFuxuI5XwKyTC3TjvbgXZVU8zJI7tMDeIXuZK.pdf
+│  │     │  ├─ wjFvRkFKw3E66WLQZIzjI1f6umNaCV8ZalNw9xAf.jpg
+│  │     │  ├─ WNR377I90Mdq5L9GW8XADK1Ad5JaQBMD2Vgzcpr8.jpg
+│  │     │  ├─ ws6dFuxuI5XwKyTC3TjvbgXZVU8zJI7tMDeIXuZK.pdf
+│  │     │  └─ zFZlEglVL39eyab9wb2oIg3oJHv0j12i4oeFVSxO.jpg
 │  │     └─ tai-lieu-dang-ky
 │  │        ├─ 2TgoU2JHkbAXL4o2RRhtq9VG54c2xdOJyG5Zmlbs.jpg
 │  │        ├─ 3nvor0DGs5hnZrIOybSTWG81BGWZfxVl3lsShZ3I.jpg
@@ -335,12 +343,14 @@ truy_xuat_thuoc
 │  │  ├─ cache
 │  │  │  └─ data
 │  │  ├─ sessions
-│  │  │  └─ 4ZsdALyTEbJ1pn6LSrhWumPBt1vpgk3LkRFNatr0
+│  │  │  ├─ 4zYcxn23NywAZqu55UQ3Tp6omQMHmatmXxJI5h47
+│  │  │  └─ 9ijoB3aADhYPMz0F4FEYs4NcpwuPszniAFjpcVZX
 │  │  ├─ testing
 │  │  └─ views
 │  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
 │  │     ├─ 035731246571d2843ed8806b895b1df3.php
 │  │     ├─ 0421cdad5b572f8bb719588f1d726fa9.php
+│  │     ├─ 06b08864aa63d3ed854e3c6e16fd1cee.php
 │  │     ├─ 0d04c670e3e803c183a03541de2acaa3.php
 │  │     ├─ 0d8b13144357f330d7c8c861a4c9ab2c.php
 │  │     ├─ 1773df56c706204342805adcb42a7115.php
@@ -351,10 +361,12 @@ truy_xuat_thuoc
 │  │     ├─ 28219c8155a2f356df928011d80046b0.php
 │  │     ├─ 396143b79356ad0b0f1053b49e224ec7.php
 │  │     ├─ 3a21b499124aa2e727ce7f19eba89c83.php
+│  │     ├─ 3b78bdc6ff0f0c48847ec749d94c8409.php
 │  │     ├─ 4a3814166a7e64ed0e5a84c7112895db.php
 │  │     ├─ 4a654bb634a5f6bd496577dc1e7468ef.php
 │  │     ├─ 4b6b03a8365874d03bcd495e4b77ff8d.php
 │  │     ├─ 4be7b176892a5509639bee1b760f8b80.php
+│  │     ├─ 4fb8ce220e53cfd239bbfb961c06705e.php
 │  │     ├─ 50c3ad9c21b4ebd5e5aa809c983c90f6.php
 │  │     ├─ 50f7d82012c2b3e18db56975b1882785.php
 │  │     ├─ 54d74bdf29555370c479a3af59307076.php
@@ -372,12 +384,15 @@ truy_xuat_thuoc
 │  │     ├─ 8c0cf3c13e4b27bf441bb098299e6494.php
 │  │     ├─ 8ca1b0eea16fb29146e1d683f8c7a85a.php
 │  │     ├─ 8dd846e8df5702fbcb14dadde5a446cb.php
+│  │     ├─ 92cdf3283fdb950b52f1d8c6fd963609.php
 │  │     ├─ 95245472938aae797b87da43d15b8f9a.php
+│  │     ├─ 975ecba4f78ec676d860b783a3a522d9.php
 │  │     ├─ 97ab56c3b983bbe1b81c63e51377ff9c.php
 │  │     ├─ 9a21565cdcf3e0661a81b02469a74939.php
 │  │     ├─ a60c944afcd7edc87fbb06a01759eafb.php
 │  │     ├─ ab26b96cc32f28f88682afd59e65469d.php
 │  │     ├─ ab8753b4461257f4fb85f889052e5f11.php
+│  │     ├─ bab67472c92c3a7aff295f5f6367f710.php
 │  │     ├─ bc0d81ad3032929d6ccdbef00c943fae.php
 │  │     ├─ bd505a601cfcb0aa18d9f5ea11becc5c.php
 │  │     ├─ be4c7eec3eb4b90497fa3aee52cec1bc.php
@@ -418,8 +433,8 @@ truy_xuat_thuoc
 │     ├─ EnumTest.php
 │     ├─ ExampleTest.php
 │     └─ RoleMiddlewareTest.php
-├─ truyxuatthuoc v9 cấu trúc bảng.sql
-├─ truyxuatthuoc v9.sql
+├─ truyxuatthuoc v10 cấu trúc bảng.sql
+├─ truyxuatthuoc v10.sql
 └─ vite.config.js
 
 ```

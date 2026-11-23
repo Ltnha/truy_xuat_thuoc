@@ -22,7 +22,7 @@ class BaoCaoNghiVanController extends Controller
     private const VAI_TRO_DOANH_NGHIEP = ['NHA_SAN_XUAT', 'NHA_PHAN_PHOI', 'NHA_THUOC'];
 
     /**
-     * Màn hình Báo cáo dành cho Người tiêu dùng (Công khai)
+     * Màn hình Báo cáo dành cho Người tiêu dùng (Công khai - Không tài khoản)
      * Tự động điều hướng sang trang Quản lý nếu người dùng đã đăng nhập tài khoản Tổ chức.
      */
     public function showConsumerForm(): View|RedirectResponse
@@ -31,12 +31,94 @@ class BaoCaoNghiVanController extends Controller
             return redirect()->route('bao-cao.auth.index');
         }
 
-        $loThuocs = LoThuoc::with('sanPham:id,tenSanPham')
-            ->select('id', 'maLo', 'maLoNghiepVu', 'sanPhamId')
-            ->latest('id')
-            ->get();
+        return view('nguoiTieuDung.baoCaoNghiVan');
+    }
 
-        return view('nguoiTieuDung.baoCaoNghiVan', compact('loThuocs'));
+    /**
+     * Bóc tách chuỗi đầu vào (URL QR, token maDinhDanh, maLoNghiepVu hoặc maLo UUID)
+     */
+    private function trichXuatTokenHoacMa(string $rawInput): string
+    {
+        $raw = trim($rawInput);
+        if ($raw === '') {
+            return '';
+        }
+
+        if (filter_var($raw, FILTER_VALIDATE_URL)) {
+            $queryStr = parse_url($raw, PHP_URL_QUERY) ?? '';
+            parse_str($queryStr, $queryParams);
+            $extracted = $queryParams['maDinhDanh']
+                ?? $queryParams['maLoNghiepVu']
+                ?? $queryParams['maLo']
+                ?? $queryParams['ma']
+                ?? null;
+
+            if ($extracted !== null && trim((string) $extracted) !== '') {
+                return trim((string) $extracted);
+            }
+        }
+
+        if (preg_match('/(?:maDinhDanh|maLoNghiepVu|maLo|ma)=([A-Za-z0-9\-_]+)/i', $raw, $matches)) {
+            return trim($matches[1]);
+        }
+
+        return $raw;
+    }
+
+    /**
+     * Tìm bản ghi LoThuoc thông qua bảng lothuoc (maLoNghiepVu, maLo) hoặc bảng qrcode (giaTriQR -> loThuocId)
+     */
+    private function timLoThuocTheoMa(string $rawInput): ?LoThuoc
+    {
+        $token = $this->trichXuatTokenHoacMa($rawInput);
+        if ($token === '') {
+            return null;
+        }
+
+        $tokenUpper = strtoupper($token);
+
+        // 1. Đối chiếu trực tiếp trên bảng lothuoc
+        $loThuoc = LoThuoc::with('sanPham')
+            ->where('maLoNghiepVu', $tokenUpper)
+            ->orWhere('maLo', $token)
+            ->first();
+
+        if ($loThuoc) {
+            return $loThuoc;
+        }
+
+        // 2. Đối chiếu chéo qua bảng qrcode (giaTriQR có thể lưu token thuần hoặc nguyên URL)
+        $loThuocId = DB::table('qrcode')
+            ->where('giaTriQR', $token)
+            ->orWhere('giaTriQR', trim($rawInput))
+            ->orWhere('giaTriQR', 'like', '%maDinhDanh=' . $token)
+            ->value('loThuocId');
+
+        return $loThuocId ? LoThuoc::with('sanPham')->find($loThuocId) : null;
+    }
+
+    /**
+     * API kiểm tra nhanh mã lô hoặc tệp QR trên form báo cáo công khai
+     */
+    public function kiemTraMaLoPublic(Request $request): JsonResponse
+    {
+        $raw = (string) $request->query('code', '');
+        $loThuoc = $this->timLoThuocTheoMa($raw);
+
+        if (! $loThuoc) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Mã lô chưa có trên hệ thống.',
+            ]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'maLoNghiepVu' => $loThuoc->maLoNghiepVu,
+                'tenSanPham' => $loThuoc->sanPham?->tenSanPham ?? 'Dược phẩm đã đăng ký trên hệ thống',
+            ],
+        ]);
     }
 
     /**
@@ -45,29 +127,44 @@ class BaoCaoNghiVanController extends Controller
     public function storePublic(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'maLo' => ['required', 'string', 'max:50'],
+            'maLo' => ['required', 'string', 'max:255'],
             'lyDo' => ['required', 'string', 'max:500'],
             'moTa' => ['nullable', 'string', 'max:2000'],
             'minhChung' => ['nullable', 'array', 'max:5'],
             'minhChung.*' => ['file', 'mimes:jpg,jpeg,png,pdf', 'max:10240'],
+        ], [
+            'maLo.required' => 'Vui lòng nhập mã lô hoặc tải ảnh mã QR thuốc nghi vấn.',
+            'lyDo.required' => 'Vui lòng chọn nhóm lý do nghi vấn.',
+            'minhChung.max' => 'Chỉ được đính kèm tối đa 5 tệp minh chứng.',
+            'minhChung.*.mimes' => 'Tệp minh chứng chỉ chấp nhận định dạng JPG, PNG hoặc PDF.',
+            'minhChung.*.max' => 'Mỗi tệp minh chứng không được vượt quá 10MB.',
         ]);
 
-        $maLoStr = strtoupper(trim($validated['maLo']));
-        $loThuoc = LoThuoc::where('maLoNghiepVu', $maLoStr)->orWhere('maLo', $maLoStr)->first();
-        $maBaoCao = 'BC-' . date('Y') . '-' . strtoupper(Str::random(6));
+        $token = $this->trichXuatTokenHoacMa($validated['maLo']);
+        $loThuoc = $this->timLoThuocTheoMa($validated['maLo']);
 
-        DB::transaction(function () use ($request, $validated, $loThuoc, $maLoStr, $maBaoCao) {
+        $loaiBaoCao = $loThuoc ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG';
+        $maLoChuan = $loThuoc
+            ? $loThuoc->maLoNghiepVu
+            : Str::limit(strtoupper($token), 50, '');
+        $ngayGui = now();
+
+        $maBaoCao = DB::transaction(function () use ($request, $validated, $loThuoc, $loaiBaoCao, $maLoChuan, $ngayGui) {
+            do {
+                $code = 'BC-' . date('Y') . '-' . strtoupper(Str::random(6));
+            } while (BaoCaoNghiVan::where('maBaoCao', $code)->exists());
+
             $baoCao = BaoCaoNghiVan::create([
-                'maBaoCao' => $maBaoCao,
-                'loaiBaoCao' => $loThuoc ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG',
+                'maBaoCao' => $code,
+                'loaiBaoCao' => $loaiBaoCao,
                 'loThuocId' => $loThuoc?->id,
                 'loBiLamGiaId' => null,
-                'maLoKhaiBao' => $loThuoc ? $loThuoc->maLoNghiepVu : $maLoStr,
+                'maLoKhaiBao' => $maLoChuan,
                 'taiKhoanId' => null,
                 'toChucId' => null,
-                'lyDo' => $validated['lyDo'],
-                'moTa' => $validated['moTa'] ?? null,
-                'ngayGui' => now(),
+                'lyDo' => trim($validated['lyDo']),
+                'moTa' => ! empty($validated['moTa']) ? trim($validated['moTa']) : null,
+                'ngayGui' => $ngayGui,
                 'trangThai' => 'DA_GUI',
             ]);
 
@@ -80,10 +177,12 @@ class BaoCaoNghiVanController extends Controller
                         'tenFile' => $file->getClientOriginalName(),
                         'loaiFile' => $file->getClientMimeType(),
                         'duongDan' => $path,
-                        'ngayTaiLen' => now(),
+                        'ngayTaiLen' => $ngayGui,
                     ]);
                 }
             }
+
+            return $code;
         });
 
         return response()->json([
@@ -91,19 +190,28 @@ class BaoCaoNghiVanController extends Controller
             'message' => 'Gửi báo cáo nghi vấn thành công!',
             'data' => [
                 'maBaoCao' => $maBaoCao,
-                'maLo' => $maLoStr,
-                'ngayGui' => now()->format('d/m/Y H:i'),
-            ]
+                'maLo' => $maLoChuan,
+                'loaiBaoCao' => $loaiBaoCao,
+                'loaiBaoCaoNhan' => $loaiBaoCao === 'TRONG_VONG_DOI' ? 'Lô trong vòng đời' : 'Lô ngoài hệ thống / Nghi giả',
+                'tenThuoc' => $loThuoc?->sanPham?->tenSanPham ?? 'Lô ngoài hệ thống',
+                'ngayGui' => $ngayGui->format('d/m/Y H:i'),
+                'trangThai' => 'DA_GUI',
+            ],
         ]);
     }
 
     /**
-     * API 2: Người tiêu dùng tra cứu công khai theo mã báo cáo
+     * API 2: Người tiêu dùng tra cứu công khai theo mã báo cáo (Phương án A: Ẩn tệp bằng chứng & mô tả chi tiết)
      */
     public function traCuuPublic(string $maBaoCao): JsonResponse
     {
         $code = strtoupper(trim($maBaoCao));
-        $baoCao = BaoCaoNghiVan::with(['loThuoc.sanPham', 'minhChungs', 'ketQuaXuLy'])
+        $baoCao = BaoCaoNghiVan::with([
+            'loThuoc.sanPham',
+            'loBiLamGia.sanPham',
+            'ketQuaXuLy',
+        ])
+            ->withCount('minhChungs')
             ->where('maBaoCao', $code)
             ->first();
 
@@ -114,29 +222,56 @@ class BaoCaoNghiVanController extends Controller
             ], 404);
         }
 
-        $minhChungArr = $baoCao->minhChungs->map(fn($mc) => [
-            'ten' => $mc->tenFile,
-            'url' => Storage::url($mc->duongDan),
-            'loai' => str_contains($mc->loaiFile, 'pdf') ? 'pdf' : 'image',
-        ]);
+        $loaiBaoCao = $baoCao->loaiBaoCao ?: ($baoCao->loThuocId ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG');
+        $trangThaiVal = $baoCao->trangThai instanceof \BackedEnum
+            ? $baoCao->trangThai->value
+            : strtoupper((string) $baoCao->trangThai);
+
+        $tenThuoc = $loaiBaoCao === 'TRONG_VONG_DOI'
+            ? ($baoCao->loThuoc?->sanPham?->tenSanPham ?? 'Dược phẩm trong hệ thống')
+            : ($baoCao->loBiLamGia?->sanPham?->tenSanPham
+                ? "Nghi giả mạo: {$baoCao->loBiLamGia->sanPham->tenSanPham}"
+                : 'Lô ngoài hệ thống (chưa có dữ liệu định danh)');
+
+        $ketQuaData = null;
+        if ($baoCao->ketQuaXuLy) {
+            $kq = $baoCao->ketQuaXuLy;
+            $quyetDinhVal = $kq->quyetDinh instanceof \BackedEnum
+                ? $kq->quyetDinh->value
+                : strtoupper((string) $kq->quyetDinh);
+
+            $txHashThuHoi = null;
+            if ($quyetDinhVal === 'THU_HOI' && $baoCao->loThuocId) {
+                $txHashThuHoi = BlockchainTransaction::where('loThuocId', $baoCao->loThuocId)
+                    ->whereIn('eventName', ['BatchRecalled', 'RECALL_BATCH', 'THU_HOI_LO'])
+                    ->where('trangThai', 'CONFIRMED')
+                    ->whereNotNull('txHash')
+                    ->latest('id')
+                    ->value('txHash');
+            }
+
+            $ketQuaData = [
+                'quyetDinh' => $quyetDinhVal,
+                'lyDoXuLy' => $kq->lyDoXuLy,
+                'ngayXuLy' => $kq->ngayXuLy ? date('d/m/Y H:i', strtotime($kq->ngayXuLy)) : '--',
+                'txHashThuHoi' => $txHashThuHoi,
+            ];
+        }
 
         return response()->json([
             'success' => true,
             'data' => [
                 'maBaoCao' => $baoCao->maBaoCao,
+                'loaiBaoCao' => $loaiBaoCao,
+                'loaiBaoCaoNhan' => $loaiBaoCao === 'TRONG_VONG_DOI' ? 'Lô trong vòng đời' : 'Lô ngoài hệ thống / Nghi giả',
                 'maLo' => $baoCao->loThuoc ? $baoCao->loThuoc->maLoNghiepVu : $baoCao->maLoKhaiBao,
-                'tenThuoc' => $baoCao->loThuoc?->sanPham?->tenSanPham ?? 'Chưa xác định trên hệ thống',
+                'tenThuoc' => $tenThuoc,
                 'lyDo' => $baoCao->lyDo,
-                'moTa' => $baoCao->moTa,
+                'soLuongMinhChung' => (int) ($baoCao->minh_chungs_count ?? 0),
                 'ngayGui' => $baoCao->ngayGui ? date('d/m/Y H:i', strtotime($baoCao->ngayGui)) : '--',
-                'trangThai' => $baoCao->trangThai?->value ?? (string) $baoCao->trangThai,
-                'danhSachMinhChung' => $minhChungArr,
-                'ketQua' => $baoCao->ketQuaXuLy ? [
-                    'quyetDinh' => $baoCao->ketQuaXuLy->quyetDinh?->value ?? (string) $baoCao->ketQuaXuLy->quyetDinh,
-                    'lyDoXuLy' => $baoCao->ketQuaXuLy->lyDoXuLy,
-                    'ngayXuLy' => date('d/m/Y', strtotime($baoCao->ketQuaXuLy->ngayXuLy)),
-                ] : null,
-            ]
+                'trangThai' => $trangThaiVal,
+                'ketQua' => $ketQuaData,
+            ],
         ]);
     }
 
@@ -168,7 +303,6 @@ class BaoCaoNghiVanController extends Controller
             ->latest('id')
             ->get();
 
-        // Lấy txHash giao dịch thu hồi trên Sepolia cho các lô đã bị thu hồi
         $loThuHoiIds = $baoCaos->pluck('loThuocId')->filter()->unique()->values();
         $txThuHoiMap = $loThuHoiIds->isNotEmpty()
             ? BlockchainTransaction::whereIn('loThuocId', $loThuHoiIds)
@@ -215,7 +349,7 @@ class BaoCaoNghiVanController extends Controller
                 'danhSachMinhChung' => $item->minhChungs->map(fn($mc) => [
                     'ten' => $mc->tenFile,
                     'url' => Storage::url($mc->duongDan),
-                    'loai' => str_contains($mc->loaiFile, 'pdf') ? 'pdf' : 'image',
+                    'loai' => str_contains((string) $mc->loaiFile, 'pdf') ? 'pdf' : 'image',
                 ]),
                 'ketQuaThucTe' => $item->ketQuaXuLy ? [
                     'quyetDinh' => $quyetDinhVal,
@@ -321,7 +455,6 @@ class BaoCaoNghiVanController extends Controller
             'minhChung.min' => 'Vui lòng đính kèm ít nhất 1 tệp bằng chứng.',
         ]);
 
-        // Lấy danh sách lô hợp lệ thuộc phạm vi tổ chức để kiểm tra bảo mật
         $danhSachLoCuaDonVi = $this->layDanhSachLoTheoVaiTro($vaiTro, $toChucId)->keyBy('id');
 
         $loaiBaoCao = $validated['loaiBaoCao'];
@@ -386,11 +519,13 @@ class BaoCaoNghiVanController extends Controller
             }
         }
 
-        $maBaoCao = 'BC-' . date('Y') . '-' . strtoupper(Str::random(6));
+        $maBaoCao = DB::transaction(function () use ($request, $validated, $user, $vaiTro, $toChucId, $loaiBaoCao, $loThuocId, $loBiLamGiaId, $maLoChuan) {
+            do {
+                $code = 'BC-' . date('Y') . '-' . strtoupper(Str::random(6));
+            } while (BaoCaoNghiVan::where('maBaoCao', $code)->exists());
 
-        DB::transaction(function () use ($request, $validated, $user, $vaiTro, $toChucId, $loaiBaoCao, $loThuocId, $loBiLamGiaId, $maLoChuan, $maBaoCao) {
             $baoCao = BaoCaoNghiVan::create([
-                'maBaoCao' => $maBaoCao,
+                'maBaoCao' => $code,
                 'loaiBaoCao' => $loaiBaoCao,
                 'loThuocId' => $loThuocId,
                 'loBiLamGiaId' => $loBiLamGiaId,
@@ -419,8 +554,10 @@ class BaoCaoNghiVanController extends Controller
                 'doiTuongId' => $loThuocId ?? $loBiLamGiaId ?? $baoCao->id,
                 'hanhDong' => 'GUI_BAO_CAO_NGHI_VAN_THEO_LO',
                 'ketQua' => 'THANH_CONG',
-                'chiTiet' => "[{$vaiTro}] Gửi báo cáo [{$maBaoCao}] ({$loaiBaoCao}) cho mã lô [{$maLoChuan}].",
+                'chiTiet' => "[{$vaiTro}] Gửi báo cáo [{$code}] ({$loaiBaoCao}) cho mã lô [{$maLoChuan}].",
             ]);
+
+            return $code;
         });
 
         return response()->json([

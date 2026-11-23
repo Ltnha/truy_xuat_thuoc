@@ -20,48 +20,49 @@
             </button>
         </div>
 
+        <!-- KHUNG THÔNG BÁO TRẠNG THÁI INLINE -->
+        <div id="thongBaoPublic" class="hidden p-3.5 rounded-xl border text-xs font-semibold flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+                <i id="iconThongBaoPublic" class="fa-solid fa-circle-info"></i>
+                <span id="noiDungThongBaoPublic"></span>
+            </div>
+            <button type="button" id="dongThongBaoPublic" class="opacity-70 hover:opacity-100 cursor-pointer">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
         <!-- TAB 1: FORM GỬI BÁO CÁO NGHI VẤN -->
         <div id="khungTabGuiBaoCao" class="bg-white rounded-2xl p-6 sm:p-8 border border-emerald-900/10 bong-xanh space-y-5">
             <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
                 <h2 class="text-base font-bold text-slate-900 flex items-center gap-2">
-                    <i class="fa-solid fa-shield-exclamation text-amber-600"></i> Báo Cáo Nghi Vấn Thuốc Kém Chất Lượng / Giả Mộc
+                    <i class="fa-solid fa-shield-exclamation text-amber-600"></i> Báo Cáo Nghi Vấn Thuốc Kém Chất Lượng / Giả Mạo
                 </h2>
             </div>
 
             <form id="formGuiBaoCao" class="space-y-4 text-xs" enctype="multipart/form-data">
                 @csrf
 
-                <!-- 1. Mã Lô Thuốc + Bảng Gợi Ý -->
-                <div class="space-y-1 relative" id="khungChonMaLoPublic">
+                <!-- 1. Mã Lô Thuốc + Nút Tải Ảnh QR -->
+                <div class="space-y-1.5">
                     <label for="maLoBaoCao" class="block font-bold text-slate-700 uppercase">
-                        Mã Lô Thuốc Nghi Vấn <span class="text-red-500">*</span>
+                        Mã Lô Thuốc Nghi Vấn (In Trên Vỏ Hộp) <span class="text-red-500">*</span>
                     </label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
-                            <i class="fa-solid fa-barcode"></i>
-                        </span>
-                        <input type="text" id="maLoBaoCao" name="maLo" required autocomplete="off" placeholder="Nhập hoặc chọn mã lô nghi vấn..." class="w-full pl-9 pr-8 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono uppercase font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
-                        <button type="button" id="nutMoMenuLoPublic" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-emerald-700 text-xs cursor-pointer">
-                            <i class="fa-solid fa-chevron-down" id="iconMuiTenLoPublic"></i>
-                        </button>
-                    </div>
-
-                    <!-- Menu Gợi Ý Mã Lô Hệ Thống -->
-                    <div id="menuGoiYMaLoPublic" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-emerald-900/15 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto divide-y divide-slate-100 bong-xanh">
-                        @if(isset($loThuocs) && count($loThuocs) > 0)
-                        @foreach($loThuocs as $lo)
-                        <div class="item-lo-public p-2.5 hover:bg-emerald-50 cursor-pointer flex items-center justify-between" data-malo="{{ $lo->maLoNghiepVu }}">
-                            <div>
-                                <div class="font-mono font-bold text-cyan-900 text-xs">{{ $lo->maLoNghiepVu }}</div>
-                                <div class="text-[11px] text-slate-500">{{ $lo->sanPham?->tenSanPham ?? 'Thuốc hệ thống' }}</div>
-                            </div>
-                            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">Cơ sở dữ liệu</span>
+                    <div class="flex items-stretch gap-2">
+                        <div class="relative flex-1">
+                            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-xs pointer-events-none">
+                                <i class="fa-solid fa-barcode"></i>
+                            </span>
+                            <input type="text" id="maLoBaoCao" name="maLo" required autocomplete="off" placeholder="Nhập mã lô hoặc tải ảnh mã QR trên vỏ hộp..." class="w-full pl-9 pr-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-mono font-semibold text-slate-900 focus:bg-white focus:border-emerald-700 outline-none">
                         </div>
-                        @endforeach
-                        @else
-                        <div class="p-3 text-center text-slate-400 text-xs italic">Không tìm thấy mã lô trong CSDL. Bạn có thể tự gõ mã lô mới.</div>
-                        @endif
+                        <label for="inputAnhQR" class="px-4 py-2.5 bg-cyan-800 hover:bg-cyan-900 text-white font-bold text-xs rounded-xl transition-all flex items-center gap-1.5 shrink-0 shadow-2xs cursor-pointer" title="Tải ảnh chụp hoặc tệp SVG mã QR (JPG, PNG, WEBP, SVG)">
+                            <i class="fa-solid fa-file-arrow-up text-sm"></i>
+                            <span>Tải ảnh QR</span>
+                            <input type="file" id="inputAnhQR" accept="image/jpeg,image/png,image/webp,image/svg+xml,.svg" class="hidden">
+                        </label>
                     </div>
+                    <div id="qrFileHiddenReader" class="hidden"></div>
+                    <!-- Dòng nhận diện nhanh mã lô -->
+                    <div id="trangThaiNhanDienLo" class="hidden text-[11px] font-semibold px-3 py-1.5 rounded-lg border"></div>
                 </div>
 
                 <!-- 2. Nhóm Lý Do Nghi Vấn -->
@@ -84,14 +85,14 @@
                     <label for="moTaChiTietPublic" class="block font-bold text-slate-700 uppercase">
                         Mô Tả Chi Tiết Hiện Trường
                     </label>
-                    <textarea id="moTaChiTietPublic" name="moTa" rows="3" placeholder="Nhập thêm chi tiết mờ nhòe, vị trí nhà thuốc đã mua..." class="w-full p-3 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none resize-y"></textarea>
+                    <textarea id="moTaChiTietPublic" name="moTa" rows="3" placeholder="Nhập thêm chi tiết dấu hiệu bất thường, địa điểm nhà thuốc đã mua..." class="w-full p-3 bg-nenChinh border border-emerald-900/15 rounded-xl text-slate-900 focus:bg-white focus:border-emerald-700 outline-none resize-y"></textarea>
                 </div>
 
-                <!-- 4. Đính Kèm Bằng Chứng (Nhiều tệp) -->
+                <!-- 4. Đính Kèm Bằng Chứng (Tối đa 5 tệp) -->
                 <div class="space-y-1">
                     <div class="flex justify-between items-center font-bold text-slate-700 uppercase">
-                        <span>Đính Kèm Bằng Chứng (Ảnh/PDF < 10MB)</span>
-                                <span id="soLuongTepDaChonPublic" class="text-[11px] text-slate-400 font-normal">0/5 tệp</span>
+                        <span>Đính Kèm Bằng Chứng (Ảnh/PDF &lt; 10MB)</span>
+                        <span id="soLuongTepDaChonPublic" class="text-[11px] text-slate-400 font-normal">0/5 tệp</span>
                     </div>
                     <div id="khungKeoThaMinhChung" class="border-2 border-dashed border-emerald-900/20 hover:border-emerald-700 rounded-xl p-3 text-center bg-nenChinh cursor-pointer transition-all">
                         <input type="file" id="tepMinhChung" name="minhChung[]" accept="image/jpeg,image/png,application/pdf" multiple class="hidden">
@@ -122,7 +123,6 @@
                     <button type="button" id="nutTraCuuThuCong" class="px-5 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer">
                         <i class="fa-solid fa-search"></i> Tra Cứu
                     </button>
-                    <!-- Nút Tra Cứu Từ 1 File Phiếu Single .txt -->
                     <label class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl border border-slate-300 transition-all flex items-center justify-center gap-2 cursor-pointer shrink-0">
                         <i class="fa-solid fa-file-arrow-up text-cyan-800"></i> Nhập Từ File .txt
                         <input type="file" id="inputUploadFileTxt" accept=".txt" class="hidden">
@@ -135,21 +135,18 @@
                     <span class="font-bold text-slate-700 uppercase flex items-center gap-2">
                         <i class="fa-solid fa-list-check text-cyan-800"></i> Lịch Sử Báo Cáo Đã Gửi
                     </span>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 flex-wrap">
                         <span class="font-bold text-slate-500 font-mono mr-1">Tổng: <span id="soLuongBaoCaoBadge">0</span> báo cáo</span>
 
-                        <!-- Nút Nhập Lịch Sử Báo Cáo Tải Nhiều Mã -->
                         <label class="px-2.5 py-1 text-[11px] font-bold text-emerald-800 hover:text-emerald-900 hover:bg-emerald-50 rounded-lg border border-emerald-200 transition-all cursor-pointer flex items-center gap-1">
                             <i class="fa-solid fa-file-import"></i> Nhập Lịch Sử
                             <input type="file" id="inputNhapLichSuTxt" accept=".txt" class="hidden">
                         </label>
 
-                        <!-- Nút Xuất Lịch Sử Báo Cáo -->
                         <button type="button" id="nutXuatLichSuPublic" class="px-2.5 py-1 text-[11px] font-bold text-cyan-800 hover:text-cyan-900 hover:bg-cyan-50 rounded-lg border border-cyan-200 transition-all cursor-pointer flex items-center gap-1">
                             <i class="fa-solid fa-file-arrow-down"></i> Xuất Lịch Sử
                         </button>
 
-                        <!-- Nút Xóa Lịch Sử -->
                         <button type="button" id="nutXoaLichSuPublic" class="px-2.5 py-1 text-[11px] font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg border border-red-200 transition-all cursor-pointer flex items-center gap-1">
                             <i class="fa-solid fa-trash-can"></i> Xóa Lịch Sử
                         </button>
@@ -189,7 +186,7 @@
         </div>
         <div>
             <h3 class="text-base font-bold text-slate-900">Gửi Báo Cáo Thành Công!</h3>
-            <p class="text-xs text-slate-500 mt-1">Lưu lại Mã Báo Cáo bên dưới để phục vụ đối soát tiến trình xử lý.</p>
+            <p class="text-xs text-slate-500 mt-1">Lưu lại Mã Báo Cáo bên dưới để phục vụ theo dõi tiến trình xử lý.</p>
         </div>
         <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1">
             <span class="text-[11px] text-slate-400 font-bold uppercase">Mã Tra Cứu Hồ Sơ</span>
@@ -214,13 +211,14 @@
     </div>
 </div>
 
-<!-- MODAL: CHI TIẾT CÔNG KHAI -->
+<!-- MODAL: CHI TIẾT CÔNG KHAI (PHƯƠNG ÁN A: BẢO MẬT TỆP BẰNG CHỨNG) -->
 <div id="modalChiTietBaoCao" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
     <div class="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 bong-xanh max-h-[90vh] overflow-y-auto">
         <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-bold text-slate-900">Chi Tiết Hồ Sơ:</span>
                 <span id="chiTietMaBaoCao" class="font-mono font-bold text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded text-xs border border-cyan-200"></span>
+                <span id="chiTietLoaiBaoCaoBadge"></span>
             </div>
             <button type="button" id="nutDongChiTiet" class="text-slate-400 hover:text-slate-700 text-lg cursor-pointer">
                 <i class="fa-solid fa-xmark"></i>
@@ -238,7 +236,7 @@
                     <span id="chiTietNgayGui" class="font-semibold text-slate-700 font-mono"></span>
                 </div>
                 <div class="col-span-2">
-                    <span class="text-slate-500 block">Tên thuốc hệ thống:</span>
+                    <span class="text-slate-500 block">Thông tin dược phẩm:</span>
                     <span id="chiTietTenThuoc" class="font-bold text-emerald-800"></span>
                 </div>
                 <div>
@@ -248,13 +246,13 @@
             </div>
 
             <div>
-                <span class="text-slate-600 font-bold block mb-1">Nội dung báo cáo:</span>
-                <div id="chiTietLyDo" class="p-2.5 bg-slate-50 rounded-lg text-slate-800 font-medium border border-slate-200 whitespace-pre-wrap leading-relaxed"></div>
+                <span class="text-slate-600 font-bold block mb-1">Nhóm lý do nghi vấn:</span>
+                <div id="chiTietLyDo" class="p-2.5 bg-slate-50 rounded-lg text-slate-800 font-medium border border-slate-200"></div>
             </div>
 
             <div>
-                <span class="text-slate-600 font-bold block mb-1">Bằng chứng đính kèm:</span>
-                <div id="chiTietAnhMinhChung" class="space-y-1.5"></div>
+                <span class="text-slate-600 font-bold block mb-1">Trạng thái bằng chứng đính kèm:</span>
+                <div id="chiTietAnhMinhChung"></div>
             </div>
 
             <div class="border-t border-slate-100 pt-3 space-y-1">
@@ -275,5 +273,6 @@
 @endsection
 
 @push('scripts')
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script src="{{ asset('assets/js/nguoiTieuDung/baoCaoNghiVan.js') }}"></script>
 @endpush

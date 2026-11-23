@@ -1,21 +1,25 @@
 document.addEventListener('DOMContentLoaded', function () {
     const STORAGE_KEY = 'pharma_lich_su_bao_cao';
+    const MAX_FILES = 5;
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
     const tabGui = document.getElementById('tabGuiBaoCao');
     const tabLichSu = document.getElementById('tabLichSuBaoCao');
     const khungGui = document.getElementById('khungTabGuiBaoCao');
     const khungLichSu = document.getElementById('khungTabLichSuBaoCao');
 
-    const formGui = document.getElementById('formGuiBaoCao');
-    const inputTep = document.getElementById('tepMinhChung');
-    const txtTepLabel = document.getElementById('tenTepMinhChung');
-    const khungKeoTha = document.getElementById('khungKeoThaMinhChung');
+    const thongBaoBox = document.getElementById('thongBaoPublic');
+    const iconThongBao = document.getElementById('iconThongBaoPublic');
+    const noiDungThongBao = document.getElementById('noiDungThongBaoPublic');
 
+    const formGui = document.getElementById('formGuiBaoCao');
     const oNhapMaLoPublic = document.getElementById('maLoBaoCao');
-    const menuGoiYPublic = document.getElementById('menuGoiYMaLoPublic');
-    const nutMoMenuPublic = document.getElementById('nutMoMenuLoPublic');
-    const iconMuiTenPublic = document.getElementById('iconMuiTenLoPublic');
-    const itemLoPublicElements = document.querySelectorAll('.item-lo-public');
+    const trangThaiNhanDienLo = document.getElementById('trangThaiNhanDienLo');
+    const inputAnhQR = document.getElementById('inputAnhQR');
+    const inputTep = document.getElementById('tepMinhChung');
+    const khungKeoTha = document.getElementById('khungKeoThaMinhChung');
+    const soLuongTepLabel = document.getElementById('soLuongTepDaChonPublic');
+    const danhSachTepWrap = document.getElementById('danhSachTepDaChonPublic');
 
     const modalThanhCong = document.getElementById('modalThanhCongBaoCao');
     const maBaoCaoSinhRa = document.getElementById('maBaoCaoSinhRa');
@@ -36,17 +40,52 @@ document.addEventListener('DOMContentLoaded', function () {
     const nutXuatLichSu = document.getElementById('nutXuatLichSuPublic');
 
     let duLieuLuuTru = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+    let danhSachTepTam = [];
+    let baoCaoVuaGui = null;
+    let timerKiemTraMaLo = null;
+
+    function escapeHtml(str) {
+        if (str == null) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function hienThongBao(noiDung, loai = 'error') {
+        if (!thongBaoBox || !noiDungThongBao) return;
+        thongBaoBox.classList.remove('hidden', 'bg-red-50', 'border-red-200', 'text-red-800', 'bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+
+        if (loai === 'success') {
+            thongBaoBox.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+            if (iconThongBao) iconThongBao.className = 'fa-solid fa-circle-check';
+        } else {
+            thongBaoBox.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+            if (iconThongBao) iconThongBao.className = 'fa-solid fa-triangle-exclamation';
+        }
+
+        noiDungThongBao.textContent = noiDung;
+    }
+
+    function anThongBao() {
+        thongBaoBox?.classList.add('hidden');
+    }
+
+    document.getElementById('dongThongBaoPublic')?.addEventListener('click', anThongBao);
 
     function batTabGui() {
-        tabGui.className = "flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-emerald-700 text-white shadow-xs cursor-pointer";
-        tabLichSu.className = "flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer";
+        anThongBao();
+        tabGui.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-emerald-700 text-white shadow-xs cursor-pointer';
+        tabLichSu.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer';
         khungGui.classList.remove('hidden');
         khungLichSu.classList.add('hidden');
     }
 
     function batTabLichSu() {
-        tabLichSu.className = "flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-emerald-700 text-white shadow-xs cursor-pointer";
-        tabGui.className = "flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer";
+        anThongBao();
+        tabLichSu.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all bg-emerald-700 text-white shadow-xs cursor-pointer';
+        tabGui.className = 'flex-1 py-3 px-4 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 cursor-pointer';
         khungLichSu.classList.remove('hidden');
         khungGui.classList.add('hidden');
         renderBangLichSu();
@@ -55,61 +94,296 @@ document.addEventListener('DOMContentLoaded', function () {
     if (tabGui) tabGui.addEventListener('click', batTabGui);
     if (tabLichSu) tabLichSu.addEventListener('click', batTabLichSu);
 
-    function batMenuLoPublic() {
-        if (menuGoiYPublic) menuGoiYPublic.classList.remove('hidden');
-        if (iconMuiTenPublic) iconMuiTenPublic.className = "fa-solid fa-chevron-up";
+    // ══ ĐỐI CHIẾU NHANH MÃ LÔ KHI NHẬP HOẶC TẢI ẢNH QR ══
+    function trichXuatDinhDanhTuQR(rawText) {
+        const text = (rawText || '').trim();
+        if (!text) return { value: '', isToken: false };
+
+        if (text.startsWith('{') && text.endsWith('}')) {
+            try {
+                const obj = JSON.parse(text);
+                if (obj.maDinhDanh) return { value: String(obj.maDinhDanh).trim(), isToken: true };
+                const candidate = obj.maLoNghiepVu || obj.maLo || obj.batchCode || obj.code;
+                if (candidate) return { value: String(candidate).trim().toUpperCase(), isToken: false };
+            } catch (e) { /* Bỏ qua */ }
+        }
+
+        try {
+            const urlObj = new URL(text);
+            const maDinhDanh = urlObj.searchParams.get('maDinhDanh');
+            if (maDinhDanh) {
+                return { value: maDinhDanh.trim(), isToken: true };
+            }
+
+            const paramMa = urlObj.searchParams.get('maLoNghiepVu')
+                || urlObj.searchParams.get('maLo')
+                || urlObj.searchParams.get('ma')
+                || urlObj.searchParams.get('code');
+            if (paramMa) {
+                return { value: paramMa.trim().toUpperCase(), isToken: false };
+            }
+
+            const segments = urlObj.pathname.split('/').filter(Boolean);
+            const idxTraCuu = segments.findIndex(s => s === 'tra-cuu-nguon-goc' || s === 'tra-cuu');
+            if (idxTraCuu !== -1 && segments[idxTraCuu + 1]) {
+                return { value: decodeURIComponent(segments[idxTraCuu + 1]).trim(), isToken: true };
+            }
+        } catch (e) { /* Không phải URL đầy đủ */ }
+
+        const tokenMatch = text.match(/maDinhDanh=([A-Za-z0-9\-_]+)/i);
+        if (tokenMatch && tokenMatch[1]) {
+            return { value: tokenMatch[1].trim(), isToken: true };
+        }
+
+        const maLoMatch = text.match(/(?:maLoNghiepVu|maLo|ma)=([A-Za-z0-9\-_]+)/i);
+        if (maLoMatch && maLoMatch[1]) {
+            return { value: maLoMatch[1].trim().toUpperCase(), isToken: false };
+        }
+
+        return { value: text, isToken: false };
     }
 
-    function tatMenuLoPublic() {
-        if (menuGoiYPublic) menuGoiYPublic.classList.add('hidden');
-        if (iconMuiTenPublic) iconMuiTenPublic.className = "fa-solid fa-chevron-down";
+    function hienTrangThaiLo(html, loai = 'info') {
+        if (!trangThaiNhanDienLo) return;
+        trangThaiNhanDienLo.classList.remove(
+            'hidden',
+            'bg-emerald-50', 'border-emerald-200', 'text-emerald-800',
+            'bg-amber-50', 'border-amber-200', 'text-amber-800',
+            'bg-red-50', 'border-red-200', 'text-red-800',
+            'bg-cyan-50', 'border-cyan-200', 'text-cyan-800'
+        );
+
+        if (loai === 'success') {
+            trangThaiNhanDienLo.classList.add('bg-emerald-50', 'border-emerald-200', 'text-emerald-800');
+        } else if (loai === 'warning') {
+            trangThaiNhanDienLo.classList.add('bg-amber-50', 'border-amber-200', 'text-amber-800');
+        } else if (loai === 'error') {
+            trangThaiNhanDienLo.classList.add('bg-red-50', 'border-red-200', 'text-red-800');
+        } else {
+            trangThaiNhanDienLo.classList.add('bg-cyan-50', 'border-cyan-200', 'text-cyan-800');
+        }
+        trangThaiNhanDienLo.innerHTML = html;
     }
 
-    if (oNhapMaLoPublic) {
-        oNhapMaLoPublic.addEventListener('focus', batMenuLoPublic);
-        oNhapMaLoPublic.addEventListener('click', batMenuLoPublic);
-        oNhapMaLoPublic.addEventListener('input', function () {
-            const keyword = this.value.trim().toLowerCase();
-            batMenuLoPublic();
-            itemLoPublicElements.forEach(item => {
-                const maLoText = item.getAttribute('data-malo').toLowerCase();
-                item.style.display = maLoText.includes(keyword) ? 'flex' : 'none';
+    async function kiemTraNhanhMaLo(rawInput) {
+        if (!trangThaiNhanDienLo) return;
+        const parsed = trichXuatDinhDanhTuQR(rawInput);
+        const queryCode = parsed.value;
+
+        if (!queryCode) {
+            trangThaiNhanDienLo.classList.add('hidden');
+            return;
+        }
+
+        if (oNhapMaLoPublic && oNhapMaLoPublic.value.trim() !== queryCode) {
+            oNhapMaLoPublic.value = queryCode;
+        }
+
+        try {
+            const res = await fetch(`/api/bao-cao-nghi-van/kiem-tra-lo?code=${encodeURIComponent(queryCode)}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const json = await res.json();
+
+            if (res.ok && json.success) {
+                const maLoChuan = json.data?.maLoNghiepVu || '';
+                const tenThuoc = json.data?.tenSanPham || 'Dược phẩm đã đăng ký trên hệ thống';
+
+                if (maLoChuan && oNhapMaLoPublic) {
+                    oNhapMaLoPublic.value = String(maLoChuan).toUpperCase();
+                }
+
+                hienTrangThaiLo(
+                    `<i class="fa-solid fa-circle-check mr-1"></i> Lô hợp lệ trong hệ thống${maLoChuan ? ` (<strong>${escapeHtml(maLoChuan)}</strong>)` : ''}: <strong>${escapeHtml(tenThuoc)}</strong>`,
+                    'success'
+                );
+            } else {
+                if (!parsed.isToken && oNhapMaLoPublic && !/^https?:\/\//i.test(queryCode)) {
+                    oNhapMaLoPublic.value = queryCode.toUpperCase();
+                }
+                hienTrangThaiLo(
+                    `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Mã lô chưa có trên hệ thống — sẽ được ghi nhận theo diện <strong>Lô ngoài hệ thống / Nghi giả</strong>.`,
+                    'warning'
+                );
+            }
+        } catch (err) {
+            trangThaiNhanDienLo.classList.add('hidden');
+        }
+    }
+
+    oNhapMaLoPublic?.addEventListener('input', function () {
+        clearTimeout(timerKiemTraMaLo);
+        timerKiemTraMaLo = setTimeout(() => kiemTraNhanhMaLo(this.value), 400);
+    });
+
+    // Tự động điền nếu chuyển từ trang tra cứu (?maLo=... hoặc ?maDinhDanh=...)
+    const urlParams = new URLSearchParams(window.location.search);
+    const paramKhoiTao = urlParams.get('maLo') || urlParams.get('maDinhDanh') || urlParams.get('ma');
+    if (paramKhoiTao && oNhapMaLoPublic) {
+        oNhapMaLoPublic.value = paramKhoiTao.trim();
+        kiemTraNhanhMaLo(oNhapMaLoPublic.value);
+    }
+
+    // ══ ĐỌC MÃ QR TỪ TỆP ẢNH / SVG TẢI LÊN ══
+    async function giaiMaFileSvg(file) {
+        const svgText = await file.text();
+        const targetMatch = svgText.match(/data-qr-target=["']([^"']+)["']/i)
+            || svgText.match(/https?:\/\/[^\s"'<>]+maDinhDanh=[A-Za-z0-9\-_]+/i);
+        if (targetMatch) {
+            return targetMatch[1] || targetMatch[0];
+        }
+
+        return await new Promise((resolve, reject) => {
+            const img = new Image();
+            const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+            const url = URL.createObjectURL(svgBlob);
+            img.onload = () => {
+                try {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width || 400;
+                    canvas.height = img.height || 400;
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+
+                    canvas.toBlob(async (pngBlob) => {
+                        if (!pngBlob) return reject(new Error('Không chuyển được SVG'));
+                        const pngFile = new File([pngBlob], 'qr.png', { type: 'image/png' });
+                        const scanner = new Html5Qrcode('qrFileHiddenReader');
+                        const text = await scanner.scanFile(pngFile, true);
+                        await scanner.clear();
+                        resolve(text);
+                    }, 'image/png');
+                } catch (e) {
+                    reject(e);
+                }
+            };
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Lỗi đọc tệp SVG'));
+            };
+            img.src = url;
+        });
+    }
+
+    inputAnhQR?.addEventListener('change', async function (e) {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        hienTrangThaiLo(`<i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang giải mã QR từ tệp ảnh...`, 'info');
+
+        try {
+            if (typeof Html5Qrcode === 'undefined') {
+                throw new Error('Chưa tải được thư viện giải mã QR.');
+            }
+
+            let decodedText = '';
+            const isSvg = file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg');
+
+            if (isSvg) {
+                decodedText = await giaiMaFileSvg(file);
+            } else {
+                const fileScanner = new Html5Qrcode('qrFileHiddenReader');
+                decodedText = await fileScanner.scanFile(file, true);
+                await fileScanner.clear();
+            }
+
+            const parsed = trichXuatDinhDanhTuQR(decodedText);
+            if (!parsed.value) {
+                throw new Error('Nội dung QR trống.');
+            }
+
+            if (oNhapMaLoPublic) {
+                oNhapMaLoPublic.value = parsed.value;
+                await kiemTraNhanhMaLo(parsed.value);
+            }
+        } catch (err) {
+            hienTrangThaiLo(
+                `<i class="fa-solid fa-circle-xmark mr-1"></i> Không nhận diện được mã QR trong tệp này. Vui lòng chọn ảnh rõ nét hơn.`,
+                'error'
+            );
+        } finally {
+            inputAnhQR.value = '';
+        }
+    });
+
+    // ══ QUẢN LÝ TỆP MINH CHỨNG (TỐI ĐA 5 TỆP) ══
+    function dongBoInputFiles() {
+        if (!inputTep) return;
+        const dt = new DataTransfer();
+        danhSachTepTam.forEach(file => dt.items.add(file));
+        inputTep.files = dt.files;
+
+        if (soLuongTepLabel) {
+            soLuongTepLabel.textContent = `${danhSachTepTam.length}/${MAX_FILES} tệp`;
+        }
+
+        if (!danhSachTepWrap) return;
+        if (danhSachTepTam.length === 0) {
+            danhSachTepWrap.innerHTML = '';
+            return;
+        }
+
+        danhSachTepWrap.innerHTML = danhSachTepTam.map((file, idx) => `
+            <div class="flex items-center justify-between px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px]">
+                <div class="flex items-center gap-2 truncate">
+                    <i class="fa-solid fa-file-circle-check text-emerald-700"></i>
+                    <span class="font-medium text-slate-800 truncate">${escapeHtml(file.name)}</span>
+                    <span class="text-slate-400 font-mono shrink-0">(${(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+                </div>
+                <button type="button" data-index="${idx}" class="btn-xoa-tep-public text-red-500 hover:text-red-700 px-1.5 cursor-pointer" title="Gỡ tệp">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        `).join('');
+
+        danhSachTepWrap.querySelectorAll('.btn-xoa-tep-public').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const index = parseInt(this.getAttribute('data-index'), 10);
+                danhSachTepTam.splice(index, 1);
+                dongBoInputFiles();
             });
         });
     }
 
-    itemLoPublicElements.forEach(item => {
-        item.addEventListener('click', function () {
-            if (oNhapMaLoPublic) oNhapMaLoPublic.value = this.getAttribute('data-malo');
-            tatMenuLoPublic();
-        });
-    });
-
-    if (nutMoMenuPublic) {
-        nutMoMenuPublic.addEventListener('click', (e) => {
-            e.stopPropagation();
-            menuGoiYPublic.classList.contains('hidden') ? batMenuLoPublic() : tatMenuLoPublic();
-        });
-    }
-
-    document.addEventListener('click', (e) => {
-        const khung = document.getElementById('khungChonMaLoPublic');
-        if (khung && !khung.contains(e.target)) tatMenuLoPublic();
-    });
-
-    if (khungKeoTha) khungKeoTha.addEventListener('click', () => inputTep.click());
+    if (khungKeoTha) khungKeoTha.addEventListener('click', () => inputTep?.click());
     if (inputTep) {
         inputTep.addEventListener('change', function () {
-            if (this.files && this.files.length > 0) {
-                txtTepLabel.innerHTML = `<i class="fa-solid fa-file-circle-check text-emerald-700"></i> ${this.files[0].name} (${(this.files[0].size / 1024 / 1024).toFixed(2)} MB)`;
+            anThongBao();
+            const filesMoi = Array.from(this.files || []);
+            const allowedTypes = ['image/jpeg', 'image/png', 'application/pdf'];
+
+            for (const file of filesMoi) {
+                if (danhSachTepTam.length >= MAX_FILES) {
+                    hienThongBao(`Chỉ được đính kèm tối đa ${MAX_FILES} tệp minh chứng.`);
+                    break;
+                }
+                if (!allowedTypes.includes(file.type)) {
+                    hienThongBao(`Tệp "${file.name}" không đúng định dạng (chỉ nhận JPG, PNG, PDF).`);
+                    continue;
+                }
+                if (file.size > MAX_FILE_SIZE) {
+                    hienThongBao(`Tệp "${file.name}" vượt quá dung lượng tối đa 10MB.`);
+                    continue;
+                }
+                const daTonTai = danhSachTepTam.some(f => f.name === file.name && f.size === file.size);
+                if (!daTonTai) {
+                    danhSachTepTam.push(file);
+                }
             }
+
+            dongBoInputFiles();
         });
     }
 
-    // GỬI BÁO CÁO CÔNG KHAI
+    // ══ GỬI BÁO CÁO CÔNG KHAI ══
     if (formGui) {
         formGui.addEventListener('submit', function (e) {
             e.preventDefault();
+            anThongBao();
+
             const formData = new FormData(formGui);
             const submitBtn = document.getElementById('nutGuiBaoCaoSubmit');
             submitBtn.disabled = true;
@@ -121,37 +395,44 @@ document.addEventListener('DOMContentLoaded', function () {
                 method: 'POST',
                 body: formData,
                 headers: {
+                    'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest',
                     'X-CSRF-TOKEN': csrfToken
                 }
             })
-            .then(res => res.json())
+            .then(async res => {
+                const json = await res.json();
+                if (!res.ok || !json.success) {
+                    const firstErr = json.errors ? Object.values(json.errors)[0]?.[0] : null;
+                    throw new Error(firstErr || json.message || 'Không thể gửi báo cáo!');
+                }
+                return json;
+            })
             .then(res => {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Gửi Báo Cáo Nghi Vấn`;
 
-                if (res.success) {
-                    const data = res.data;
-                    maBaoCaoSinhRa.textContent = data.maBaoCao;
-                    
-                    luuVaoLichSuKhongTrungLap({
-                        maBaoCao: data.maBaoCao,
-                        maLo: data.maLo,
-                        ngayGui: data.ngayGui,
-                        trangThai: 'DA_GUI'
-                    });
+                const data = res.data;
+                baoCaoVuaGui = data;
+                maBaoCaoSinhRa.textContent = data.maBaoCao;
 
-                    modalThanhCong.classList.remove('hidden');
-                    formGui.reset();
-                    txtTepLabel.innerHTML = `<i class="fa-solid fa-cloud-arrow-up text-base text-emerald-700"></i> <span>Nhấp để chọn tệp bằng chứng (JPG, PNG, PDF)</span>`;
-                } else {
-                    alert(res.message || "Không thể gửi báo cáo!");
-                }
+                luuVaoLichSuKhongTrungLap({
+                    maBaoCao: data.maBaoCao,
+                    maLo: data.maLo,
+                    ngayGui: data.ngayGui,
+                    trangThai: 'DA_GUI'
+                });
+
+                modalThanhCong.classList.remove('hidden');
+                formGui.reset();
+                trangThaiNhanDienLo?.classList.add('hidden');
+                danhSachTepTam = [];
+                dongBoInputFiles();
             })
-            .catch(() => {
+            .catch(err => {
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Gửi Báo Cáo Nghi Vấn`;
-                alert("Đã xảy ra lỗi kết nối máy chủ!");
+                hienThongBao(err.message || 'Đã xảy ra lỗi kết nối máy chủ!');
             });
         });
     }
@@ -165,25 +446,22 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // ĐỊNH DẠNG XUẤT FILE PHIẾU LƯU MÃ CHUẨN ĐÃ THAY =============== BẰNG ---------------
     if (btnTaiTxt) {
         btnTaiTxt.addEventListener('click', function () {
-            const code = maBaoCaoSinhRa.textContent;
-            const maLo = oNhapMaLoPublic.value.trim() || 'Khai báo công khai';
+            const code = baoCaoVuaGui?.maBaoCao || maBaoCaoSinhRa.textContent;
+            const maLo = baoCaoVuaGui?.maLo || 'N/A';
+            const ngayGui = baoCaoVuaGui?.ngayGui || new Date().toLocaleString('vi-VN');
+
             const noiDung =
 `--------------------------------------------------
      PHARMACHAIN - PHIẾU LƯU MÃ BÁO CÁO NGHI VẤN
 --------------------------------------------------
-- Mã Tra Cứu  : 
-${code}
-- Mã Lô Thuốc : 
-${maLo}
-- Ngày Gửi    : 
-${new Date().toLocaleString('vi-VN')}
+- Mã Tra Cứu  : ${code}
+- Mã Lô Thuốc : ${maLo}
+- Ngày Gửi    : ${ngayGui}
 --------------------------------------------------
 HƯỚNG DẪN TRA CỨU TIẾN TRÌNH XỬ LÝ:
-1. Truy cập: 
-${window.location.origin}/bao-cao-nghi-van
+1. Truy cập: ${window.location.origin}/bao-cao-nghi-van
 2. Chọn Tab "Lịch Sử & Tra Cứu"
 3. Nhập mã "${code}" hoặc tải file .txt này lên.
 --------------------------------------------------`;
@@ -203,7 +481,7 @@ ${window.location.origin}/bao-cao-nghi-van
         batTabLichSu();
     });
 
-    // TRA CỨU 1 MÃ TỪ FILE .TXT ĐƠN LẺ (NHẬP TỪ FILE .TXT Ở KHUNG TÌM KIẾM)
+    // ══ TRA CỨU TỪ FILE .TXT ĐƠN LẺ ══
     if (inputUploadTxt) {
         inputUploadTxt.addEventListener('change', function (e) {
             const file = e.target.files[0];
@@ -218,7 +496,7 @@ ${window.location.origin}/bao-cao-nghi-van
                     inputTraCuu.value = code;
                     thucHienTraCuu(code);
                 } else {
-                    alert("Không tìm thấy Mã Báo Cáo hợp lệ trong file .txt này!");
+                    hienThongBao('Không tìm thấy Mã Báo Cáo hợp lệ trong file .txt này!');
                 }
                 inputUploadTxt.value = '';
             };
@@ -226,7 +504,7 @@ ${window.location.origin}/bao-cao-nghi-van
         });
     }
 
-    // NHẬP TOÀN BỘ LỊCH SỬ TỪ FILE SAO LƯU .TXT (NÚT NHẬP LỊCH SỬ MỚI BỔ SUNG)
+    // ══ NHẬP TOÀN BỘ LỊCH SỬ TỪ FILE .TXT ══
     if (inputNhapLichSuTxt) {
         inputNhapLichSuTxt.addEventListener('change', function (e) {
             const file = e.target.files[0];
@@ -242,8 +520,8 @@ ${window.location.origin}/bao-cao-nghi-van
                     let addedCount = 0;
 
                     Promise.all(
-                        uniqueCodes.map(code => 
-                            fetch(`/api/bao-cao-nghi-van/tra-cuu/${code}`)
+                        uniqueCodes.map(code =>
+                            fetch(`/api/bao-cao-nghi-van/tra-cuu/${encodeURIComponent(code)}`)
                                 .then(res => res.json())
                                 .then(res => res.success ? res.data : null)
                                 .catch(() => null)
@@ -262,14 +540,13 @@ ${window.location.origin}/bao-cao-nghi-van
                         });
 
                         if (addedCount > 0) {
-                            alert(`Đã nhập thành công ${addedCount} báo cáo vào lịch sử!`);
+                            hienThongBao(`Đã nhập thành công ${addedCount} báo cáo vào lịch sử!`, 'success');
                         } else {
-                            alert("Không tìm thấy hồ sơ báo cáo hợp lệ từ các mã trong file!");
+                            hienThongBao('Không tìm thấy hồ sơ báo cáo hợp lệ từ các mã trong file!');
                         }
                     });
-
                 } else {
-                    alert("Không tìm thấy Mã Báo Cáo hợp lệ nào trong file này!");
+                    hienThongBao('Không tìm thấy Mã Báo Cáo hợp lệ nào trong file này!');
                 }
                 inputNhapLichSuTxt.value = '';
             };
@@ -281,7 +558,7 @@ ${window.location.origin}/bao-cao-nghi-van
         btnTraCuu.addEventListener('click', function () {
             const code = inputTraCuu.value.trim().toUpperCase();
             if (!code) {
-                alert("Vui lòng nhập mã báo cáo cần kiểm tra!");
+                hienThongBao('Vui lòng nhập mã báo cáo cần kiểm tra!');
                 return;
             }
             thucHienTraCuu(code);
@@ -289,7 +566,10 @@ ${window.location.origin}/bao-cao-nghi-van
     }
 
     function thucHienTraCuu(maBaoCao) {
-        fetch(`/api/bao-cao-nghi-van/tra-cuu/${maBaoCao}`)
+        anThongBao();
+        fetch(`/api/bao-cao-nghi-van/tra-cuu/${encodeURIComponent(maBaoCao)}`, {
+            headers: { 'Accept': 'application/json' }
+        })
             .then(res => res.json())
             .then(res => {
                 if (res.success) {
@@ -304,20 +584,17 @@ ${window.location.origin}/bao-cao-nghi-van
 
                     moModalChiTiet(data);
                 } else {
-                    alert(res.message);
+                    hienThongBao(res.message || 'Không tìm thấy hồ sơ báo cáo.');
                 }
             })
-            .catch(() => alert("Lỗi hệ thống khi tra cứu!"));
+            .catch(() => hienThongBao('Lỗi hệ thống khi tra cứu!'));
     }
 
-    // TỰ ĐỘNG CHỐNG TRÙNG LẶP & ĐẨY MÃ MỚI NHẤT LÊN ĐẦU
     function luuVaoLichSuKhongTrungLap(mucMoi) {
         const indexDaTonTai = duLieuLuuTru.findIndex(item => item.maBaoCao === mucMoi.maBaoCao);
-
         if (indexDaTonTai !== -1) {
             duLieuLuuTru.splice(indexDaTonTai, 1);
         }
-
         duLieuLuuTru.unshift(mucMoi);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(duLieuLuuTru));
         renderBangLichSu();
@@ -349,10 +626,10 @@ ${window.location.origin}/bao-cao-nghi-van
             }
 
             tr.innerHTML = `
-                <td class="py-3 px-4 font-mono font-bold text-cyan-800">${item.maBaoCao}</td>
-                <td class="py-3 px-4 font-mono font-bold text-slate-800">${item.maLo}</td>
+                <td class="py-3 px-4 font-mono font-bold text-cyan-800">${escapeHtml(item.maBaoCao)}</td>
+                <td class="py-3 px-4 font-mono font-bold text-slate-800">${escapeHtml(item.maLo)}</td>
                 <td class="py-3 px-4">${badgeTrangThai}</td>
-                <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">${item.ngayGui}</td>
+                <td class="py-3 px-4 text-slate-500 font-mono text-[11px]">${escapeHtml(item.ngayGui)}</td>
                 <td class="py-3 px-4 text-center">
                     <button type="button" class="px-3 py-1 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-lg hover:bg-emerald-100 transition-all cursor-pointer">
                         Tra Cứu <i class="fa-solid fa-arrow-right"></i>
@@ -367,7 +644,8 @@ ${window.location.origin}/bao-cao-nghi-van
 
     if (nutXoaLichSu) {
         nutXoaLichSu.addEventListener('click', function () {
-            if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử báo cáo không?')) {
+            if (duLieuLuuTru.length === 0) return;
+            if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử báo cáo trên trình duyệt này không?')) {
                 localStorage.removeItem(STORAGE_KEY);
                 duLieuLuuTru = [];
                 renderBangLichSu();
@@ -375,11 +653,10 @@ ${window.location.origin}/bao-cao-nghi-van
         });
     }
 
-    // XUẤT TOÀN BỘ LỊCH SỬ DÙNG ĐẦU PHÂN CÁCH DẠNG ------------------
     if (nutXuatLichSu) {
         nutXuatLichSu.addEventListener('click', function () {
             if (duLieuLuuTru.length === 0) {
-                alert("Lịch sử báo cáo đang trống, không có dữ liệu để xuất!");
+                hienThongBao('Lịch sử báo cáo đang trống, không có dữ liệu để xuất!');
                 return;
             }
 
@@ -410,12 +687,20 @@ ${window.location.origin}/bao-cao-nghi-van
         return `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}`;
     }
 
+    // ══ MODAL CHI TIẾT KẾT QUẢ THẨM ĐỊNH (PHƯƠNG ÁN A) ══
     function moModalChiTiet(data) {
         document.getElementById('chiTietMaBaoCao').textContent = data.maBaoCao;
         document.getElementById('chiTietMaLo').textContent = data.maLo;
         document.getElementById('chiTietTenThuoc').textContent = data.tenThuoc;
         document.getElementById('chiTietNgayGui').textContent = data.ngayGui;
-        document.getElementById('chiTietLyDo').textContent = data.lyDo + (data.moTa ? `\n\nMô tả chi tiết: ${data.moTa}` : '');
+        document.getElementById('chiTietLyDo').textContent = data.lyDo;
+
+        const loaiBadge = document.getElementById('chiTietLoaiBaoCaoBadge');
+        if (loaiBadge) {
+            loaiBadge.innerHTML = data.loaiBaoCao === 'NGOAI_HE_THONG'
+                ? `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">Ngoài hệ thống</span>`
+                : `<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">Trong vòng đời</span>`;
+        }
 
         let badgeHtml = `<span class="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-800 border border-cyan-200">Đã gửi</span>`;
         if (data.trangThai === 'DANG_XU_LY') {
@@ -426,17 +711,14 @@ ${window.location.origin}/bao-cao-nghi-van
         document.getElementById('chiTietTrangThaiBadge').innerHTML = badgeHtml;
 
         const khungAnh = document.getElementById('chiTietAnhMinhChung');
-        khungAnh.innerHTML = '';
-        if (data.danhSachMinhChung && data.danhSachMinhChung.length > 0) {
-            data.danhSachMinhChung.forEach(mc => {
-                const item = document.createElement('div');
-                item.className = 'p-2 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-between text-xs';
-                item.innerHTML = `
-                    <span class="font-medium text-slate-800 truncate">${mc.ten}</span>
-                    <a href="${mc.url}" target="_blank" class="text-cyan-800 hover:underline font-bold text-[11px]">Mở tệp</a>
-                `;
-                khungAnh.appendChild(item);
-            });
+        const soTep = Number(data.soLuongMinhChung || 0);
+        if (soTep > 0) {
+            khungAnh.innerHTML = `
+                <div class="p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 flex items-center gap-2 text-xs">
+                    <i class="fa-solid fa-lock text-slate-500"></i>
+                    <span>Đã đính kèm <strong>${soTep} tệp minh chứng</strong> (Được ẩn trên cổng tra cứu công khai để bảo mật thông tin người gửi).</span>
+                </div>
+            `;
         } else {
             khungAnh.innerHTML = `<span class="text-slate-400 italic text-xs">Không có tệp bằng chứng đính kèm.</span>`;
         }
@@ -444,22 +726,37 @@ ${window.location.origin}/bao-cao-nghi-van
         const khungKetQua = document.getElementById('noiDungKetQuaXuLy');
         if (data.ketQua) {
             if (data.ketQua.quyetDinh === 'THU_HOI') {
-                khungKetQua.className = "p-3 rounded-xl border border-red-200 bg-red-50 text-red-900 space-y-1 text-xs";
+                const txHtml = data.ketQua.txHashThuHoi
+                    ? `<div class="pt-1 border-t border-red-200/80 flex items-center justify-between gap-2 text-[11px]">
+                           <span class="font-mono truncate">TX: ${escapeHtml(data.ketQua.txHashThuHoi)}</span>
+                           <a href="https://sepolia.etherscan.io/tx/${encodeURIComponent(data.ketQua.txHashThuHoi)}" target="_blank" class="font-bold underline shrink-0">Sepolia Etherscan</a>
+                       </div>`
+                    : '';
+
+                khungKetQua.className = 'p-3 rounded-xl border border-red-200 bg-red-50 text-red-900 space-y-1.5 text-xs';
                 khungKetQua.innerHTML = `
-                    <div class="font-bold text-red-700 flex items-center gap-1.5"><i class="fa-solid fa-ban"></i> QUYẾT ĐỊNH: THU HỒI LÔ THUỐC</div>
-                    <p>${data.ketQua.lyDoXuLy}</p>
-                    <div class="text-[10px] text-red-500 font-mono pt-0.5">Thời điểm: ${data.ketQua.ngayXuLy}</div>
+                    <div class="font-bold text-red-700 flex items-center gap-1.5"><i class="fa-solid fa-ban"></i> QUYẾT ĐỊNH: THU HỒI TOÀN BỘ LÔ THUỐC</div>
+                    <p class="leading-relaxed">${escapeHtml(data.ketQua.lyDoXuLy)}</p>
+                    ${txHtml}
+                    <div class="text-[10px] text-red-600 font-mono pt-0.5">Thời điểm: ${escapeHtml(data.ketQua.ngayXuLy)}</div>
+                `;
+            } else if (data.ketQua.quyetDinh === 'GHI_NHAN') {
+                khungKetQua.className = 'p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-950 space-y-1.5 text-xs';
+                khungKetQua.innerHTML = `
+                    <div class="font-bold text-amber-800 flex items-center gap-1.5"><i class="fa-solid fa-triangle-exclamation"></i> QUYẾT ĐỊNH: GHI NHẬN CẢNH BÁO HÀNG GIẢ NGOÀI HỆ THỐNG</div>
+                    <p class="leading-relaxed">${escapeHtml(data.ketQua.lyDoXuLy)}</p>
+                    <div class="text-[10px] text-amber-700 font-mono pt-0.5">Thời điểm: ${escapeHtml(data.ketQua.ngayXuLy)}</div>
                 `;
             } else {
-                khungKetQua.className = "p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 space-y-1 text-xs";
+                khungKetQua.className = 'p-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 space-y-1.5 text-xs';
                 khungKetQua.innerHTML = `
                     <div class="font-bold text-slate-700 flex items-center gap-1.5"><i class="fa-solid fa-circle-xmark"></i> QUYẾT ĐỊNH: TỪ CHỐI BÁO CÁO</div>
-                    <p>${data.ketQua.lyDoXuLy}</p>
-                    <div class="text-[10px] text-slate-400 font-mono pt-0.5">Thời điểm: ${data.ketQua.ngayXuLy}</div>
+                    <p class="leading-relaxed">${escapeHtml(data.ketQua.lyDoXuLy)}</p>
+                    <div class="text-[10px] text-slate-500 font-mono pt-0.5">Thời điểm: ${escapeHtml(data.ketQua.ngayXuLy)}</div>
                 `;
             }
         } else {
-            khungKetQua.className = "p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs";
+            khungKetQua.className = 'p-3 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs';
             khungKetQua.innerHTML = `<i class="fa-solid fa-hourglass-half mr-1"></i> Báo cáo đang trong tiến trình đối soát hồ sơ bởi Cơ quan quản lý Dược.`;
         }
 
