@@ -137,9 +137,9 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td class="py-3.5 px-3 text-center">
                         <div class="flex items-center justify-center gap-1.5">
                             ${isRecalled || isExpired
-                                ? '<span class="text-[11px] text-amber-600 font-medium">Không thể nhận</span>'
-                                : `<button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Xác nhận nhận hàng</button>`
-                            }
+                        ? '<span class="text-[11px] text-amber-600 font-medium">Không thể nhận</span>'
+                        : `<button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Xác nhận nhận hàng</button>`
+                    }
                             <button type="button" data-id="${item.id}" class="btn-tu-choi px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Từ chối</button>
                         </div>
                     </td>
@@ -147,104 +147,14 @@ document.addEventListener('DOMContentLoaded', function () {
             }).join('');
 
             tbody.querySelectorAll('.btn-xac-nhan').forEach(btn => {
-                btn.addEventListener('click', async function () {
-                    const approved = await window.PharmaPopup.confirm({
-                        type: 'warning',
-                        title: 'Xác nhận nhận hàng',
-                        message: 'Xác nhận tiếp nhận lô này vào kho Nhà thuốc? Hệ thống sẽ ký TransferReceived trên Ethereum Sepolia.',
-                        confirmText: 'Xác nhận nhận'
-                    });
-                    if (!approved) return;
-
-                    const modal = document.getElementById('modalLoadingBlockchain');
-                    const loading = document.getElementById('khungLoadingIcon');
-                    const success = document.getElementById('khungSuccessIcon');
-                    const failure = document.getElementById('khungFailureIcon');
-                    const title = loading?.querySelector('h4');
-                    const detail = loading?.querySelector('p');
-                    const failText = document.getElementById('failureMessageDetail');
-
-                    btn.disabled = true;
-                    btn.textContent = 'Đang ký...';
-                    if (loading) loading.classList.remove('hidden');
-                    if (success) success.classList.add('hidden');
-                    if (failure) failure.classList.add('hidden');
-                    if (title) title.textContent = 'Đang ký giao dịch tiếp nhận...';
-                    if (detail) detail.textContent = 'Đang chờ Signer ký và Ethereum Sepolia xác nhận.';
-                    modal?.classList.remove('hidden');
-
-                    try {
-                        const result = await fetchJSON(`/nha-thuoc/api/xac-nhan/${btn.dataset.id}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                        });
-                        const txHash = result.data?.txHash;
-                        if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
-                            throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
-                        }
-
-                        modal?.classList.add('hidden');
-                        await window.PharmaPopup.show({
-                            type: 'success',
-                            title: 'Nhà thuốc tiếp nhận thành công',
-                            message: result.message || 'TransferReceived đã xác nhận. Quyền sở hữu và tồn kho lô đã chuyển sang Nhà thuốc.',
-                            txHash
-                        });
-                        await Promise.all([loadChoXacNhan(currentPageCho), loadDaTiepNhan(1)]);
-                    } catch (err) {
-                        modal?.classList.add('hidden');
-                        if (failText) failText.textContent = err.message || 'Không thể hoàn tất giao dịch tiếp nhận.';
-                        toast(err.message || 'Không thể hoàn tất giao dịch tiếp nhận.', 'error');
-                        btn.disabled = false;
-                        btn.textContent = 'Xác nhận nhận hàng';
-                    }
+                btn.addEventListener('click', function () {
+                    thucHienTiepNhan(this.dataset.id);
                 });
             });
 
             tbody.querySelectorAll('.btn-tu-choi').forEach(btn => {
-                btn.addEventListener('click', async function () {
-                    const approved = await window.PharmaPopup.confirm({
-                        type: 'warning',
-                        title: 'Từ chối nhận hàng',
-                        message: 'Bạn có chắc muốn từ chối lô hàng này?',
-                        confirmText: 'Tiếp tục từ chối'
-                    });
-                    if (!approved) return;
-
-                    const lyDo = await window.PharmaPopup.prompt({
-                        type: 'info',
-                        title: 'Lý do từ chối',
-                        message: 'Nhập lý do từ chối (có thể để trống).',
-                        defaultValue: 'Nhà thuốc từ chối tiếp nhận lô hàng',
-                        confirmText: 'Ký từ chối'
-                    });
-                    if (lyDo === null) return;
-
-                    const oldText = btn.textContent;
-                    btn.disabled = true;
-                    btn.textContent = 'Đang ký...';
-                    try {
-                        const result = await fetchJSON(`/nha-thuoc/api/tu-choi/${btn.dataset.id}`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ lyDo }),
-                        });
-                        const txHash = result.data?.txHash;
-                        if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
-                            throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
-                        }
-                        await window.PharmaPopup.show({
-                            type: 'success',
-                            title: 'Đã ký từ chối nhận hàng',
-                            message: result.message || 'TransferRejected đã xác nhận. Số lượng khả dụng đã được hoàn lại cho Nhà phân phối.',
-                            txHash
-                        });
-                        await loadChoXacNhan(currentPageCho);
-                    } catch (err) {
-                        toast(err.message, 'error');
-                        btn.disabled = false;
-                        btn.textContent = oldText || 'Từ chối';
-                    }
+                btn.addEventListener('click', function () {
+                    thucHienTuChoi(this.dataset.id);
                 });
             });
 
@@ -407,18 +317,135 @@ document.addEventListener('DOMContentLoaded', function () {
         khungQR?.classList.add('hidden');
     }
 
+    async function thucHienTiepNhan(id) {
+        const approved = await window.PharmaPopup.confirm({
+            type: 'warning',
+            title: 'Xác nhận nhận hàng',
+            message: 'Xác nhận tiếp nhận lô này vào kho Nhà thuốc? Hệ thống sẽ ký TransferReceived trên Ethereum Sepolia.',
+            confirmText: 'Xác nhận nhận'
+        });
+        if (!approved) return;
+
+        const modal = document.getElementById('modalLoadingBlockchain');
+        const loading = document.getElementById('khungLoadingIcon');
+        const success = document.getElementById('khungSuccessIcon');
+        const failure = document.getElementById('khungFailureIcon');
+        const title = loading?.querySelector('h4');
+        const detail = loading?.querySelector('p');
+        const failText = document.getElementById('failureMessageDetail');
+
+        if (loading) loading.classList.remove('hidden');
+        if (success) success.classList.add('hidden');
+        if (failure) failure.classList.add('hidden');
+        if (title) title.textContent = 'Đang ký giao dịch tiếp nhận...';
+        if (detail) detail.textContent = 'Đang chờ Signer ký và Ethereum Sepolia xác nhận.';
+        modal?.classList.remove('hidden');
+
+        try {
+            const result = await fetchJSON(`/nha-thuoc/api/xac-nhan/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            const txHash = result.data?.txHash;
+            if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
+                throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
+            }
+
+            modal?.classList.add('hidden');
+            await window.PharmaPopup.show({
+                type: 'success',
+                title: 'Nhà thuốc tiếp nhận thành công',
+                message: result.message || 'TransferReceived đã xác nhận. Quyền sở hữu và tồn kho lô đã chuyển sang Nhà thuốc.',
+                txHash
+            });
+            await Promise.all([loadChoXacNhan(currentPageCho), loadDaTiepNhan(1)]);
+            if (maQRNhanHangDaGiaiMa) {
+                kiemTraNguonGocQR();
+            }
+        } catch (err) {
+            modal?.classList.add('hidden');
+            if (failText) failText.textContent = err.message || 'Không thể hoàn tất giao dịch tiếp nhận.';
+            toast(err.message || 'Không thể hoàn tất giao dịch tiếp nhận.', 'error');
+        }
+    }
+
+    async function thucHienTuChoi(id) {
+        const approved = await window.PharmaPopup.confirm({
+            type: 'warning',
+            title: 'Từ chối nhận hàng',
+            message: 'Bạn có chắc muốn từ chối lô hàng này?',
+            confirmText: 'Tiếp tục từ chối'
+        });
+        if (!approved) return;
+
+        const lyDo = await window.PharmaPopup.prompt({
+            type: 'info',
+            title: 'Lý do từ chối',
+            message: 'Nhập lý do từ chối (có thể để trống).',
+            defaultValue: 'Nhà thuốc từ chối tiếp nhận lô hàng',
+            confirmText: 'Ký từ chối'
+        });
+        if (lyDo === null) return;
+
+        try {
+            const result = await fetchJSON(`/nha-thuoc/api/tu-choi/${id}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lyDo }),
+            });
+            const txHash = result.data?.txHash;
+            if (!/^0x[a-fA-F0-9]{64}$/.test(String(txHash || ''))) {
+                throw new Error('Máy chủ chưa trả về txHash Sepolia đã xác nhận.');
+            }
+            await window.PharmaPopup.show({
+                type: 'success',
+                title: 'Đã ký từ chối nhận hàng',
+                message: result.message || 'TransferRejected đã xác nhận. Số lượng khả dụng đã được hoàn lại cho Nhà phân phối.',
+                txHash
+            });
+            await loadChoXacNhan(currentPageCho);
+            if (maQRNhanHangDaGiaiMa) {
+                kiemTraNguonGocQR();
+            }
+        } catch (err) {
+            toast(err.message, 'error');
+        }
+    }
+
+    window.xuLyTiepNhanTuQR = thucHienTiepNhan;
+    window.xuLyTuChoiTuQR = thucHienTuChoi;
+
     async function docMaQRTuAnh(file) {
-        if (!file || !file.type.startsWith('image/')) {
-            throw new Error('Vui lòng chọn tệp ảnh PNG, JPG, WEBP hoặc GIF.');
+        const isSvg = file && (file.type === 'image/svg+xml' || file.name.toLowerCase().endsWith('.svg'));
+        if (!file || (!file.type.startsWith('image/') && !isSvg)) {
+            throw new Error('Vui lòng chọn tệp ảnh PNG, JPG, WEBP hoặc SVG.');
         }
         if (file.size > 10 * 1024 * 1024) {
             throw new Error('Ảnh QR vượt quá 10 MB. Vui lòng chọn ảnh nhỏ hơn.');
         }
+
+        let imageUrl = '';
+        if (isSvg) {
+            const svgText = await file.text();
+            const svgBlob = new Blob([svgText], { type: 'image/svg+xml;charset=utf-8' });
+            imageUrl = URL.createObjectURL(svgBlob);
+
+            // 1. Kiểm tra nhanh nếu SVG có metadata QR được nhúng (data-qr-target hoặc comment PharmaChain-QR)
+            const matchDataTarget = svgText.match(/data-qr-target="([^"]+)"/i)
+                || svgText.match(/<!--\s*PharmaChain-QR:\s*([^|>\s]+)/i)
+                || svgText.match(/data-ma-lo="([^"]+)"/i);
+
+            if (matchDataTarget && matchDataTarget[1]) {
+                return { ma: chuanHoaMaQR(matchDataTarget[1]), url: imageUrl };
+            }
+        } else {
+            imageUrl = URL.createObjectURL(file);
+        }
+
         if (typeof window.jsQR !== 'function') {
             throw new Error('Không tải được thư viện giải mã QR. Kiểm tra kết nối Internet rồi tải lại trang.');
         }
 
-        const imageUrl = URL.createObjectURL(file);
         const image = new Image();
         try {
             await new Promise((resolve, reject) => {
@@ -427,17 +454,39 @@ document.addEventListener('DOMContentLoaded', function () {
                 image.src = imageUrl;
             });
 
-            const maxSide = 1800;
-            const scale = Math.min(1, maxSide / Math.max(image.naturalWidth, image.naturalHeight));
             const canvas = document.createElement('canvas');
-            canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-            canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+            const targetSize = 600;
+            canvas.width = targetSize;
+            canvas.height = targetSize;
             const context = canvas.getContext('2d', { willReadFrequently: true });
-            context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+            // Luôn phủ nền trắng tránh lỗi QR nền trong suốt
+            context.fillStyle = '#ffffff';
+            context.fillRect(0, 0, targetSize, targetSize);
+            context.drawImage(image, 0, 0, targetSize, targetSize);
+
             const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-            const decoded = window.jsQR(pixels.data, canvas.width, canvas.height, {
+            let decoded = window.jsQR(pixels.data, canvas.width, canvas.height, {
                 inversionAttempts: 'attemptBoth'
             });
+
+            // Thử scale theo tỷ lệ ảnh gốc nếu ảnh lớn
+            if (!decoded && (image.naturalWidth > 0 || image.naturalHeight > 0)) {
+                const maxSide = 1800;
+                const scale = Math.min(1, maxSide / Math.max(image.naturalWidth || 600, image.naturalHeight || 600));
+                const canvas2 = document.createElement('canvas');
+                canvas2.width = Math.max(1, Math.round((image.naturalWidth || 600) * scale));
+                canvas2.height = Math.max(1, Math.round((image.naturalHeight || 600) * scale));
+                const ctx2 = canvas2.getContext('2d', { willReadFrequently: true });
+                ctx2.fillStyle = '#ffffff';
+                ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
+                ctx2.drawImage(image, 0, 0, canvas2.width, canvas2.height);
+                const pixels2 = ctx2.getImageData(0, 0, canvas2.width, canvas2.height);
+                decoded = window.jsQR(pixels2.data, canvas2.width, canvas2.height, {
+                    inversionAttempts: 'attemptBoth'
+                });
+            }
+
             if (!decoded || !decoded.data) {
                 throw new Error('Không tìm thấy mã QR đọc được trong ảnh. Hãy chụp rõ, đủ sáng và không cắt mất viền QR.');
             }
@@ -456,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         if (ketQuaQR) {
             ketQuaQR.classList.remove('hidden');
-            ketQuaQR.innerHTML = '<p class="text-xs text-slate-500"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tra cứu dữ liệu lô và đối chiếu trạng thái Blockchain...</p>';
+            ketQuaQR.innerHTML = '<p class="text-xs text-slate-500 py-3"><i class="fa-solid fa-spinner fa-spin mr-1"></i> Đang tra cứu dữ liệu lô và đối chiếu trạng thái Blockchain Sepolia...</p>';
         }
 
         try {
@@ -468,44 +517,160 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const status = String(data.trangThai || 'UNKNOWN').toUpperCase();
             const statusMap = {
-                VALID: ['HỢP LỆ', 'bg-emerald-100 text-emerald-800 border-emerald-200'],
-                RECALLED: ['ĐÃ THU HỒI', 'bg-rose-100 text-rose-800 border-rose-200'],
-                EXPIRED: ['ĐÃ HẾT HẠN', 'bg-amber-100 text-amber-800 border-amber-200'],
-                INVALID: ['THÔNG TIN KHÔNG HỢP LỆ', 'bg-rose-100 text-rose-800 border-rose-200'],
-                NOT_FOUND: ['KHÔNG TÌM THẤY LÔ', 'bg-slate-100 text-slate-700 border-slate-200'],
-                NOT_REGISTERED_ON_CHAIN: ['CHƯA GHI NHẬN ON-CHAIN', 'bg-amber-100 text-amber-800 border-amber-200'],
-                UNAVAILABLE: ['CHƯA ĐỌC ĐƯỢC BLOCKCHAIN', 'bg-amber-100 text-amber-800 border-amber-200']
+                VALID: ['HỢP LỆ (ĐÃ XÁC THỰC ON-CHAIN)', 'bg-emerald-100 text-emerald-800 border-emerald-300'],
+                RECALLED: ['ĐÃ BỊ THU HỒI', 'bg-rose-100 text-rose-800 border-rose-300'],
+                EXPIRED: ['ĐÃ HẾT HẠN SỬ DỤNG', 'bg-amber-100 text-amber-800 border-amber-300'],
+                INVALID: ['THÔNG TIN KHÔNG HỢP LỆ', 'bg-rose-100 text-rose-800 border-rose-300'],
+                NOT_FOUND: ['KHÔNG TÌM THẤY LÔ', 'bg-slate-100 text-slate-700 border-slate-300'],
+                NOT_REGISTERED_ON_CHAIN: ['CHƯA GHI NHẬN ON-CHAIN', 'bg-amber-100 text-amber-800 border-amber-300'],
+                UNAVAILABLE: ['CHƯA ĐỌC ĐƯỢC BLOCKCHAIN', 'bg-amber-100 text-amber-800 border-amber-300']
             };
             const [statusLabel, statusClass] = statusMap[status] || ['KHÔNG XÁC ĐỊNH', 'bg-slate-100 text-slate-700 border-slate-200'];
             const maLo = String(data.maLo || '').trim();
-            const khopDonCho = maLo && danhSachChoXacNhanHienTai.some(item =>
+
+            // Đối chiếu với danh sách chờ nhận của Nhà thuốc
+            const donCho = maLo ? danhSachChoXacNhanHienTai.find(item =>
                 String(item.maLo || '').trim().toLowerCase() === maLo.toLowerCase()
-            );
-            const doiChieuDon = khopDonCho
-                ? '<p class="mt-2 text-xs font-semibold text-emerald-700"><i class="fa-solid fa-circle-check mr-1"></i> Mã QR khớp với lô đang chờ Nhà thuốc xác nhận.</p>'
-                : '<p class="mt-2 text-xs font-semibold text-amber-700"><i class="fa-solid fa-circle-info mr-1"></i> Không tìm thấy lô này trong danh sách chuyển giao đang chờ Nhà thuốc xác nhận.</p>';
+            ) : null;
+
+            let doiChieuDonHtml = '';
+            if (donCho) {
+                doiChieuDonHtml = `
+                    <div class="mt-3 p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
+                        <div>
+                            <span class="font-bold text-emerald-800 flex items-center gap-1.5">
+                                <i class="fa-solid fa-circle-check text-emerald-600"></i> Khớp với phiếu chuyển giao đang chờ Nhà thuốc tiếp nhận!
+                            </span>
+                            <span class="text-slate-600 text-[11px] block mt-0.5">
+                                Bên gửi: <strong>${escapeHtml(donCho.benGui || 'Nhà phân phối')}</strong> • Số lượng: <strong>${Number(donCho.soLuong).toLocaleString('vi-VN')} đơn vị</strong>
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <button type="button" onclick="window.xuLyTiepNhanTuQR(${donCho.id})" class="px-3.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg font-bold text-xs shadow-xs transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-check"></i> Tiếp nhận ngay
+                            </button>
+                            <button type="button" onclick="window.xuLyTuChoiTuQR(${donCho.id})" class="px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-lg font-bold text-xs shadow-xs transition-all flex items-center gap-1.5">
+                                <i class="fa-solid fa-xmark"></i> Từ chối
+                            </button>
+                        </div>
+                    </div>`;
+            } else {
+                doiChieuDonHtml = `
+                    <div class="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 flex items-center gap-2">
+                        <i class="fa-solid fa-circle-info text-slate-400"></i>
+                    </div>`;
+            }
+
             const txHash = /^0x[a-fA-F0-9]{64}$/.test(String(data.txHash || '')) ? data.txHash : '';
             const txHtml = txHash
-                ? '<a class="mt-2 inline-block break-all text-[11px] font-mono text-cyan-800 underline" target="_blank" rel="noopener" href="https://sepolia.etherscan.io/tx/' + encodeURIComponent(txHash) + '">' + escapeHtml(txHash) + '</a>'
+                ? `<div class="mt-2 text-xs text-slate-600 flex items-center gap-2 flex-wrap">
+                        <span class="font-semibold text-slate-700">Giao dịch gốc (Sepolia):</span>
+                        <a class="inline-block break-all text-[11px] font-mono text-cyan-800 font-bold hover:underline" target="_blank" rel="noopener" href="https://sepolia.etherscan.io/tx/${encodeURIComponent(txHash)}">
+                            ${escapeHtml(txHash)} <i class="fa-solid fa-arrow-up-right-from-square text-[9px]"></i>
+                        </a>
+                   </div>`
                 : '<p class="mt-2 text-[11px] text-slate-500">Chưa có txHash đăng ký lô được xác nhận.</p>';
 
-            const typeClass = status === 'VALID' ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-200 bg-slate-50';
+            // Sơ đồ luồng đi (hành trình chuyển giao)
+            const timeline = Array.isArray(data.hanhTrinh) ? data.hanhTrinh : [];
+            let timelineHtml = '';
+
+            if (timeline.length === 0) {
+                timelineHtml = `
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center text-xs text-slate-500">
+                        Chưa có lịch sử sự kiện luồng đi nào được ghi nhận cho lô này.
+                    </div>`;
+            } else {
+                const timelineItems = timeline.map((step, idx) => {
+                    const tieuDeRaw = String(step.tieuDe || '');
+                    let tieuDeText = 'Sự kiện lưu thông';
+                    let iconHtml = '<i class="fa-solid fa-circle-dot text-cyan-600"></i>';
+
+                    if (tieuDeRaw.includes('PRODUCTION') || tieuDeRaw.includes('BatchRegistered') || tieuDeRaw.includes('REGISTER')) {
+                        tieuDeText = '🏭 Khởi tạo & Sản xuất lô thuốc (Nhà sản xuất)';
+                        iconHtml = '<i class="fa-solid fa-industry text-emerald-700"></i>';
+                    } else if (tieuDeRaw.includes('RECEIVED') || tieuDeRaw.includes('TransferReceived')) {
+                        tieuDeText = '📦 Tiếp nhận vào kho thành công';
+                        iconHtml = '<i class="fa-solid fa-boxes-packing text-teal-700"></i>';
+                    } else if (tieuDeRaw.includes('PENDING') || tieuDeRaw.includes('SUBMITTED') || tieuDeRaw.includes('TransferSubmitted')) {
+                        tieuDeText = '🚚 Chuyển giao lô thuốc trong chuỗi cung ứng';
+                        iconHtml = '<i class="fa-solid fa-truck-fast text-cyan-700"></i>';
+                    } else if (tieuDeRaw.includes('REJECTED') || tieuDeRaw.includes('TransferRejected')) {
+                        tieuDeText = '❌ Từ chối tiếp nhận chuyển giao';
+                        iconHtml = '<i class="fa-solid fa-ban text-rose-600"></i>';
+                    } else if (tieuDeRaw.includes('CANCELLED') || tieuDeRaw.includes('TransferCancelled')) {
+                        tieuDeText = '🚫 Bên gửi đã hủy chuyển giao';
+                        iconHtml = '<i class="fa-solid fa-xmark text-slate-600"></i>';
+                    } else if (tieuDeRaw.includes('RECALL') || tieuDeRaw.includes('BatchRecalled')) {
+                        tieuDeText = '⚠️ Thu hồi lô thuốc';
+                        iconHtml = '<i class="fa-solid fa-triangle-exclamation text-red-600"></i>';
+                    } else if (tieuDeRaw.includes('SOLD')) {
+                        tieuDeText = '💊 Bán lẻ đến người bệnh';
+                        iconHtml = '<i class="fa-solid fa-prescription-bottle-medical text-indigo-700"></i>';
+                    }
+
+                    const txStepHash = String(step.txHash || '');
+                    const hasTx = /^0x[a-fA-F0-9]{64}$/.test(txStepHash);
+                    const txStepHtml = hasTx
+                        ? `<div class="mt-1 flex items-center gap-1.5 font-mono text-[11px] text-cyan-800">
+                                <span>txHash:</span>
+                                <a href="https://sepolia.etherscan.io/tx/${escapeHtml(txStepHash)}" target="_blank" rel="noopener" class="underline hover:text-cyan-950 font-bold truncate max-w-xs">
+                                    ${escapeHtml(txStepHash.substring(0, 10))}...${escapeHtml(txStepHash.substring(txStepHash.length - 8))}
+                                </a>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-[9px] text-slate-400"></i>
+                           </div>`
+                        : '';
+
+                    return `
+                        <div class="relative pl-7 pb-4 ${idx === timeline.length - 1 ? '' : 'border-l-2 border-emerald-900/15'}">
+                            <div class="absolute -left-2.5 top-0 w-5 h-5 rounded-full bg-white border-2 border-emerald-600 flex items-center justify-center text-[10px] shadow-xs">
+                                ${iconHtml}
+                            </div>
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center justify-between gap-2">
+                                    <span class="font-bold text-slate-900 text-xs">${escapeHtml(tieuDeText)}</span>
+                                    <span class="text-[11px] font-mono text-slate-500">${escapeHtml(step.thoiGian || '')}</span>
+                                </div>
+                                <p class="text-xs text-slate-600 leading-relaxed font-medium">${escapeHtml(step.donVi || '')}</p>
+                                ${txStepHtml}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                timelineHtml = `
+                    <div class="mt-4 pt-4 border-t border-slate-200">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center gap-2 mb-3">
+                            <i class="fa-solid fa-route text-cyan-700"></i> Luồng đi & Lịch sử lưu thông lô thuốc
+                        </h4>
+                        <div class="space-y-1 bg-white p-4 rounded-xl border border-slate-200/80">
+                            ${timelineItems}
+                        </div>
+                    </div>`;
+            }
+
+            const typeClass = status === 'VALID' ? 'border-emerald-300 bg-emerald-50/40' : 'border-slate-200 bg-slate-50';
             ketQuaQR.innerHTML = `
-                <div class="flex flex-wrap items-center gap-2">
-                    <span class="rounded-full border px-3 py-1 text-[11px] font-extrabold ${statusClass}">${statusLabel}</span>
-                    <span class="text-[11px] text-slate-500">Trạng thái đối chiếu Blockchain: ${escapeHtml(data.chainReadStatus || 'N/A')}</span>
+                <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                    <div class="flex items-center gap-2">
+                        <span class="rounded-full border px-3 py-1 text-[11px] font-extrabold ${statusClass}">${statusLabel}</span>
+                        <span class="text-[11px] text-slate-500">Đối chiếu Blockchain: <strong class="text-slate-700">${escapeHtml(data.chainReadStatus || 'N/A')}</strong></span>
+                    </div>
+                    <span class="text-[11px] text-emerald-800 font-semibold bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                        Ethereum Sepolia Verified
+                    </span>
                 </div>
-                <div class="mt-3 rounded-xl border ${typeClass} p-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                    <div><span class="block text-slate-500">Tên thuốc</span><strong class="text-slate-900">${escapeHtml(data.tenThuoc || 'Không có dữ liệu')}</strong></div>
-                    <div><span class="block text-slate-500">Mã lô</span><strong class="font-mono text-slate-900">${escapeHtml(maLo || 'Không xác định')}</strong></div>
+                <div class="mt-3 rounded-xl border ${typeClass} p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                    <div><span class="block text-slate-500">Tên sản phẩm</span><strong class="text-slate-900">${escapeHtml(data.tenThuoc || 'Không có dữ liệu')}</strong></div>
+                    <div><span class="block text-slate-500">Mã lô thuốc</span><strong class="font-mono text-slate-900">${escapeHtml(maLo || 'Không xác định')}</strong></div>
                     <div><span class="block text-slate-500">Nhà sản xuất</span><strong class="text-slate-900">${escapeHtml(data.nhaSanXuat || 'Không có dữ liệu')}</strong></div>
                     <div><span class="block text-slate-500">Hạn sử dụng</span><strong class="font-mono text-slate-900">${escapeHtml(dinhDangNgay(data.hanSuDung || ''))}</strong></div>
-                    <div><span class="block text-slate-500">Toàn vẹn hồ sơ sản phẩm</span><strong class="text-slate-900">${escapeHtml(data.productIntegrity || 'N/A')}</strong></div>
-                    <div><span class="block text-slate-500">Lô đã tồn tại trên Blockchain</span><strong class="text-slate-900">${data.batchExistsOnChain ? 'Có' : 'Chưa xác nhận'}</strong></div>
+                    <div><span class="block text-slate-500">Hồ sơ sản phẩm</span><strong class="text-slate-900">${data.productIntegrity === 'MATCH' ? '<span class="text-emerald-700 font-bold">Khớp hồ sơ duyệt</span>' : escapeHtml(data.productIntegrity || 'N/A')}</strong></div>
+                    <div><span class="block text-slate-500">Đã ghi nhận on-chain</span><strong class="text-slate-900">${data.batchExistsOnChain ? '<span class="text-emerald-700 font-bold">Đã xác nhận</span>' : 'Chưa ghi nhận'}</strong></div>
                 </div>
-                ${doiChieuDon}
+                ${doiChieuDonHtml}
                 ${txHtml}
-                <p class="mt-3 text-[11px] text-slate-500">Kết quả kiểm tra chỉ phục vụ đối chiếu. Nhà thuốc vẫn phải kiểm tra hàng thực tế và bấm xác nhận tiếp nhận riêng.</p>
+                ${timelineHtml}
             `;
         } catch (error) {
             ketQuaQR.classList.remove('hidden');
@@ -537,6 +702,8 @@ document.addEventListener('DOMContentLoaded', function () {
             if (tenTepQR) tenTepQR.textContent = file.name;
             if (maQRText) maQRText.textContent = maQRNhanHangDaGiaiMa;
             if (nutKiemTraQR) nutKiemTraQR.disabled = false;
+            // Tự động kiểm tra nguồn gốc và hiển thị luồng đi ngay sau khi giải mã QR thành công
+            await kiemTraNguonGocQR();
         } catch (error) {
             if (tenTepQR) tenTepQR.textContent = error.message || 'Không thể đọc mã QR.';
             if (ketQuaQR) {

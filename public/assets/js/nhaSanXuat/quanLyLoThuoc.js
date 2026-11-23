@@ -415,6 +415,12 @@ document.addEventListener('DOMContentLoaded', function () {
                                title="Xem chi tiết lô thuốc">
                                 <i class="fa-solid fa-eye me-1"></i> Chi tiết
                             </a>
+                            <button type="button"
+                                onclick="moModalXemQRDirect(${Number(item.id)}, '${escapeHtml(item.maLoNghiepVu || '')}')"
+                                class="px-2.5 py-1 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-lg text-[11px] font-bold shadow-2xs transition-all"
+                                title="Xem và tải mã QR lô thuốc">
+                                <i class="fa-solid fa-qrcode text-emerald-700 me-1"></i> QR
+                            </button>
                             ${canTransfer ? `
                                 <button type="button"
                                     onclick="moModalPhanPhoiDirect(${Number(item.id)}, ${getNppIntent(item)?.id ? Number(getNppIntent(item).id) : 'null'})"
@@ -731,9 +737,24 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
 
                 const maLoCuaYeuCau = result.data?.maLoNghiepVu || payload.maLoNghiepVu;
-                if (result.data?.id) {
-                    dangTheoDoiLoTaoId = Number(result.data.id);
+                const loId = result.data?.id;
+                if (loId) {
+                    dangTheoDoiLoTaoId = Number(loId);
                     batchSigningStates.set(dangTheoDoiLoTaoId, 'PENDING');
+
+                    // Cập nhật ảnh QR và nút tải về ngay trong màn hình tạo lô
+                    const anhQRTaoLo = document.getElementById('anhQRTaoLo');
+                    const nutTaiQRSvg = document.getElementById('nutTaiQRSvgTaoLo');
+                    const nutTaiQRPng = document.getElementById('nutTaiQRPngTaoLo');
+                    const qrSrc = `/nha-san-xuat/lo-thuoc/${loId}/qr`;
+                    if (anhQRTaoLo) anhQRTaoLo.src = qrSrc;
+                    if (nutTaiQRSvg) {
+                        nutTaiQRSvg.href = `${qrSrc}?download=1`;
+                        nutTaiQRSvg.setAttribute('download', `QR-${maLoCuaYeuCau}.svg`);
+                    }
+                    if (nutTaiQRPng) {
+                        nutTaiQRPng.onclick = () => taiAnhQRDangPNG(anhQRTaoLo, `QR-${maLoCuaYeuCau}`);
+                    }
                 }
                 capNhatTrangThaiModalTaoLo('PENDING');
 
@@ -776,9 +797,67 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // ================== 12. NÚT QR TRONG MODAL ==================
+    // ================== HÀM TẢI ẢNH QR DẠNG PNG QUA CANVAS ==================
+    function taiAnhQRDangPNG(imgElement, tenFile) {
+        if (!imgElement || !imgElement.src) {
+            showPopup('Chưa tải được hình ảnh mã QR.', 'warning', 'Tải ảnh PNG');
+            return;
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, 600, 600);
+            ctx.drawImage(img, 0, 0, 600, 600);
+            const a = document.createElement('a');
+            a.download = (tenFile || 'QR-Code') + '.png';
+            a.href = canvas.toDataURL('image/png');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+        img.onerror = function () {
+            // Nếu ảnh SVG crossOrigin bị chặn, mở tab tải SVG
+            window.open(imgElement.src + (imgElement.src.includes('?') ? '&' : '?') + 'download=1', '_blank');
+        };
+        img.src = imgElement.src;
+    }
+
+    // ================== 12. XEM VÀ TẢI QR LÔ ==================
+    window.moModalXemQRDirect = function(loId, maLo) {
+        const modal = document.getElementById('modalXemQR');
+        const img = document.getElementById('anhQRModalXem');
+        const textMa = document.getElementById('maLoModalXemQR');
+        const nutSvg = document.getElementById('nutTaiQRSvgModal');
+        const nutPng = document.getElementById('nutTaiQRPngModal');
+
+        if (textMa) textMa.textContent = maLo;
+        const qrSrc = `/nha-san-xuat/lo-thuoc/${loId}/qr`;
+        if (img) img.src = qrSrc;
+        if (nutSvg) {
+            nutSvg.href = `${qrSrc}?download=1`;
+            nutSvg.setAttribute('download', `QR-${maLo}.svg`);
+        }
+        if (nutPng) {
+            nutPng.onclick = () => taiAnhQRDangPNG(img, `QR-${maLo}`);
+        }
+        modal?.classList.remove('hidden');
+    };
+
+    document.getElementById('nutDongModalXemQR')?.addEventListener('click', () => {
+        document.getElementById('modalXemQR')?.classList.add('hidden');
+    });
+
     document.getElementById('nutXuatQRThungModal')?.addEventListener('click', () => {
-        showPopup('QR duy nhất của lô được tạo sau khi registerBatch xác nhận thành công.', 'info', 'Mã QR theo lô');
+        if (currentChiTietLo?.id) {
+            window.location.href = `/nha-san-xuat/lo-thuoc/${currentChiTietLo.id}/qr?download=1`;
+        } else {
+            showPopup('Không tìm thấy thông tin lô thuốc để xuất QR.', 'info', 'Mã QR theo lô');
+        }
     });
 
     // Khởi chạy

@@ -117,29 +117,60 @@ class TraCuuController extends Controller
                     : (! $batchExists ? 'NOT_REGISTERED_ON_CHAIN'
                         : ($lo->trangThaiSanPham === 'DA_DUYET' && $productIntegrity === 'MATCH' ? 'VALID' : 'INVALID'))));
 
+        // 1. Sự kiện sản xuất lô thuốc ban đầu
+        $prodTx = DB::table('blockchainTransaction')
+            ->where('loThuocId', $lo->id)
+            ->whereIn('eventName', ['BatchRegistered', 'PRODUCTION'])
+            ->latest('id')
+            ->first();
+
+        $prodStep = [
+            'tieuDe' => 'PRODUCTION',
+            'donVi' => "{$lo->tenToChuc} sản xuất lô {$lo->maLoNghiepVu} (" . number_format((int)$lo->soLuong) . " {$lo->donViTinh})",
+            'thoiGian' => $prodTx?->thoiGian ?: $lo->ngaySanXuat,
+            'canhBao' => false,
+            'txHash' => $prodTx?->txHash,
+            'blockNumber' => $prodTx?->blockNumber,
+        ];
+
+        // 2. Các chuyển giao và tiếp nhận
         $transfers = DB::table('chuyenGiao as cg')
             ->join('toChuc as bg', 'bg.id', '=', 'cg.benGuiId')
             ->join('toChuc as bn', 'bn.id', '=', 'cg.benNhanId')
             ->where('cg.loThuocId', $lo->id)->orderBy('cg.id')
-            ->get(['cg.trangThai', 'cg.soLuong', 'cg.thoiGianKhoiTao', 'cg.thoiGianXacNhan', 'bg.tenToChuc as benGui', 'bn.tenToChuc as benNhan'])
-            ->map(fn ($row) => [
-                'tieuDe' => 'CHUYEN_GIAO_' . $row->trangThai,
-                'donVi' => $row->benGui . ' → ' . $row->benNhan . ' (' . $row->soLuong . ' đơn vị)',
-                'thoiGian' => $row->thoiGianXacNhan ?: $row->thoiGianKhoiTao,
-                'canhBao' => false,
-            ])->all();
+            ->get(['cg.id', 'cg.trangThai', 'cg.soLuong', 'cg.thoiGianKhoiTao', 'cg.thoiGianXacNhan', 'bg.tenToChuc as benGui', 'bn.tenToChuc as benNhan'])
+            ->map(function ($row) {
+                $cgTx = DB::table('blockchainTransaction')
+                    ->where('chuyenGiaoId', $row->id)
+                    ->where('trangThai', 'CONFIRMED')
+                    ->latest('id')
+                    ->first();
 
+                return [
+                    'tieuDe' => 'CHUYEN_GIAO_' . $row->trangThai,
+                    'donVi' => $row->benGui . ' → ' . $row->benNhan . ' (' . number_format((int)$row->soLuong) . ' đơn vị)',
+                    'thoiGian' => $row->thoiGianXacNhan ?: $row->thoiGianKhoiTao,
+                    'canhBao' => in_array($row->trangThai, ['REJECTED', 'CANCELLED']),
+                    'txHash' => $cgTx?->txHash,
+                    'blockNumber' => $cgTx?->blockNumber,
+                ];
+            })->all();
+
+        // 3. Bán lẻ (nếu có)
         $sales = DB::table('chiTietBanLe as ct')
             ->join('banLe as bl', 'bl.id', '=', 'ct.banLeId')
             ->where('ct.loThuocId', $lo->id)->where('bl.trangThai', 'DA_HOAN_TAT')
             ->orderBy('bl.ngayBan')->get(['bl.maHoaDon', 'bl.ngayBan', 'ct.soLuong'])
             ->map(fn ($row) => [
                 'tieuDe' => 'SOLD',
-                'donVi' => "Hóa đơn {$row->maHoaDon}: bán {$row->soLuong} đơn vị.",
+                'donVi' => "Hóa đơn {$row->maHoaDon}: bán " . number_format((int)$row->soLuong) . " đơn vị.",
                 'thoiGian' => $row->ngayBan,
                 'canhBao' => false,
+                'txHash' => null,
+                'blockNumber' => null,
             ])->all();
 
+        // 4. Các sự kiện on-chain từ Signer / Sepolia contract
         $chainSteps = array_map(function (array $event): array {
             $eventName = (string) ($event['eventName'] ?? 'BlockchainEvent');
             $args = $event['args'] ?? [];
@@ -156,7 +187,8 @@ class TraCuuController extends Controller
             ];
         }, $history);
 
-        $timeline = [...$transfers, ...$sales, ...$chainSteps];
+        // Tổng hợp và sắp xếp hành trình theo thời gian
+        $timeline = [$prodStep, ...$transfers, ...$sales, ...$chainSteps];
         usort($timeline, fn ($a, $b) => strtotime((string) ($a['thoiGian'] ?? '1970-01-01')) <=> strtotime((string) ($b['thoiGian'] ?? '1970-01-01')));
 
         $soldQuantity = (int) DB::table('chiTietBanLe as ct')

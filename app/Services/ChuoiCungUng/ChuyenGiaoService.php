@@ -303,15 +303,20 @@ class ChuyenGiaoService
     {
         $blockchainTransaction = DB::transaction(function () use ($chuyenGiao, $benNhan, $taiKhoan, $ip, $lyDo): BlockchainTransaction {
             $chuyenGiao = ChuyenGiao::query()->whereKey($chuyenGiao->id)->lockForUpdate()->firstOrFail();
-            if ((int) $chuyenGiao->benNhanId !== (int) $benNhan->id || $chuyenGiao->trangThai !== TransferStatus::pending) {
+            $st = $chuyenGiao->trangThai instanceof TransferStatus ? $chuyenGiao->trangThai->value : (string) $chuyenGiao->trangThai;
+            if ((int) $chuyenGiao->benNhanId !== (int) $benNhan->id || strtoupper(trim($st)) !== TransferStatus::pending->value) {
                 throw new NghiepVuException('Giao dịch không thuộc đơn vị nhận hoặc không còn chờ tiếp nhận.');
             }
             $this->assertNoPendingTransferAction((int) $chuyenGiao->id);
 
             $loThuoc = LoThuoc::query()->whereKey($chuyenGiao->loThuocId)->lockForUpdate()->firstOrFail();
             $lyDoTuChoi = trim((string) $lyDo) ?: 'Đơn vị nhận từ chối tiếp nhận lô hàng';
-            // Chỉ lưu lý do trước; trạng thái REJECTED được chốt sau khi TransferRejected mined.
-            $chuyenGiao->update(['lyDoTuChoi' => $lyDoTuChoi]);
+            // Lưu lý do từ chối nếu có cột tương ứng
+            try {
+                $chuyenGiao->update(['lyDoTuChoi' => $lyDoTuChoi]);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('[ChuyenGiaoService] Không thể lưu lyDoTuChoi vào DB: ' . $e->getMessage());
+            }
             $tx = $this->taoGiaoDichBlockchain($chuyenGiao, $benNhan, $loThuoc, 'TransferRejected', 'TRANSFER_REJECTED');
 
 
@@ -342,7 +347,8 @@ class ChuyenGiaoService
     {
         $blockchainTransaction = DB::transaction(function () use ($chuyenGiao, $benGui, $taiKhoan, $ip): BlockchainTransaction {
             $cg = ChuyenGiao::query()->whereKey($chuyenGiao->id)->lockForUpdate()->firstOrFail();
-            if ((int) $cg->benGuiId !== (int) $benGui->id || $cg->trangThai !== TransferStatus::pending) {
+            $st = $cg->trangThai instanceof TransferStatus ? $cg->trangThai->value : (string) $cg->trangThai;
+            if ((int) $cg->benGuiId !== (int) $benGui->id || strtoupper(trim($st)) !== TransferStatus::pending->value) {
                 throw new NghiepVuException('Chỉ bên gửi mới được hủy lệnh đang chờ tiếp nhận.');
             }
             $this->assertNoPendingRecall((int) $cg->loThuocId);

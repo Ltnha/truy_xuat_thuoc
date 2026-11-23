@@ -28,7 +28,7 @@
             <button class="px-5 py-3 rounded-xl bg-cyan-800 hover:bg-cyan-900 text-white text-sm font-bold" type="submit">
                 <i class="fa-solid fa-magnifying-glass mr-1"></i> Kiểm tra lô
             </button>
-            <button id="btnMoCamera" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold" type="button"><i class="fa-solid fa-camera mr-1"></i> Quét camera</button>
+            <!-- <button id="btnMoCamera" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold" type="button"><i class="fa-solid fa-camera mr-1"></i> Quét camera</button> -->
         </form>
         <div id="qrCameraWrap" class="hidden rounded-xl border border-slate-200 p-3 space-y-2">
             <video id="qrCameraVideo" class="w-full max-h-72 rounded-lg bg-black object-contain" playsinline muted></video>

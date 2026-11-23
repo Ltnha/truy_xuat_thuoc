@@ -182,8 +182,27 @@
                 </p>
             </div>
 
+            <!-- KHU VỰC HIỂN THỊ VÀ TẢI MÃ QR LÔ THUỐC -->
+            <div id="khuVucHienThiQRTaoLo" class="p-4 bg-emerald-50/60 rounded-2xl border border-emerald-200 text-center space-y-3">
+                <div class="inline-block p-3 bg-white rounded-2xl border border-emerald-100 shadow-sm">
+                    <img id="anhQRTaoLo" src="" alt="Mã QR lô thuốc" class="w-44 h-44 object-contain mx-auto" />
+                </div>
+                <div>
+                    <h5 class="text-xs font-bold text-slate-900">Mã QR Định Danh Lô Thuốc</h5>
+                    <p class="text-[11px] text-slate-500 mt-0.5">Dùng để quét truy xuất nguồn gốc, luồng phân phối và kiểm tra tính hợp lệ trên Blockchain.</p>
+                </div>
+                <div class="flex items-center justify-center gap-2 pt-1">
+                    <a id="nutTaiQRSvgTaoLo" href="#" download class="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-download"></i> Tải QR (.SVG)
+                    </a>
+                    <button type="button" id="nutTaiQRPngTaoLo" class="px-4 py-2 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1.5">
+                        <i class="fa-solid fa-file-image"></i> Tải QR (.PNG)
+                    </button>
+                </div>
+            </div>
+
             <div class="pt-2">
-                <button type="button" class="dong-modal-lo w-full py-3 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-md transition-all">
+                <button type="button" class="dong-modal-lo w-full py-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-xl shadow-md transition-all">
                     Đã hiểu & Xem Danh Sách Lô
                 </button>
             </div>
@@ -324,6 +343,36 @@
         <div class="pt-3 border-t border-slate-100 flex justify-end">
             <button type="button" id="nutDongModalChiTietLoBottom" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
                 Đóng
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL 4: XEM VÀ TẢI MÃ QR LÔ THUỐC -->
+<div id="modalXemQR" class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 bong-xanh text-center">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-qrcode text-emerald-700"></i> Mã QR Lô Thuốc
+            </h3>
+            <button type="button" id="nutDongModalXemQR" class="text-slate-400 hover:text-slate-700 text-lg">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+        <div class="inline-block p-3 bg-white rounded-2xl border border-emerald-100 shadow-sm">
+            <img id="anhQRModalXem" src="" alt="Mã QR lô thuốc" class="w-48 h-48 object-contain mx-auto" />
+        </div>
+        <div>
+            <span class="text-xs text-slate-500">Mã lô nghiệp vụ:</span>
+            <div id="maLoModalXemQR" class="font-mono font-bold text-emerald-800 text-sm"></div>
+        </div>
+        <p class="text-[11px] text-slate-500">Mã QR chính thức đại diện cho lô, liên kết với dữ liệu on-chain Sepolia.</p>
+        <div class="flex items-center justify-center gap-2 pt-2 border-t border-slate-100">
+            <a id="nutTaiQRSvgModal" href="#" download class="flex-1 py-2.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-download"></i> Tải .SVG
+            </a>
+            <button type="button" id="nutTaiQRPngModal" class="flex-1 py-2.5 bg-cyan-700 hover:bg-cyan-800 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center justify-center gap-1.5">
+                <i class="fa-solid fa-file-image"></i> Tải .PNG
             </button>
         </div>
     </div>

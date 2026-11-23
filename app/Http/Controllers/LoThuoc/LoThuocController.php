@@ -209,12 +209,17 @@ class LoThuocController extends Controller
             return $lo;
         });
 
+        // Tự động khởi tạo bản ghi mã QR ngay khi tạo lô thuốc
+        app(\App\Services\LoThuoc\QrService::class)->sinhChoLo($loThuoc);
+
         ProcessBatchRegistrationJob::dispatch($loThuoc->id, $user->id)->afterCommit();
 
         return response()->json([
             'success' => true,
             'message' => 'Đã tiếp nhận yêu cầu tạo lô thuốc thành công! Hệ thống đang xử lý và đồng bộ lên Blockchain.',
-            'data'    => $loThuoc->load(['sanPham', 'blockchainTransactions']),
+            'data'    => $loThuoc->load(['sanPham', 'blockchainTransactions', 'qrCode']),
+            'qr_url'  => route('nha-san-xuat.lo-thuoc.qr', $loThuoc->id),
+            'qr_download_url' => route('nha-san-xuat.lo-thuoc.qr', ['id' => $loThuoc->id, 'download' => 1]),
         ]);
     }
 }

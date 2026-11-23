@@ -291,5 +291,6 @@
 @endsection
 
 @push('scripts')
+    <script src="{{ asset('assets/vendor/jsqr/jsQR.min.js') }}"></script>
     <script src="{{ asset('assets/js/nguoiTieuDung/traCuuNguonGoc.js') }}"></script>
 @endpush

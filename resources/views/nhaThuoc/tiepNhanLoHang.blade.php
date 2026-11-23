@@ -55,7 +55,7 @@
             <button type="button" id="nutQuetQRNhanHang" class="px-4 py-2.5 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-xl text-xs font-bold transition-all shadow-2xs flex items-center justify-center gap-2 shrink-0">
                 <i class="fa-solid fa-cloud-arrow-up text-sm"></i> Tải ảnh QR lên kiểm tra
             </button>
-            <input type="file" id="tepAnhQRNhanHang" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
+            <input type="file" id="tepAnhQRNhanHang" accept="image/*,.svg" class="hidden">
         </div>
 
         <!-- KHU VỰC TẢI ẢNH VÀ KIỂM TRA QR LÔ THUỐC -->
@@ -73,7 +73,7 @@
                         <i class="fa-solid fa-shield-halved mr-1"></i> Kiểm tra mã QR
                     </button>
                     <button type="button" id="nutXoaQRNhanHang" class="px-3 py-2.5 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-50 text-xs font-bold">
-                        Chọn ảnh khác
+                        Hủy
                     </button>
                 </div>
             </div>
@@ -501,6 +501,11 @@
 @endsection
 
 @push('scripts')
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsqr/1.4.0/jsQR.min.js"></script>
+    <script src="{{ asset('assets/vendor/jsqr/jsQR.min.js') }}"></script>
+    <script>
+        if (typeof window.jsQR !== 'function') {
+            document.write('<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"><\/script>');
+        }
+    </script>
     <script src="{{ asset('assets/js/nhaThuoc/tiepNhanLoHang.js') }}"></script>
 @endpush
