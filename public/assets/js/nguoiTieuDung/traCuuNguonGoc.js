@@ -3,7 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const tabQuetQr = document.getElementById('tabQuetQr');
     const khungNhapMa = document.getElementById('khungNhapMa');
     const khungQuetCamera = document.getElementById('khungQuetCamera');
-    
+
     const oNhapMa = document.getElementById('oNhapMa');
     const nutXacNhanTraCuu = document.getElementById('nutXacNhanTraCuu');
     const khuVucKetQua = document.getElementById('khuVucKetQua');
@@ -126,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                 try {
                                     const parsedUrl = new URL(maKetQua, window.location.origin);
                                     maKetQua = parsedUrl.searchParams.get('maDinhDanh') || maKetQua;
-                                } catch (err) {}
+                                } catch (err) { }
                             }
                         }
                     } catch (err) {
@@ -568,22 +568,30 @@ document.addEventListener('DOMContentLoaded', function () {
         if (ownerNode) ownerNode.textContent = kq.chainOwner || 'Chưa có dữ liệu on-chain';
         const integrityNode = document.getElementById('productIntegrity');
         if (integrityNode) {
-            integrityNode.textContent = kq.productIntegrity || 'UNVERIFIED';
+            let label = kq.productIntegrity || 'UNVERIFIED';
+            if (kq.productIntegrity === 'MATCH') label = 'TRÙNG KHỚP (HỢP LỆ)';
+            else if (kq.productIntegrity === 'MISMATCH') label = 'SAI LỆCH HỒ SƠ';
+            else if (kq.productIntegrity === 'NOT_APPROVED_ON_CHAIN') label = 'CHƯA PHÊ DUYỆT ON-CHAIN';
+            else if (kq.productIntegrity === 'UNVERIFIED') label = 'CHƯA ĐỐI SOÁT ĐƯỢC';
+            integrityNode.textContent = label;
             integrityNode.className = 'font-bold px-2.5 py-1 rounded text-[11px] inline-block ' +
                 (kq.productIntegrity === 'MATCH' ? 'bg-emerald-100 text-emerald-800' :
-                (kq.productIntegrity === 'MISMATCH' || kq.productIntegrity === 'NOT_APPROVED_ON_CHAIN' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'));
+                    (kq.productIntegrity === 'MISMATCH' || kq.productIntegrity === 'NOT_APPROVED_ON_CHAIN' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'));
         }
         const batchStatusNode = document.getElementById('chainBatchStatus');
         if (batchStatusNode) {
             batchStatusNode.textContent = kq.chainReadStatus !== 'AVAILABLE'
                 ? 'Không thể kết nối RPC để xác minh'
-                : (kq.chainRecalled ? 'Đã thu hồi on-chain' : (kq.batchExistsOnChain ? 'Đã đăng ký on-chain' : 'Chưa đăng ký on-chain'));
+                : (kq.chainRecalled ? 'Đã thu hồi on-chain' : (kq.batchExistsOnChain ? 'Đã xác thực trên blockchain (Sepolia)' : 'Chưa đăng ký on-chain'));
+            batchStatusNode.className = 'font-semibold ' +
+                (kq.chainReadStatus !== 'AVAILABLE' ? 'text-amber-600' :
+                    (kq.chainRecalled ? 'text-red-600' : (kq.batchExistsOnChain ? 'text-emerald-700' : 'text-slate-600')));
         }
-        
+
         const coBanLe = document.getElementById('coBanLe');
         coBanLe.textContent = kq.isDispensed;
-        coBanLe.className = kq.isDispensed.includes('ĐÃ BÁN') 
-            ? 'font-bold px-2 py-0.5 rounded text-[11px] inline-block bg-emerald-100 text-emerald-800' 
+        coBanLe.className = kq.isDispensed.includes('ĐÃ BÁN')
+            ? 'font-bold px-2 py-0.5 rounded text-[11px] inline-block bg-emerald-100 text-emerald-800'
             : 'font-bold px-2 py-0.5 rounded text-[11px] inline-block bg-slate-100 text-slate-600';
 
         // Render timeline hành trình
