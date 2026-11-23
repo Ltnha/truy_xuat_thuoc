@@ -168,6 +168,30 @@
     <!-- KHU VỰC HIỂN THỊ KẾT QUẢ XÁC THỰC (Mặc định ẩn, hiện khi tra cứu) -->
     <div id="khuVucKetQua" class="hidden space-y-6">
 
+        <!-- TRẠNG THÁI ĐANG XÁC THỰC (Loading Animation khi bấm Xác Thực Ngay) -->
+        <div id="khungDangXacThuc" class="hidden p-8 sm:p-12 bg-white rounded-2xl border border-emerald-900/10 text-center space-y-4 bong-xanh">
+            <div class="relative w-16 h-16 mx-auto">
+                <div class="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center text-3xl shadow-xs border border-emerald-200">
+                    <i class="fa-solid fa-shield-halved animate-pulse"></i>
+                </div>
+                <div class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-xs">
+                    <i class="fa-solid fa-circle-notch fa-spin text-emerald-700 text-sm"></i>
+                </div>
+            </div>
+            <div class="space-y-1.5">
+                <h3 class="text-base sm:text-lg font-bold text-slate-900">Đang Tiến Hành Xác Thực Trên Blockchain...</h3>
+                <p class="text-xs text-slate-500 max-w-lg mx-auto leading-relaxed">
+                    Hệ thống đang truy vấn dữ liệu on-chain Ethereum Sepolia, kiểm tra bằng chứng chữ ký số, tình trạng thu hồi và đối chiếu tính toàn vẹn hồ sơ của lô thuốc.
+                </p>
+            </div>
+            <div class="flex items-center justify-center gap-2 text-[11px] text-emerald-800 font-mono font-semibold pt-1">
+                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                Đang kết nối RPC Sepolia Node & xác minh Smart Contract...
+            </div>
+        </div>
+
+        <div id="noiDungKetQuaXacThuc" class="space-y-6">
+
         <!-- BANNER TRẠNG THÁI CHÍNH (VALID, INVALID, RECALLED, EXPIRED, NOT_FOUND) -->
         <div id="bannerTrangThai" class="p-6 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bong-xanh">
             <div class="flex items-center gap-4">
@@ -185,7 +209,7 @@
             </div>
 
             <!-- Nút báo cáo nghi vấn nhanh -->
-            <a id="nutBaoCaoNghiVan" href="../congKhai/baoCaoNghiVan.php" class="px-4 py-2.5 rounded-xl border border-amber-600 text-amber-700 hover:bg-amber-50 font-bold text-xs transition-all flex items-center gap-2 shrink-0">
+            <a id="nutBaoCaoNghiVan" href="{{ route('bao-cao.public.form') }}" class="px-4 py-2.5 rounded-xl border border-amber-600 text-amber-700 hover:bg-amber-50 font-bold text-xs transition-all flex items-center gap-2 shrink-0">
                 <i class="fa-solid fa-triangle-exclamation text-amber-600"></i> Báo Cáo Bất Thường
             </a>
         </div>
@@ -284,6 +308,7 @@
                     <p class="leading-relaxed">Dữ liệu trên đã được đối chiếu trực tiếp từ địa chỉ Smart Contract chính thức của cơ quan quản lý dược phẩm.</p>
                 </div>
             </div>
+        </div>
         </div>
     </div>
 </main>

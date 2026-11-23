@@ -20,7 +20,7 @@
             <div>
                 <h4 class="text-xs font-bold text-emerald-700 uppercase tracking-wider mb-4">Dành Cho Người Dân</h4>
                 <ul class="space-y-2.5 text-xs text-slate-600 font-medium">
-                    <li><a href="{{ url('/tra-cuu') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Quét mã QR thuốc</a></li>
+                    <li><a href="{{ route('tra-cuu') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Quét mã QR thuốc</a></li>
                     <li><a href="{{ url('/lich-su-tra-cuu') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Lịch sử kiểm tra gần đây</a></li>
                     <li><a href="{{ url('/bao-cao-nghi-van') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Gửi cảnh báo thuốc nghi giả</a></li>
                     <li><a href="{{ url('/#canhBaoThuoc') }}" class="hover:text-emerald-700"><i class="fa-solid fa-angle-right mr-1.5"></i> Danh sách thuốc bị thu hồi</a></li>

@@ -45,6 +45,7 @@ use App\Http\Controllers\BaoCao\BaoCaoNghiVanController;
 // =========================================================================
 Route::get('/', [TrangChuController::class, 'index'])->name('home');
 Route::get('/tra-cuu-nguon-goc', fn() => view('nguoiTieuDung.traCuuNguonGoc'))->name('tra-cuu');
+Route::redirect('/tra-cuu', '/tra-cuu-nguon-goc');
 Route::get('/api/tra-cuu-nguon-goc/{ma}', [TraCuuController::class, 'api'])->name('api.tra-cuu-nguon-goc');
 Route::get('/lich-su-tra-cuu', fn() => view('nguoiTieuDung.lichSuTraCuu'));
 

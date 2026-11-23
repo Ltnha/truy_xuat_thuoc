@@ -23,7 +23,7 @@
         <!-- Cụm nút hành động bên phải -->
         <div class="flex items-center gap-3">
             <!-- Nút Quay lại trang tra cứu -->
-            <a href="{{ url('/tra-cuu') }}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-bold transition-all shadow-sm">
+            <a href="{{ route('tra-cuu') }}" class="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200/80 text-xs font-bold transition-all shadow-sm">
                 <i class="fa-solid fa-arrow-left"></i> Quay Lại Tra Cứu
             </a>
 
@@ -81,7 +81,7 @@
                 </p>
             </div>
             <div class="pt-2">
-                <a href="traCuuNguonGoc.php" class="inline-flex items-center gap-2 px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md transition-all">
+                <a href="{{ route('tra-cuu') }}" class="inline-flex items-center gap-2 px-6 py-3 bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs rounded-xl shadow-md transition-all">
                     <i class="fa-solid fa-qrcode"></i> Tra Cứu Thuốc Ngay
                 </a>
             </div>

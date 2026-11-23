@@ -289,6 +289,13 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    oNhapMa.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            thucHienTraCuu(oNhapMa.value.trim());
+        }
+    });
+
     nutXacNhanTraCuu.addEventListener('click', () => {
         thucHienTraCuu(oNhapMa.value.trim());
     });
@@ -387,8 +394,28 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
+        const khungDangXacThuc = document.getElementById('khungDangXacThuc');
+        const noiDungKetQua = document.getElementById('noiDungKetQuaXacThuc');
+
+        // 1. Cập nhật nút bấm hiển thị trạng thái đang xác thực
+        if (nutXacNhanTraCuu) {
+            nutXacNhanTraCuu.disabled = true;
+            nutXacNhanTraCuu.classList.add('opacity-75', 'cursor-not-allowed');
+            nutXacNhanTraCuu.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Đang Xác Thực...';
+        }
+        if (nutTraCuuTuAnh) {
+            nutTraCuuTuAnh.disabled = true;
+            nutTraCuuTuAnh.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Đang Xác Thực...';
+        }
+
+        // 2. Mở khu vực kết quả và hiển thị loading animation
         khuVucKetQua.classList.remove('hidden');
         khuVucKetQua.setAttribute('aria-busy', 'true');
+        if (khungDangXacThuc) khungDangXacThuc.classList.remove('hidden');
+        if (noiDungKetQua) noiDungKetQua.classList.add('hidden');
+
+        // Cuộn mượt đến vị trí kết quả để người dùng theo dõi tiến trình
+        khuVucKetQua.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         try {
             const response = await fetch('/api/tra-cuu-nguon-goc/' + encodeURIComponent(ma), {
@@ -426,6 +453,18 @@ document.addEventListener('DOMContentLoaded', function () {
             console.error(error);
         } finally {
             khuVucKetQua.removeAttribute('aria-busy');
+            if (khungDangXacThuc) khungDangXacThuc.classList.add('hidden');
+            if (noiDungKetQua) noiDungKetQua.classList.remove('hidden');
+
+            if (nutXacNhanTraCuu) {
+                nutXacNhanTraCuu.disabled = false;
+                nutXacNhanTraCuu.classList.remove('opacity-75', 'cursor-not-allowed');
+                nutXacNhanTraCuu.innerHTML = '<i class="fa-solid fa-shield-halved mr-1.5"></i> Xác Thực Ngay';
+            }
+            if (nutTraCuuTuAnh) {
+                nutTraCuuTuAnh.disabled = false;
+                nutTraCuuTuAnh.innerHTML = '<i class="fa-solid fa-shield-halved mr-1.5"></i> Xác thực lại nguồn gốc';
+            }
         }
     }
 
