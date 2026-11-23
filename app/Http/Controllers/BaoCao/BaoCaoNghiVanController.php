@@ -12,7 +12,9 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
@@ -32,6 +34,16 @@ class BaoCaoNghiVanController extends Controller
         }
 
         return view('nguoiTieuDung.baoCaoNghiVan');
+    }
+
+    /**
+     * Chuẩn hóa trạng thái lô thuốc về chuỗi in hoa
+     */
+    private function layTrangThaiLoStr(LoThuoc $loThuoc): string
+    {
+        return $loThuoc->trangThai instanceof \BackedEnum
+            ? $loThuoc->trangThai->value
+            : strtoupper((string) $loThuoc->trangThai);
     }
 
     /**
@@ -112,11 +124,15 @@ class BaoCaoNghiVanController extends Controller
             ]);
         }
 
+        $trangThai = $this->layTrangThaiLoStr($loThuoc);
+
         return response()->json([
             'success' => true,
             'data' => [
                 'maLoNghiepVu' => $loThuoc->maLoNghiepVu,
                 'tenSanPham' => $loThuoc->sanPham?->tenSanPham ?? 'Dược phẩm đã đăng ký trên hệ thống',
+                'trangThai' => $trangThai,
+                'daThuHoi' => $trangThai === 'RECALLED',
             ],
         ]);
     }
@@ -126,6 +142,21 @@ class BaoCaoNghiVanController extends Controller
      */
     public function storePublic(Request $request): JsonResponse
     {
+        $ipHash = sha1((string) $request->ip());
+        $spamRateKey = 'public-report-ip:' . $ipHash;
+
+        // Chống spam liên tục từ cùng 1 IP (tối đa 10 báo cáo / 5 phút)
+        if (RateLimiter::tooManyAttempts($spamRateKey, 10)) {
+            $seconds = RateLimiter::availableIn($spamRateKey);
+            $minutes = max(1, (int) ceil($seconds / 60));
+
+            return response()->json([
+                'success' => false,
+                'code' => 'RATE_LIMITED',
+                'message' => "Bạn đã gửi quá nhiều báo cáo trong thời gian ngắn. Vui lòng thử lại sau khoảng {$minutes} phút.",
+            ], 429);
+        }
+
         $validated = $request->validate([
             'maLo' => ['required', 'string', 'max:255'],
             'lyDo' => ['required', 'string', 'max:500'],
@@ -143,10 +174,48 @@ class BaoCaoNghiVanController extends Controller
         $token = $this->trichXuatTokenHoacMa($validated['maLo']);
         $loThuoc = $this->timLoThuocTheoMa($validated['maLo']);
 
+        // ĐỀ XUẤT 1: Chặn gửi báo cáo nếu lô thuốc đã bị Cơ quan quản lý thu hồi
+        if ($loThuoc && $this->layTrangThaiLoStr($loThuoc) === 'RECALLED') {
+            return response()->json([
+                'success' => false,
+                'code' => 'BATCH_RECALLED',
+                'message' => "Lô thuốc [{$loThuoc->maLoNghiepVu}] đã bị Cơ quan quản lý ban hành lệnh THU HỒI trên toàn hệ thống. Không thể gửi thêm báo cáo cho lô này.",
+            ], 422);
+        }
+
         $loaiBaoCao = $loThuoc ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG';
         $maLoChuan = $loThuoc
             ? $loThuoc->maLoNghiepVu
             : Str::limit(strtoupper($token), 50, '');
+
+        // ĐỀ XUẤT 2 (Lớp Server - Khóa ngắn hạn 30 phút): Tránh gửi đúp nhưng không chặn oan người dùng khác chung IP 4G/Wi-Fi
+        $duplicateCacheKey = 'public_report_lock:' . $ipHash . ':' . sha1($maLoChuan);
+        if (Cache::has($duplicateCacheKey)) {
+            $existingCode = (string) Cache::get($duplicateCacheKey);
+            $existingReport = BaoCaoNghiVan::where('maBaoCao', $existingCode)->first();
+
+            if ($existingReport) {
+                $trangThaiCu = $existingReport->trangThai instanceof \BackedEnum
+                    ? $existingReport->trangThai->value
+                    : strtoupper((string) $existingReport->trangThai);
+
+                if (in_array($trangThaiCu, ['DA_GUI', 'DANG_XU_LY'], true)) {
+                    return response()->json([
+                        'success' => false,
+                        'code' => 'DUPLICATE_REPORT',
+                        'existingMaBaoCao' => $existingCode,
+                        'existingMaLo' => $maLoChuan,
+                        'existingNgayGui' => $existingReport->ngayGui ? date('d/m/Y H:i', strtotime($existingReport->ngayGui)) : date('d/m/Y H:i'),
+                        'existingTrangThai' => $trangThaiCu,
+                        'message' => "Mã lô [{$maLoChuan}] vừa được ghi nhận báo cáo [{$existingCode}] từ cùng địa chỉ mạng và đang chờ xử lý. Vui lòng theo dõi phiếu này hoặc bổ sung bằng chứng mới sau 30 phút.",
+                    ], 429);
+                }
+            }
+
+            // Nếu hồ sơ cũ đã được Cơ quan quản lý xử lý xong (DA_XU_LY), tự giải phóng khóa
+            Cache::forget($duplicateCacheKey);
+        }
+
         $ngayGui = now();
 
         $maBaoCao = DB::transaction(function () use ($request, $validated, $loThuoc, $loaiBaoCao, $maLoChuan, $ngayGui) {
@@ -184,6 +253,10 @@ class BaoCaoNghiVanController extends Controller
 
             return $code;
         });
+
+        // Lưu khóa chống trùng ngắn hạn 30 phút cho cặp (IP + mã lô) & ghi nhận bộ đếm 10 lượt / 5 phút (300 giây)
+        Cache::put($duplicateCacheKey, $maBaoCao, now()->addMinutes(30));
+        RateLimiter::hit($spamRateKey, 300);
 
         return response()->json([
             'success' => true,

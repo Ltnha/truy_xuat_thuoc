@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const formGui = document.getElementById('formGuiBaoCao');
     const oNhapMaLoPublic = document.getElementById('maLoBaoCao');
     const trangThaiNhanDienLo = document.getElementById('trangThaiNhanDienLo');
+    const submitBtn = document.getElementById('nutGuiBaoCaoSubmit');
     const inputAnhQR = document.getElementById('inputAnhQR');
     const inputTep = document.getElementById('tepMinhChung');
     const khungKeoTha = document.getElementById('khungKeoThaMinhChung');
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let danhSachTepTam = [];
     let baoCaoVuaGui = null;
     let timerKiemTraMaLo = null;
+    let lyDoChanGuiHienTai = '';
 
     function escapeHtml(str) {
         if (str == null) return '';
@@ -51,6 +53,21 @@ document.addEventListener('DOMContentLoaded', function () {
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;');
+    }
+
+    function capNhatTrangThaiNutGui(biChan, lyDoChan = '') {
+        lyDoChanGuiHienTai = biChan ? lyDoChan : '';
+        if (!submitBtn) return;
+
+        if (biChan) {
+            submitBtn.disabled = true;
+            submitBtn.classList.remove('bg-emerald-700', 'hover:bg-emerald-800', 'cursor-pointer');
+            submitBtn.classList.add('bg-slate-300', 'text-slate-500', 'cursor-not-allowed');
+        } else {
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('bg-slate-300', 'text-slate-500', 'cursor-not-allowed');
+            submitBtn.classList.add('bg-emerald-700', 'hover:bg-emerald-800', 'text-white', 'cursor-pointer');
+        }
     }
 
     function hienThongBao(noiDung, loai = 'error') {
@@ -94,7 +111,7 @@ document.addEventListener('DOMContentLoaded', function () {
     if (tabGui) tabGui.addEventListener('click', batTabGui);
     if (tabLichSu) tabLichSu.addEventListener('click', batTabLichSu);
 
-    // ══ ĐỐI CHIẾU NHANH MÃ LÔ KHI NHẬP HOẶC TẢI ẢNH QR ══
+    // ══ ĐỐI CHIẾU NHANH MÃ LÔ, KIỂM TRA THU HỒI & CHẶN GỬI TRÙNG ══
     function trichXuatDinhDanhTuQR(rawText) {
         const text = (rawText || '').trim();
         if (!text) return { value: '', isToken: false };
@@ -165,6 +182,58 @@ document.addEventListener('DOMContentLoaded', function () {
         trangThaiNhanDienLo.innerHTML = html;
     }
 
+    /**
+     * Đề xuất 2 (Lớp trình duyệt): Kiểm tra mã lô có phiếu đang chờ xử lý trên trình duyệt không,
+     * đồng thời đối soát lại trạng thái mới nhất từ server để tránh khóa oan nếu phiếu cũ đã được thẩm định xong.
+     */
+    async function kiemTraBaoCaoTrungTrenTrinhDuyet(maLoCanKiemTra) {
+        const code = (maLoCanKiemTra || '').trim().toUpperCase();
+        if (!code) return null;
+
+        const banGhiCu = duLieuLuuTru.find(item =>
+            (item.maLo || '').trim().toUpperCase() === code
+            && (item.trangThai === 'DA_GUI' || item.trangThai === 'DANG_XU_LY')
+        );
+
+        if (!banGhiCu) return null;
+
+        try {
+            const res = await fetch(`/api/bao-cao-nghi-van/tra-cuu/${encodeURIComponent(banGhiCu.maBaoCao)}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const json = await res.json();
+            if (res.ok && json.success && json.data) {
+                luuVaoLichSuKhongTrungLap({
+                    maBaoCao: json.data.maBaoCao,
+                    maLo: json.data.maLo,
+                    ngayGui: json.data.ngayGui,
+                    trangThai: json.data.trangThai
+                });
+
+                if (json.data.trangThai === 'DA_GUI' || json.data.trangThai === 'DANG_XU_LY') {
+                    return json.data;
+                }
+                return null;
+            }
+        } catch (e) { /* Nếu mất kết nối tạm thời thì dùng trạng thái lưu cục bộ */ }
+
+        return banGhiCu;
+    }
+
+    function hienCanhBaoTrungBaoCao(baoCaoTrung, maLoHienThi) {
+        const lyDo = `Bạn đã gửi báo cáo [${baoCaoTrung.maBaoCao}] cho lô [${maLoHienThi}] và hồ sơ đang chờ Cơ quan quản lý thẩm định.`;
+        capNhatTrangThaiNutGui(true, lyDo);
+        hienTrangThaiLo(
+            `<i class="fa-solid fa-circle-info mr-1"></i> Bạn đã gửi báo cáo (<strong>${escapeHtml(baoCaoTrung.maBaoCao)}</strong>) cho lô <strong>${escapeHtml(maLoHienThi)}</strong> và hồ sơ đang chờ thẩm định. <button type="button" data-ma-bc="${escapeHtml(baoCaoTrung.maBaoCao)}" class="btn-xem-phieu-trung underline font-bold cursor-pointer ml-1">Xem tiến trình &rarr;</button>`,
+            'info'
+        );
+
+        trangThaiNhanDienLo?.querySelector('.btn-xem-phieu-trung')?.addEventListener('click', function () {
+            const maBc = this.getAttribute('data-ma-bc');
+            if (maBc) thucHienTraCuu(maBc);
+        });
+    }
+
     async function kiemTraNhanhMaLo(rawInput) {
         if (!trangThaiNhanDienLo) return;
         const parsed = trichXuatDinhDanhTuQR(rawInput);
@@ -172,12 +241,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         if (!queryCode) {
             trangThaiNhanDienLo.classList.add('hidden');
+            capNhatTrangThaiNutGui(false);
             return;
         }
 
         if (oNhapMaLoPublic && oNhapMaLoPublic.value.trim() !== queryCode) {
             oNhapMaLoPublic.value = queryCode;
         }
+
+        capNhatTrangThaiNutGui(false);
 
         try {
             const res = await fetch(`/api/bao-cao-nghi-van/kiem-tra-lo?code=${encodeURIComponent(queryCode)}`, {
@@ -186,11 +258,30 @@ document.addEventListener('DOMContentLoaded', function () {
             const json = await res.json();
 
             if (res.ok && json.success) {
-                const maLoChuan = json.data?.maLoNghiepVu || '';
+                const maLoChuan = String(json.data?.maLoNghiepVu || '').toUpperCase();
                 const tenThuoc = json.data?.tenSanPham || 'Dược phẩm đã đăng ký trên hệ thống';
+                const daThuHoi = json.data?.trangThai === 'RECALLED' || json.data?.daThuHoi === true;
 
                 if (maLoChuan && oNhapMaLoPublic) {
-                    oNhapMaLoPublic.value = String(maLoChuan).toUpperCase();
+                    oNhapMaLoPublic.value = maLoChuan;
+                }
+
+                // ĐỀ XUẤT 1: Lô đã bị thu hồi -> Khóa gửi báo cáo ngay
+                if (daThuHoi) {
+                    const msgChan = `Lô thuốc [${maLoChuan}] đã bị Cơ quan quản lý ban hành lệnh THU HỒI. Không thể gửi thêm báo cáo cho lô này.`;
+                    capNhatTrangThaiNutGui(true, msgChan);
+                    hienTrangThaiLo(
+                        `<i class="fa-solid fa-ban mr-1"></i> Lô thuốc <strong>${escapeHtml(maLoChuan)}</strong> (${escapeHtml(tenThuoc)}) <strong>ĐÃ BỊ THU HỒI</strong> bởi Cơ quan quản lý. Không thể gửi thêm báo cáo — <a href="/tra-cuu-nguon-goc?maDinhDanh=${encodeURIComponent(maLoChuan)}" class="underline font-bold">Xem chi tiết thu hồi</a>.`,
+                        'error'
+                    );
+                    return;
+                }
+
+                // ĐỀ XUẤT 2: Kiểm tra trùng báo cáo đang chờ xử lý
+                const baoCaoTrung = await kiemTraBaoCaoTrungTrenTrinhDuyet(maLoChuan);
+                if (baoCaoTrung) {
+                    hienCanhBaoTrungBaoCao(baoCaoTrung, maLoChuan);
+                    return;
                 }
 
                 hienTrangThaiLo(
@@ -198,9 +289,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     'success'
                 );
             } else {
+                const maNgoaiHeThong = (!parsed.isToken && !/^https?:\/\//i.test(queryCode))
+                    ? queryCode.toUpperCase()
+                    : queryCode;
+
                 if (!parsed.isToken && oNhapMaLoPublic && !/^https?:\/\//i.test(queryCode)) {
-                    oNhapMaLoPublic.value = queryCode.toUpperCase();
+                    oNhapMaLoPublic.value = maNgoaiHeThong;
                 }
+
+                // ĐỀ XUẤT 2: Chặn trùng cả với mã lô ngoài hệ thống đang chờ xử lý
+                const baoCaoTrung = await kiemTraBaoCaoTrungTrenTrinhDuyet(maNgoaiHeThong);
+                if (baoCaoTrung) {
+                    hienCanhBaoTrungBaoCao(baoCaoTrung, maNgoaiHeThong);
+                    return;
+                }
+
                 hienTrangThaiLo(
                     `<i class="fa-solid fa-triangle-exclamation mr-1"></i> Mã lô chưa có trên hệ thống — sẽ được ghi nhận theo diện <strong>Lô ngoài hệ thống / Nghi giả</strong>.`,
                     'warning'
@@ -300,6 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 await kiemTraNhanhMaLo(parsed.value);
             }
         } catch (err) {
+            capNhatTrangThaiNutGui(false);
             hienTrangThaiLo(
                 `<i class="fa-solid fa-circle-xmark mr-1"></i> Không nhận diện được mã QR trong tệp này. Vui lòng chọn ảnh rõ nét hơn.`,
                 'error'
@@ -384,8 +488,12 @@ document.addEventListener('DOMContentLoaded', function () {
             e.preventDefault();
             anThongBao();
 
+            if (lyDoChanGuiHienTai) {
+                hienThongBao(lyDoChanGuiHienTai);
+                return;
+            }
+
             const formData = new FormData(formGui);
-            const submitBtn = document.getElementById('nutGuiBaoCaoSubmit');
             submitBtn.disabled = true;
             submitBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Đang gửi báo cáo...`;
 
@@ -403,14 +511,19 @@ document.addEventListener('DOMContentLoaded', function () {
             .then(async res => {
                 const json = await res.json();
                 if (!res.ok || !json.success) {
-                    const firstErr = json.errors ? Object.values(json.errors)[0]?.[0] : null;
-                    throw new Error(firstErr || json.message || 'Không thể gửi báo cáo!');
+                    const err = new Error(
+                        (json.errors ? Object.values(json.errors)[0]?.[0] : null)
+                        || json.message
+                        || 'Không thể gửi báo cáo!'
+                    );
+                    err.payload = json;
+                    throw err;
                 }
                 return json;
             })
             .then(res => {
-                submitBtn.disabled = false;
                 submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Gửi Báo Cáo Nghi Vấn`;
+                capNhatTrangThaiNutGui(false);
 
                 const data = res.data;
                 baoCaoVuaGui = data;
@@ -430,8 +543,27 @@ document.addEventListener('DOMContentLoaded', function () {
                 dongBoInputFiles();
             })
             .catch(err => {
-                submitBtn.disabled = false;
                 submitBtn.innerHTML = `<i class="fa-solid fa-paper-plane"></i> Gửi Báo Cáo Nghi Vấn`;
+                const payload = err.payload || {};
+
+                if (payload.code === 'BATCH_RECALLED') {
+                    capNhatTrangThaiNutGui(true, err.message);
+                    hienTrangThaiLo(`<i class="fa-solid fa-ban mr-1"></i> ${escapeHtml(err.message)}`, 'error');
+                } else if (payload.code === 'DUPLICATE_REPORT' && payload.existingMaBaoCao) {
+                    luuVaoLichSuKhongTrungLap({
+                        maBaoCao: payload.existingMaBaoCao,
+                        maLo: payload.existingMaLo || (oNhapMaLoPublic?.value || '').trim().toUpperCase(),
+                        ngayGui: payload.existingNgayGui || '--',
+                        trangThai: payload.existingTrangThai || 'DA_GUI'
+                    });
+                    hienCanhBaoTrungBaoCao(
+                        { maBaoCao: payload.existingMaBaoCao },
+                        payload.existingMaLo || (oNhapMaLoPublic?.value || '').trim().toUpperCase()
+                    );
+                } else {
+                    capNhatTrangThaiNutGui(false);
+                }
+
                 hienThongBao(err.message || 'Đã xảy ra lỗi kết nối máy chủ!');
             });
         });
@@ -649,6 +781,9 @@ HƯỚNG DẪN TRA CỨU TIẾN TRÌNH XỬ LÝ:
                 localStorage.removeItem(STORAGE_KEY);
                 duLieuLuuTru = [];
                 renderBangLichSu();
+                if (oNhapMaLoPublic?.value.trim()) {
+                    kiemTraNhanhMaLo(oNhapMaLoPublic.value);
+                }
             }
         });
     }
