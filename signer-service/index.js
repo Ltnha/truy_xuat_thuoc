@@ -1,17 +1,22 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 const express = require('express');
 const { ethers } = require('ethers');
 const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 
 const app = express();
 app.use(express.json({ limit: '1mb' }));
 
-const PORT = Number(process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 3001);
 const WALLETS_FILE = path.join(__dirname, 'wallets.json');
 const provider = new ethers.JsonRpcProvider(process.env.BLOCKCHAIN_RPC_URL);
-const adminWallet = new ethers.Wallet(process.env.ADMIN_PRIVATE_KEY, provider);
+const adminPrivateKey = process.env.ADMIN_PRIVATE_KEY || process.env.BLOCKCHAIN_PRIVATE_KEY;
+if (!adminPrivateKey) {
+    throw new Error('Thiếu ADMIN_PRIVATE_KEY hoặc BLOCKCHAIN_PRIVATE_KEY.');
+}
+const adminWallet = new ethers.Wallet(adminPrivateKey, provider);
 const CONTRACT_ABI = require('../API.json');
 const CONTRACT_ADDRESS = process.env.BLOCKCHAIN_CONTRACT_ADDRESS;
 const MASTER_KEY = Buffer.from(process.env.ENCRYPTION_MASTER_KEY || '', 'utf8');
@@ -398,12 +403,12 @@ app.get('/products/check', authMiddleware, async (req, res) => {
         if (isApproved) {
             try {
                 const latest = await provider.getBlockNumber();
-                const fromBlock = Math.max(0, latest - 40000);
+                const fromBlock = Math.max(0, latest - 5000);
                 const logs = await contract.queryFilter(
                     contract.filters.ProductApproved(productId),
                     fromBlock,
                     latest
-                );
+                ).catch(() => []);
                 const found = logs.length ? logs[logs.length - 1] : null;
                 if (found) {
                     txHash = found.transactionHash;
@@ -443,7 +448,8 @@ app.get('/events/check-batch', authMiddleware, async (req, res) => {
         let txHash = null, blockNumber = null, blockTimestamp = null;
         if (isRecorded) {
             const latest = await provider.getBlockNumber();
-            const logs = await contract.queryFilter(contract.filters.BatchEventRecorded(batchId, businessId), Math.max(0, latest - 40000), latest);
+            const fromBlock = Math.max(0, latest - 5000);
+            const logs = await contract.queryFilter(contract.filters.BatchEventRecorded(batchId, businessId), fromBlock, latest).catch(() => []);
             const found = logs.find(log => String(log.args.eventType).toLowerCase() === eventType.toLowerCase());
             if (found) {
                 txHash = found.transactionHash;
@@ -466,9 +472,10 @@ app.get('/transfers/check', authMiddleware, async (req, res) => {
         const allowed = ['TransferSubmitted', 'TransferReceived', 'TransferRejected', 'TransferCancelled'];
         if (!allowed.includes(eventName)) throw new Error('eventName không được hỗ trợ.');
         const latest = await provider.getBlockNumber();
+        const fromBlock = Math.max(0, latest - 5000);
         const contract = contractFor(provider);
         const filter = contract.filters[eventName](transferId);
-        const logs = await contract.queryFilter(filter, Math.max(0, latest - 40000), latest);
+        const logs = await contract.queryFilter(filter, fromBlock, latest).catch(() => []);
         const found = logs.length ? logs[logs.length - 1] : null;
         const block = found ? await provider.getBlock(found.blockNumber) : null;
         return res.json({
@@ -503,8 +510,8 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
             // Trạng thái batch lấy từ storage của contract; log chỉ dùng để bổ sung tx metadata.
             try {
                 const latest = await provider.getBlockNumber();
-                const fromBlock = Math.max(0, latest - 40000);
-                const logs = await contract.queryFilter(contract.filters.BatchRegistered(batchId), fromBlock, latest);
+                const fromBlock = Math.max(0, latest - 5000);
+                const logs = await contract.queryFilter(contract.filters.BatchRegistered(batchId), fromBlock, latest).catch(() => []);
                 const found = logs.length ? logs[logs.length - 1] : null;
                 if (found) {
                     registerTxHash = found.transactionHash;
@@ -582,7 +589,7 @@ app.get('/batches/:batchId/history', authMiddleware, async (req, res) => {
         const batchId = requireBytes32(req.params.batchId, 'batchId');
         const contract = contractFor(provider);
         const latest = await provider.getBlockNumber();
-        const fromBlock = Math.max(0, latest - 40000);
+        const fromBlock = Math.max(0, latest - 5000);
         const filters = [
             contract.filters.BatchRegistered(batchId),
             contract.filters.BatchEventRecorded(batchId),
@@ -593,7 +600,7 @@ app.get('/batches/:batchId/history', authMiddleware, async (req, res) => {
             contract.filters.TransferRejected(null, batchId),
             contract.filters.TransferCancelled(null, batchId)
         ];
-        const groups = await Promise.all(filters.map(filter => contract.queryFilter(filter, fromBlock, latest)));
+        const groups = await Promise.all(filters.map(filter => contract.queryFilter(filter, fromBlock, latest).catch(() => [])));
         const events = groups.flat().map(log => {
             const args = {};
             log.fragment.inputs.forEach((input, index) => {
