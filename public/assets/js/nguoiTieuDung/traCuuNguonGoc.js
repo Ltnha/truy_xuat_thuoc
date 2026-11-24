@@ -103,6 +103,12 @@ document.addEventListener('DOMContentLoaded', function () {
                     thucHienTraCuu(maKetQua);
                 }, 300);
             };
+            img.onerror = function () {
+                khungDangXuLyAnh.classList.add('hidden');
+                khungChuaChonAnh.classList.remove('hidden');
+                if (tepAnhQRInput) tepAnhQRInput.value = '';
+                alert('Không thể đọc tệp ảnh. Vui lòng chọn ảnh PNG, JPG hoặc WEBP hợp lệ.');
+            };
             img.src = dataUrl;
         };
         reader.readAsDataURL(file);
@@ -402,6 +408,18 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('txHashKhoiTao').textContent = kq.txHash || 'Chưa có giao dịch blockchain';
         const ownerNode = document.getElementById('chainOwner');
         if (ownerNode) ownerNode.textContent = kq.chainOwner || 'Chưa có dữ liệu on-chain';
+        const ownerIntegrityNode = document.getElementById('ownerIntegrity');
+        if (ownerIntegrityNode) {
+            let ownerLabel = kq.ownerIntegrity || 'UNVERIFIED';
+            if (kq.ownerIntegrity === 'MATCH') ownerLabel = 'KHỚP CHỦ SỞ HỮU';
+            else if (kq.ownerIntegrity === 'MISMATCH') ownerLabel = 'KHÔNG KHỚP CHỦ SỞ HỮU';
+            else ownerLabel = 'CHƯA ĐỐI SOÁT ĐƯỢC';
+            ownerIntegrityNode.textContent = ownerLabel;
+            ownerIntegrityNode.className = 'font-bold px-2.5 py-1 rounded text-[11px] inline-block ' +
+                (kq.ownerIntegrity === 'MATCH' ? 'bg-emerald-100 text-emerald-800' :
+                    (kq.ownerIntegrity === 'MISMATCH' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'));
+        }
+
         const integrityNode = document.getElementById('productIntegrity');
         if (integrityNode) {
             let label = kq.productIntegrity || 'UNVERIFIED';
