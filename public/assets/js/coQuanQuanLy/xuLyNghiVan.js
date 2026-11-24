@@ -48,6 +48,25 @@ document.addEventListener('DOMContentLoaded', function () {
         return `<span class="badge-chuan px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200 whitespace-nowrap">Trong vòng đời</span>`;
     }
 
+    function taoBadgeLoaiToChuc(item) {
+        const ma = String(item.loaiToChucMa || '').toUpperCase();
+        const nhan = escapeHtml(item.loaiToChucNhan || 'Người tiêu dùng');
+
+        if (ma === 'NHA_SAN_XUAT') {
+            return `<span class="badge-chuan px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-800 border border-indigo-200 whitespace-nowrap"><i class="fa-solid fa-industry text-[9px]"></i> ${nhan}</span>`;
+        }
+        if (ma === 'NHA_PHAN_PHOI') {
+            return `<span class="badge-chuan px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-sky-50 text-sky-800 border border-sky-200 whitespace-nowrap"><i class="fa-solid fa-truck text-[9px]"></i> ${nhan}</span>`;
+        }
+        if (ma === 'NHA_THUOC') {
+            return `<span class="badge-chuan px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-50 text-teal-800 border border-teal-200 whitespace-nowrap"><i class="fa-solid fa-prescription-bottle-medical text-[9px]"></i> ${nhan}</span>`;
+        }
+        if (ma === 'CO_QUAN_QUAN_LY') {
+            return `<span class="badge-chuan px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-800 border border-purple-200 whitespace-nowrap"><i class="fa-solid fa-landmark text-[9px]"></i> ${nhan}</span>`;
+        }
+        return `<span class="badge-chuan px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200 whitespace-nowrap"><i class="fa-solid fa-user text-[9px]"></i> ${nhan}</span>`;
+    }
+
     function taoBadgeTrangThai(item) {
         if (item.trangThai !== 'DA_XU_LY') {
             return `<span class="badge-chuan px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300"><i class="fa-solid fa-clock"></i> Chờ xử lý</span>`;
@@ -152,8 +171,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const loGocSub = item.loBiLamGia
                 ? `<div class="text-[10px] text-amber-800 font-mono mt-0.5">Đối chiếu lô gốc: ${escapeHtml(item.loBiLamGia.maLoNghiepVu)}${item.loBiLamGia.daThuHoi ? ' (Đã thu hồi)' : ''}</div>`
                 : '';
-            const donViText = escapeHtml(item.donViBaoCao || 'N/A');
-            const thoiGianText = escapeHtml(dinhDangNgayGio(item.thoiGianGui));
+            const tenDonViText = escapeHtml(item.tenDonViBaoCao || item.donViBaoCao || 'N/A');
 
             const tr = document.createElement('tr');
             tr.className = 'hover:bg-slate-50 transition-colors';
@@ -168,8 +186,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     <div>${tenSanPhamText}</div>
                     ${loGocSub}
                 </td>
-                <td class="py-3 px-3 text-slate-800 font-semibold leading-tight">${donViText}</td>
-                <td class="py-3 px-2.5 text-center whitespace-nowrap font-mono text-xs">${thoiGianText}</td>
+                <td class="py-3 px-3 text-slate-800 font-semibold leading-tight">${tenDonViText}</td>
+                <td class="py-3 px-2.5 text-center whitespace-nowrap">${taoBadgeLoaiToChuc(item)}</td>
                 <td class="py-3 px-2.5 text-center whitespace-nowrap">${taoBadgeTrangThai(item)}</td>
                 <td class="py-3 px-3 text-center whitespace-nowrap">
                     <div class="inline-flex items-center justify-center gap-1.5">
@@ -205,7 +223,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // ══ 3. MODAL CHI TIẾT BÁO CÁO NGHI VẤN (ĐỀ XUẤT 4: XEM CHÉO BÁO CÁO CÙNG LÔ) ══
+    // ══ 3. MODAL CHI TIẾT BÁO CÁO NGHI VẤN ══
     const modalDetail = document.getElementById('modalChiTietNghiVan');
 
     function moModalChiTiet(id, isChuyenNoiBo = false) {
@@ -222,7 +240,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const daXuLy = (item.trangThai === 'DA_XU_LY');
         const laTrongVongDoi = (item.loaiBaoCao === 'TRONG_VONG_DOI' && item.loThuocId);
 
-        // Thanh quay lại phiếu trước khi điều hướng trong nhóm cùng lô
         const thanhQuayLai = document.getElementById('detailThanhQuayLaiPhieuGoc');
         const nutQuayLai = document.getElementById('nutQuayLaiPhieuTruoc');
         if (thanhQuayLai && nutQuayLai) {
@@ -242,12 +259,13 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.getElementById('detailMaLoThuoc').textContent = item.maLo || 'N/A';
         document.getElementById('detailTenSanPham').textContent = item.tenSanPham || 'N/A';
-        document.getElementById('detailDonViBaoCao').textContent = item.donViBaoCao || 'N/A';
+        document.getElementById('detailDonViBaoCao').textContent = item.tenDonViBaoCao || item.donViBaoCao || 'N/A';
+        const elDetailLoaiToChuc = document.getElementById('detailLoaiToChuc');
+        if (elDetailLoaiToChuc) elDetailLoaiToChuc.innerHTML = taoBadgeLoaiToChuc(item);
         document.getElementById('detailThoiGianGui').textContent = dinhDangNgayGio(item.thoiGianGui);
         document.getElementById('detailLoaiBaoCao').textContent = item.loaiBaoCaoNhan || 'Báo cáo nghi vấn';
         document.getElementById('detailNoiDungBaoCao').textContent = item.noiDung || 'Không có mô tả chi tiết.';
 
-        // Khung lô gốc đối chiếu
         const khungLoBiLamGia = document.getElementById('detailKhungLoBiLamGia');
         const thongTinLoBiLamGia = document.getElementById('detailThongTinLoBiLamGia');
         const badgeLoGoc = document.getElementById('detailBadgeTrangThaiLoGoc');
@@ -278,7 +296,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Danh sách minh chứng đính kèm
         const khungMinhChung = document.getElementById('detailKhungMinhChung');
         const dsMinhChung = document.getElementById('detailDanhSachMinhChung');
         if (khungMinhChung && dsMinhChung) {
@@ -392,17 +409,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 dsLienQuanWrap.innerHTML = cacPhieuKhac.map(rel => {
                     const soTep = (rel.minhChungs || []).length;
-                    const nguonBadge = rel.laDoanhNghiep
-                        ? `<span class="px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-800 font-bold text-[10px]">DN</span>`
-                        : `<span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 font-semibold text-[10px]">NTD</span>`;
+                    const tenDonViRel = escapeHtml(rel.tenDonViBaoCao || rel.donViBaoCao || 'N/A');
 
                     return `
                         <div class="p-2.5 bg-white border border-indigo-100 rounded-xl flex items-center justify-between gap-2 hover:border-indigo-300 transition-all">
                             <div class="min-w-0 flex-1 space-y-0.5">
                                 <div class="flex items-center gap-1.5 flex-wrap">
                                     <span class="font-mono font-bold text-amber-900">${escapeHtml(rel.maBaoCao)}</span>
-                                    ${nguonBadge}
-                                    <span class="font-semibold text-slate-800 truncate">${escapeHtml(rel.donViBaoCao)}</span>
+                                    ${taoBadgeLoaiToChuc(rel)}
+                                    <span class="font-semibold text-slate-800 truncate">${tenDonViRel}</span>
                                 </div>
                                 <div class="text-[11px] text-slate-600 truncate">${escapeHtml(rel.lyDo)}</div>
                                 <div class="text-[10px] text-slate-400 font-mono flex items-center gap-2">
@@ -471,7 +486,6 @@ document.addEventListener('DOMContentLoaded', function () {
         cheDoXuLyHienTai = mode;
         const laTrongVongDoi = (item.loaiBaoCao === 'TRONG_VONG_DOI' && item.loThuocId);
 
-        // Hiển thị cảnh báo đóng gộp các phiếu chờ khác cùng lô nếu ban hành THU_HOI
         if (thongBaoGopPhieu) {
             const soPhieuChoKhac = nhomBaoCaoCungLoHienTai.filter(
                 x => x.id != item.id && x.trangThai !== 'DA_XU_LY' && x.loaiBaoCao === 'TRONG_VONG_DOI'

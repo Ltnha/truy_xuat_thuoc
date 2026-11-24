@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\CoQuan;
 
 use App\Enums\DecisionType;
+use App\Enums\OrganizationType;
 use App\Enums\ReportStatus;
 use App\Http\Controllers\Controller;
 use App\Models\BaoCaoNghiVan;
@@ -15,11 +16,11 @@ use Illuminate\Support\Collection;
 
 class XuLyNghiVanController extends Controller
 {
-    private const NHAN_VAI_TRO_MAP = [
-        'NHA_SAN_XUAT' => 'NSX',
-        'NHA_PHAN_PHOI' => 'NPP',
+    private const NHAN_LOAI_TO_CHUC_MAP = [
+        'NHA_SAN_XUAT' => 'Nhà sản xuất',
+        'NHA_PHAN_PHOI' => 'Nhà phân phối',
         'NHA_THUOC' => 'Nhà thuốc',
-        'CO_QUAN_QUAN_LY' => 'Cơ quan QL',
+        'CO_QUAN_QUAN_LY' => 'Cơ quan quản lý',
     ];
 
     public function __construct(protected ThuHoiLoService $thuHoiLoService) {}
@@ -30,7 +31,7 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * Chuẩn hóa dữ liệu 1 bản ghi BaoCaoNghiVan để dùng chung cho bảng chính và danh sách báo cáo liên quan
+     * Chuẩn hóa dữ liệu 1 bản ghi BaoCaoNghiVan (tách riêng Tên đơn vị và Loại tổ chức)
      */
     private function formatBaoCaoItem(BaoCaoNghiVan $bc, Collection $thuHoiDoiChieuMap): array
     {
@@ -44,15 +45,27 @@ class XuLyNghiVanController extends Controller
         $laDoanhNghiep = (bool) $toChucGui;
 
         if ($toChucGui) {
-            $vtRaw = $toChucGui->loaiToChuc instanceof \BackedEnum
-                ? $toChucGui->loaiToChuc->value
-                : (string) ($toChucGui->loaiToChuc ?? '');
-            $prefix = self::NHAN_VAI_TRO_MAP[$vtRaw] ?? 'Doanh nghiệp';
-            $donVi = "[{$prefix}] {$toChucGui->tenToChuc}";
+            $loaiObj = $toChucGui->loaiToChuc;
+            $vtRaw = $loaiObj instanceof \BackedEnum
+                ? $loaiObj->value
+                : (string) ($loaiObj ?? '');
+
+            $tenDonVi = $toChucGui->tenToChuc;
+            $loaiToChucMa = $vtRaw ?: 'DOANH_NGHIEP';
+            $loaiToChucNhan = $loaiObj instanceof OrganizationType
+                ? $loaiObj->nhan()
+                : (self::NHAN_LOAI_TO_CHUC_MAP[$vtRaw] ?? 'Doanh nghiệp');
+            $donViTongHop = "[{$loaiToChucNhan}] {$tenDonVi}";
         } elseif ($bc->taiKhoan) {
-            $donVi = $bc->taiKhoan->hoTen ?? $bc->taiKhoan->tenDangNhap ?? "Tài khoản #{$bc->taiKhoanId}";
+            $tenDonVi = $bc->taiKhoan->hoTen ?? $bc->taiKhoan->tenDangNhap ?? "Tài khoản #{$bc->taiKhoanId}";
+            $loaiToChucMa = 'NGUOI_TIEU_DUNG';
+            $loaiToChucNhan = 'Người tiêu dùng';
+            $donViTongHop = $tenDonVi;
         } else {
-            $donVi = 'Người tiêu dùng (Công khai)';
+            $tenDonVi = 'Người tiêu dùng (Công khai)';
+            $loaiToChucMa = 'NGUOI_TIEU_DUNG';
+            $loaiToChucNhan = 'Người tiêu dùng';
+            $donViTongHop = $tenDonVi;
         }
 
         $thoiGianRaw = $bc->ngayGui ?? $bc->created_at;
@@ -113,7 +126,10 @@ class XuLyNghiVanController extends Controller
             'tenSanPham' => $loaiBaoCao === 'TRONG_VONG_DOI'
                 ? ($bc->loThuoc?->sanPham?->tenSanPham ?? 'Dược phẩm hệ thống')
                 : ($loGoc?->sanPham?->tenSanPham ? "Nghi giả mạo: {$loGoc->sanPham->tenSanPham}" : 'Lô ngoài hệ thống'),
-            'donViBaoCao' => $donVi,
+            'tenDonViBaoCao' => $tenDonVi,
+            'loaiToChucMa' => $loaiToChucMa,
+            'loaiToChucNhan' => $loaiToChucNhan,
+            'donViBaoCao' => $donViTongHop,
             'laDoanhNghiep' => $laDoanhNghiep,
             'thoiGianGui' => $thoiGianFormatted,
             'lyDo' => $bc->lyDo ?? 'Không rõ lý do',
@@ -164,7 +180,8 @@ class XuLyNghiVanController extends Controller
                                 ->orWhere('maLo', 'like', "%{$tuKhoa}%")
                                 ->orWhereHas('sanPham', fn($sp) => $sp->where('tenSanPham', 'like', "%{$tuKhoa}%"));
                         })
-                        ->orWhereHas('toChuc', fn($tc) => $tc->where('tenToChuc', 'like', "%{$tuKhoa}%"));
+                        ->orWhereHas('toChuc', fn($tc) => $tc->where('tenToChuc', 'like', "%{$tuKhoa}%"))
+                        ->orWhereHas('taiKhoan', fn($tk) => $tk->where('hoTen', 'like', "%{$tuKhoa}%"));
                 });
             }
 
@@ -214,7 +231,6 @@ class XuLyNghiVanController extends Controller
             $danhSach = $query->orderByDesc('id')->paginate(10);
             $pageItems = $danhSach->getCollection();
 
-            // ĐỀ XUẤT 4: Nạp tất cả báo cáo liên quan cùng lô cho các hồ sơ trên trang hiện tại
             $loThuocIds = $pageItems->pluck('loThuocId')->filter()->unique()->values()->all();
             $loBiLamGiaIds = $pageItems->pluck('loBiLamGiaId')->filter()->unique()->values()->all();
             $maLoKhaiBaos = $pageItems->pluck('maLoKhaiBao')
@@ -243,7 +259,6 @@ class XuLyNghiVanController extends Controller
                     ->get();
             }
 
-            // Kiểm tra trạng thái thu hồi của tất cả lô đối chiếu (loBiLamGiaId)
             $allLoDoiChieuIds = $pageItems->pluck('loBiLamGiaId')
                 ->merge($tatCaLienQuan->pluck('loBiLamGiaId'))
                 ->filter()
@@ -301,9 +316,6 @@ class XuLyNghiVanController extends Controller
         }
     }
 
-    /**
-     * Thực hiện thu hồi lô từ Báo cáo Nghi vấn (TRONG_VONG_DOI)
-     */
     public function thuHoi(Request $request, int $id): JsonResponse
     {
         $request->validate([
@@ -349,9 +361,6 @@ class XuLyNghiVanController extends Controller
         return $this->thuHoi($request, $id);
     }
 
-    /**
-     * Từ chối báo cáo nghi vấn
-     */
     public function tuChoi(Request $request, int $id): JsonResponse
     {
         $request->validate([
@@ -380,9 +389,6 @@ class XuLyNghiVanController extends Controller
         }
     }
 
-    /**
-     * Ghi nhận cảnh báo hàng giả (kèm ghi nhận lô thuốc đối chiếu nếu có)
-     */
     public function ghiNhanHangGia(Request $request, int $id): JsonResponse
     {
         $request->validate([

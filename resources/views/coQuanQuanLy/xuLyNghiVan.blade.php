@@ -50,8 +50,8 @@
                         <th class="py-3.5 px-3 font-bold whitespace-nowrap">Phân Loại</th>
                         <th class="py-3.5 px-3 font-bold whitespace-nowrap">Mã Lô Khai Báo</th>
                         <th class="py-3.5 px-3 font-bold">Sản Phẩm / Đối Chiếu</th>
-                        <th class="py-3.5 px-3 font-bold">Đơn Vị Báo Cáo</th>
-                        <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Thời Gian Gửi</th>
+                        <th class="py-3.5 px-3 font-bold">Tên Đơn Vị Báo Cáo</th>
+                        <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Loại Tổ Chức</th>
                         <th class="py-3.5 px-2.5 font-bold text-center whitespace-nowrap">Trạng Thái</th>
                         <th class="py-3.5 px-3 font-bold text-center whitespace-nowrap">Hành Động</th>
                     </tr>
@@ -102,14 +102,18 @@
                     <span id="detailTenSanPham" class="font-bold text-slate-900"></span>
                 </div>
                 <div>
-                    <span class="text-slate-500 block text-[11px]">Đơn vị gửi báo cáo:</span>
+                    <span class="text-slate-500 block text-[11px]">Tên đơn vị báo cáo:</span>
                     <span id="detailDonViBaoCao" class="font-semibold text-slate-800"></span>
+                </div>
+                <div>
+                    <span class="text-slate-500 block text-[11px]">Loại tổ chức:</span>
+                    <span id="detailLoaiToChuc" class="inline-block mt-0.5"></span>
                 </div>
                 <div>
                     <span class="text-slate-500 block text-[11px]">Thời gian gửi:</span>
                     <span id="detailThoiGianGui" class="font-mono text-slate-700"></span>
                 </div>
-                <div class="col-span-2">
+                <div>
                     <span class="text-slate-500 block text-[11px]">Phân loại thẩm định:</span>
                     <span id="detailLoaiBaoCao" class="font-bold text-slate-800"></span>
                 </div>
@@ -155,7 +159,7 @@
                 <div class="text-[10px] opacity-80 pt-0.5 font-mono" id="detailThoiGianXuLy"></div>
             </div>
 
-            <!-- ĐỀ XUẤT 4: CÁC LƯỢT BÁO CÁO KHÁC CÙNG LÔ -->
+            <!-- CÁC LƯỢT BÁO CÁO KHÁC CÙNG LÔ -->
             <div id="detailKhungBaoCaoLienQuan" class="hidden space-y-2 bg-indigo-50/50 p-3 rounded-xl border border-indigo-200/80">
                 <div class="flex items-center justify-between gap-2 flex-wrap">
                     <span class="font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-1.5 text-[11px]">
