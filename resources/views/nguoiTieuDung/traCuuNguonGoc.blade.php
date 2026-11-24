@@ -127,34 +127,6 @@
                 </div>
             </div>
 
-            <!-- Các nút kiểm tra nhanh bằng ảnh mẫu -->
-            <div class="max-w-2xl mx-auto space-y-2">
-                <div class="flex items-center justify-between text-xs text-slate-600">
-                    <span class="font-semibold flex items-center gap-1.5">
-                        <i class="fa-solid fa-wand-magic-sparkles text-emerald-700"></i> Thử nghiệm nhanh với mẫu ảnh QR:
-                    </span>
-                    <span class="text-[11px] text-slate-400">Nhấp để mô phỏng tải ảnh</span>
-                </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                    <button type="button" class="btn-anh-mau py-2 px-2.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-left transition-all cursor-pointer" data-ma="LOT-PARA-2026" data-ten="tem-qr-paracetamol-hop-le.png">
-                        <div class="text-[11px] font-bold text-emerald-800 truncate"><i class="fa-solid fa-check text-emerald-600 mr-1"></i> Lô hợp lệ</div>
-                        <div class="text-[10px] text-slate-500 font-mono truncate">LOT-PARA-2026</div>
-                    </button>
-                    <button type="button" class="btn-anh-mau py-2 px-2.5 bg-red-50 hover:bg-red-100 border border-red-200 rounded-xl text-left transition-all cursor-pointer" data-ma="LOT-AMOX-2025-09" data-ten="tem-qr-amoxicillin-thu-hoi.png">
-                        <div class="text-[11px] font-bold text-red-800 truncate"><i class="fa-solid fa-ban text-red-600 mr-1"></i> Đã thu hồi</div>
-                        <div class="text-[10px] text-slate-500 font-mono truncate">LOT-AMOX-2025-09</div>
-                    </button>
-                    <button type="button" class="btn-anh-mau py-2 px-2.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-left transition-all cursor-pointer" data-ma="LOT-EXPIRED-2024" data-ten="tem-qr-vitaminc-qua-han.png">
-                        <div class="text-[11px] font-bold text-amber-800 truncate"><i class="fa-solid fa-hourglass-end text-amber-600 mr-1"></i> Quá hạn</div>
-                        <div class="text-[10px] text-slate-500 font-mono truncate">LOT-EXPIRED-2024</div>
-                    </button>
-                    <button type="button" class="btn-anh-mau py-2 px-2.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-left transition-all cursor-pointer" data-ma="LOT-PARA-2026" data-ten="tem-qr-hop-le-ban-le.png">
-                        <div class="text-[11px] font-bold text-slate-800 truncate"><i class="fa-solid fa-box text-cyan-800 mr-1"></i> QR lô thuốc</div>
-                        <div class="text-[10px] text-slate-500 font-mono truncate">LOT-PARA-2026</div>
-                    </button>
-                </div>
-            </div>
-
             <!-- Ghi chú hướng dẫn -->
             <div class="max-w-2xl mx-auto flex items-start gap-2.5 p-3.5 bg-cyan-50/80 rounded-xl border border-cyan-800/15 text-xs text-cyan-900 text-left">
                 <i class="fa-solid fa-circle-info text-cyan-800 mt-0.5 shrink-0"></i>
@@ -286,6 +258,10 @@
                     <div>
                         <span class="text-slate-500 block mb-1">Chủ sở hữu hiện tại (on-chain):</span>
                         <div id="chainOwner" class="font-mono text-[11px] break-all text-slate-800"></div>
+                    </div>
+                    <div>
+                        <span class="text-slate-500 block mb-1">Đối chiếu chủ sở hữu với tồn kho hệ thống:</span>
+                        <span id="ownerIntegrity" class="font-bold px-2.5 py-1 rounded text-[11px] inline-block"></span>
                     </div>
                     <div>
                         <span class="text-slate-500 block mb-1">Đối chiếu hash hồ sơ sản phẩm:</span>
