@@ -137,7 +137,7 @@ class TraCuuController extends Controller
 
             if (empty($approval['isApproved']) || $onChainHash === '0x' . str_repeat('0', 64)) {
                 $productIntegrity = 'NOT_APPROVED_ON_CHAIN';
-            } elseif ($onChainHash === $expHash || ($dbHash !== '' && $onChainHash === $dbHash)) {
+            } elseif ($expectedHash !== null && $onChainHash === $expHash) {
                 $productIntegrity = 'MATCH';
             } else {
                 $productIntegrity = 'MISMATCH';
@@ -161,7 +161,13 @@ class TraCuuController extends Controller
                     ->where('trangThai', 'CONFIRMED')
                     ->first();
 
-                if ($lo->trangThaiSanPham === 'DA_DUYET' && (! empty($lo->hashHoSo) || $productApprovedTx)) {
+                if (
+                    $lo->trangThaiSanPham === 'DA_DUYET'
+                    && $expectedHash !== null
+                    && $dbHash !== ''
+                    && $dbHash === $expHash
+                    && $productApprovedTx
+                ) {
                     $productIntegrity = 'MATCH';
                 }
             }
