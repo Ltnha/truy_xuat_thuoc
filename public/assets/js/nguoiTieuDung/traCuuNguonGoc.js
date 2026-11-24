@@ -37,60 +37,6 @@ document.addEventListener('DOMContentLoaded', function () {
         khungNhapMa.classList.add('hidden');
     });
 
-    // Hàm tạo ảnh tem QR mẫu chân thực trên Canvas
-    function taoAnhQRMau(ma) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 240;
-        canvas.height = 240;
-        const ctx = canvas.getContext('2d');
-
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, 240, 240);
-
-        function drawFinder(x, y) {
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(x, y, 56, 56);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(x + 8, y + 8, 40, 40);
-            ctx.fillStyle = '#0f172a';
-            ctx.fillRect(x + 16, y + 16, 24, 24);
-        }
-        drawFinder(20, 20);
-        drawFinder(164, 20);
-        drawFinder(20, 164);
-
-        let hash = 0;
-        for (let i = 0; i < ma.length; i++) {
-            hash = (hash << 5) - hash + ma.charCodeAt(i);
-            hash |= 0;
-        }
-
-        const size = 8;
-        for (let r = 0; r < 25; r++) {
-            for (let c = 0; c < 25; c++) {
-                const px = 20 + c * size;
-                const py = 20 + r * size;
-                if ((r < 8 && c < 8) || (r < 8 && c >= 17) || (r >= 17 && c < 8)) continue;
-                const val = (Math.sin(hash + r * 13 + c * 37) * 10000);
-                if (val - Math.floor(val) > 0.48) {
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(px, py, size, size);
-                }
-            }
-        }
-
-        // Huy hiệu logo trung tâm
-        ctx.fillStyle = '#047857';
-        ctx.fillRect(104, 104, 32, 32);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px monospace';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('QR', 120, 120);
-
-        return canvas.toDataURL('image/png');
-    }
-
     // Xử lý tệp ảnh QR (Tải lên / Kéo thả / Dán từ Clipboard)
     function xuLyTepAnhQR(file) {
         if (!file || !file.type.startsWith('image/')) {
@@ -134,18 +80,13 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
 
-                // Nếu ảnh chụp không chứa QR hợp lệ hoặc chạy offline, nhận diện thông minh theo tên / mặc định
+                // Không suy đoán mã từ tên tệp hoặc mã mặc định: ảnh không có QR phải bị từ chối.
                 if (!maKetQua) {
-                    const tenFileHoa = file.name.toUpperCase();
-                    if (tenFileHoa.includes('AMOX')) {
-                        maKetQua = 'LOT-AMOX-2025-09';
-                    } else if (tenFileHoa.includes('EXPIRED') || tenFileHoa.includes('HAN')) {
-                        maKetQua = 'LOT-EXPIRED-2024';
-                    } else if (tenFileHoa.includes('UNIT') || tenFileHoa.includes('00891') || tenFileHoa.includes('LE')) {
-                        maKetQua = 'UNIT-PARA-00891';
-                    } else {
-                        maKetQua = 'LOT-PARA-2026';
-                    }
+                    khungDangXuLyAnh.classList.add('hidden');
+                    khungChuaChonAnh.classList.remove('hidden');
+                    if (tepAnhQRInput) tepAnhQRInput.value = '';
+                    alert('Không tìm thấy mã QR hợp lệ trong ảnh. Vui lòng tải ảnh QR rõ nét hơn.');
+                    return;
                 }
 
                 // Hiển thị kết quả mượt mà sau 300ms
@@ -240,34 +181,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Bấm mẫu thử nghiệm ảnh QR nhanh
-    document.querySelectorAll('.btn-anh-mau').forEach(btn => {
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            const ma = this.getAttribute('data-ma');
-            const ten = this.getAttribute('data-ten') || `tem-qr-${ma}.png`;
-
-            khungChuaChonAnh.classList.add('hidden');
-            khungDaChonAnh.classList.add('hidden');
-            khungDangXuLyAnh.classList.remove('hidden');
-
-            const qrDataUrl = taoAnhQRMau(ma);
-
-            setTimeout(() => {
-                khungDangXuLyAnh.classList.add('hidden');
-                khungDaChonAnh.classList.remove('hidden');
-
-                anhQRPreview.src = qrDataUrl;
-                tenAnhQRDangChon.textContent = ten;
-                dungLuongAnhQR.textContent = `(Ảnh mẫu)`;
-                maNhanDienDuoc.textContent = ma;
-
-                oNhapMa.value = ma;
-                thucHienTraCuu(ma);
-            }, 300);
-        });
-    });
-
     // Hỗ trợ dán ảnh trực tiếp từ Clipboard (Ctrl + V)
     window.addEventListener('paste', function (e) {
         if (!khungQuetCamera.classList.contains('hidden') && e.clipboardData && e.clipboardData.items) {
@@ -310,83 +223,6 @@ document.addEventListener('DOMContentLoaded', function () {
     if (oNhapMa.value.trim() !== '') {
         thucHienTraCuu(oNhapMa.value.trim());
     }
-
-    // Dữ liệu mô phỏng đối soát On-Chain & Off-Chain
-    const duLieuMoPhong = {
-        'LOT-PARA-2026': {
-            trangThai: 'VALID',
-            loai: 'MÃ LÔ THUỐC (BATCH)',
-            tenThuoc: 'Paracetamol 500mg',
-            hamLuongDangBaoChe: 'Viên nén bao phim, 500mg',
-            hoatChat: 'Paracetamol',
-            soDangKy: 'VD-28491-18',
-            nhaSanXuat: 'Công ty Cổ phần Dược phẩm Medipharco',
-            ngaySanXuat: '15/01/2026',
-            hanSuDung: '15/01/2029',
-            batchIdHash: '0x8f2d5e1b4a3c79a2f60e1d8b5c9a4e2f1a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0',
-            txHash: '0x3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b',
-            isDispensed: 'N/A (Cấp Lô)',
-            hanhTrinh: [
-                { tieuDe: 'Khởi tạo lô thuốc và cấp tem mã on-chain', donVi: 'Medipharco (Nhà máy số 2)', thoiGian: '15/01/2026 08:30', hoanTat: true },
-                { tieuDe: 'Xuất kho và chuyển giao đến Nhà Phân Phối', donVi: 'Dược Phẩm Trung Ương 3 (Hà Nội)', thoiGian: '20/01/2026 14:15', hoanTat: true },
-                { tieuDe: 'Tiếp nhận kho lẻ và phân phối đến Nhà Thuốc', donVi: 'Nhà thuốc PharmaCare Cần Thơ', thoiGian: '25/01/2026 10:00', hoanTat: true }
-            ]
-        },
-        'LOT-AMOX-2025-09': {
-            trangThai: 'RECALLED',
-            loai: 'MÃ LÔ THUỐC (BATCH)',
-            tenThuoc: 'Amoxicillin Trihydrate 500mg',
-            hamLuongDangBaoChe: 'Viên nang cứng, 500mg',
-            hoatChat: 'Amoxicillin',
-            soDangKy: 'VD-19234-15',
-            nhaSanXuat: 'Dược Phẩm Pharbaco',
-            ngaySanXuat: '10/09/2025',
-            hanSuDung: '10/09/2028',
-            batchIdHash: '0x1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2',
-            txHash: '0x71a49f2b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5',
-            isDispensed: 'N/A (Đã khóa thu hồi)',
-            hanhTrinh: [
-                { tieuDe: 'Đăng ký sản xuất lô', donVi: 'Dược Phẩm Pharbaco', thoiGian: '10/09/2025 09:00', hoanTat: true },
-                { tieuDe: 'Cơ quan quản lý kích hoạt lệnh THU HỒI trên Smart Contract', donVi: 'Cục Quản Lý Dược (Bộ Y Tế)', thoiGian: '05/02/2026 16:45', hoanTat: true, canhBao: true }
-            ]
-        },
-        'LOT-EXPIRED-2024': {
-            trangThai: 'EXPIRED',
-            loai: 'MÃ LÔ THUỐC (BATCH)',
-            tenThuoc: 'Vitamin C 500mg Kháng Khuẩn',
-            hamLuongDangBaoChe: 'Viên sủi, 500mg',
-            hoatChat: 'Acid Ascorbic',
-            soDangKy: 'VD-11029-14',
-            nhaSanXuat: 'Dược Hậu Giang (DHG)',
-            ngaySanXuat: '01/01/2023',
-            hanSuDung: '01/01/2025',
-            batchIdHash: '0x5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6',
-            txHash: '0x99a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a',
-            isDispensed: 'N/A (Đã hết hạn)',
-            hanhTrinh: [
-                { tieuDe: 'Đăng ký sản xuất', donVi: 'DHG Pharma', thoiGian: '01/01/2023 08:00', hoanTat: true }
-            ]
-        },
-        'UNIT-PARA-00891': {
-            trangThai: 'VALID',
-            loai: 'MÃ ĐƠN VỊ HỘP LẺ (UNIT SERIAL)',
-            tenThuoc: 'Paracetamol 500mg (Hộp bán lẻ #00891)',
-            hamLuongDangBaoChe: 'Hộp 10 vỉ x 10 viên',
-            hoatChat: 'Paracetamol',
-            soDangKy: 'VD-28491-18',
-            nhaSanXuat: 'Công ty Cổ phần Dược phẩm Medipharco',
-            ngaySanXuat: '15/01/2026',
-            hanSuDung: '15/01/2029',
-            batchIdHash: '0x8f2d5e1b4a3c79a2f60e1d8b5c9a4e2f1a3b5c7d9e1f2a4b6c8d0e2f4a6b8c0',
-            txHash: '0xfa12345bcde678901234567890abcdef1234567890abcdef1234567890abcdef',
-            isDispensed: 'ĐÃ BÁN (DISPENSED)',
-            hanhTrinh: [
-                { tieuDe: 'Sản xuất và sinh mã serial', donVi: 'Nhà máy Medipharco', thoiGian: '15/01/2026 08:30', hoanTat: true },
-                { tieuDe: 'Giao nhận tại Nhà thuốc PharmaCare Cần Thơ', donVi: 'Nhà thuốc PharmaCare Cần Thơ', thoiGian: '25/01/2026 10:00', hoanTat: true },
-                { tieuDe: 'Dược sĩ xác nhận bán cho Người tiêu dùng', donVi: 'Quầy bán lẻ số 1 (Dược sĩ Trần Mai)', thoiGian: '02/02/2026 19:20', hoanTat: true }
-            ]
-        }
-    };
 
     async function thucHienTraCuu(ma) {
         if (!ma) {
