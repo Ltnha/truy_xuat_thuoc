@@ -113,7 +113,7 @@ class TraCuuController extends Controller
             }
             $chainReadStatus = 'AVAILABLE';
         } catch (\Throwable $exception) {
-            Log::info("[TraCuuController] Signer microservice không phản hồi, chuyển sang đối soát RPC Sepolia: " . $exception->getMessage());
+            Log::warning("[TraCuuController] Không thể xác minh trạng thái trực tiếp từ Signer/Sepolia: " . $exception->getMessage());
         }
 
         // Chỉ xem dữ liệu là đã xác minh khi Signer đọc thành công trực tiếp từ contract.
@@ -124,8 +124,6 @@ class TraCuuController extends Controller
 
             $onChainHash = strtolower((string) ($approval['payloadHash'] ?? ''));
             $expHash = strtolower((string) ($expectedHash ?? ''));
-            $dbHash = strtolower((string) ($lo->hashHoSo ?? ''));
-
             if (empty($approval['isApproved']) || $onChainHash === '0x' . str_repeat('0', 64)) {
                 $productIntegrity = 'NOT_APPROVED_ON_CHAIN';
             } elseif ($expectedHash !== null && $onChainHash === $expHash) {
@@ -160,7 +158,7 @@ class TraCuuController extends Controller
         }
 
         $expired = (string) $lo->hanSuDung < today()->toDateString();
-        $status = ($lo->trangThai === 'RECALLED' || $chainRecalled) ? 'RECALLED'
+        $status = ($chainReadStatus === 'AVAILABLE' && $chainRecalled) ? 'RECALLED'
             : ($expired ? 'EXPIRED'
                 : ($chainReadStatus !== 'AVAILABLE' ? 'UNAVAILABLE'
                     : (! $batchExists ? 'NOT_REGISTERED_ON_CHAIN'
