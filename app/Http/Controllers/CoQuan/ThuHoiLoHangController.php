@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\CoQuan;
 
 use App\Enums\BatchStatus;
+use App\Enums\DecisionType;
 use App\Enums\OrganizationType;
 use App\Http\Controllers\Controller;
 use App\Jobs\ProcessBatchRecallJob;
@@ -35,7 +36,7 @@ class ThuHoiLoHangController extends Controller
                 'sanPham',
                 'toChuc',
                 'thuHoiLoHang.blockchainTx',
-                'tonKhoLo.toChuc'
+                'tonKhoLo.toChuc',
             ]);
 
             if ($request->filled('tuKhoa')) {
@@ -65,10 +66,82 @@ class ThuHoiLoHangController extends Controller
                 }
             }
 
+            // ĐỀ XUẤT 3: Lọc hồ sơ nghi vấn trực tiếp trên DB (loại trừ phiếu đã bị TU_CHOI)
+            if ($request->filled('locNghiVan') && $request->locNghiVan !== 'TAT_CA') {
+                $locNv = $request->locNghiVan;
+
+                $baseBaoCaoQuery = BaoCaoNghiVan::select('loThuocId')
+                    ->whereNotNull('loThuocId')
+                    ->where('trangThai', '!=', 'TU_CHOI')
+                    ->whereDoesntHave('ketQuaXuLyBaoCao', fn($kq) => $kq->where('quyetDinh', 'TU_CHOI'));
+
+                if ($locNv === 'CHO_XU_LY') {
+                    $baseBaoCaoQuery->whereIn('trangThai', ['DA_GUI', 'DANG_XU_LY', 'CHO_XU_LY', 'PENDING']);
+                    $query->whereIn('id', $baseBaoCaoQuery);
+                } elseif ($locNv === 'CO_BAO_CAO_DN') {
+                    $baseBaoCaoQuery->whereNotNull('toChucId');
+                    $query->whereIn('id', $baseBaoCaoQuery);
+                } elseif ($locNv === 'CHI_NGUOI_TIEU_DUNG') {
+                    $coNtdQuery = (clone $baseBaoCaoQuery)->whereNull('toChucId');
+                    $coDnQuery = (clone $baseBaoCaoQuery)->whereNotNull('toChucId');
+                    $query->whereIn('id', $coNtdQuery)->whereNotIn('id', $coDnQuery);
+                } else {
+                    // CO_BAO_CAO: Có ít nhất 1 báo cáo hợp lệ (không bị từ chối)
+                    $query->whereIn('id', $baseBaoCaoQuery);
+                }
+            }
+
             $danhSach = $query->orderByDesc('id')->paginate(10);
 
-            $danhSach->getCollection()->transform(function ($lo) {
-                $soBaoCao = BaoCaoNghiVan::where('loThuocId', $lo->id)->count();
+            // Gom thống kê báo cáo nghi vấn theo lô (1 truy vấn duy nhất cho cả trang, tách DN vs NTD & loại trừ TU_CHOI)
+            $loIds = $danhSach->getCollection()->pluck('id')->all();
+            $baoCaoTheoLoMap = ! empty($loIds)
+                ? BaoCaoNghiVan::with('ketQuaXuLyBaoCao:id,baoCaoId,quyetDinh')
+                    ->whereIn('loThuocId', $loIds)
+                    ->get(['id', 'loThuocId', 'toChucId', 'trangThai'])
+                    ->groupBy('loThuocId')
+                : collect();
+
+            $danhSach->getCollection()->transform(function ($lo) use ($baoCaoTheoLoMap) {
+                $dsBaoCaoLo = $baoCaoTheoLoMap->get($lo->id, collect());
+
+                $soHopLe = 0;
+                $soChoXuLy = 0;
+                $soDoanhNghiep = 0;
+                $soDoanhNghiepChoXuLy = 0;
+                $soNguoiTieuDung = 0;
+                $soNguoiTieuDungChoXuLy = 0;
+                $soTuChoi = 0;
+
+                foreach ($dsBaoCaoLo as $bc) {
+                    $tt = strtoupper($bc->trangThai instanceof \BackedEnum ? $bc->trangThai->value : (string) $bc->trangThai);
+                    $qd = strtoupper($bc->ketQuaXuLyBaoCao?->quyetDinh instanceof DecisionType
+                        ? $bc->ketQuaXuLyBaoCao->quyetDinh->value
+                        : (string) ($bc->ketQuaXuLyBaoCao?->quyetDinh ?? ''));
+
+                    if ($tt === 'TU_CHOI' || $qd === 'TU_CHOI') {
+                        $soTuChoi++;
+                        continue;
+                    }
+
+                    $soHopLe++;
+                    $isChoXuLy = in_array($tt, ['DA_GUI', 'DANG_XU_LY', 'CHO_XU_LY', 'PENDING'], true);
+                    if ($isChoXuLy) {
+                        $soChoXuLy++;
+                    }
+
+                    if (! empty($bc->toChucId)) {
+                        $soDoanhNghiep++;
+                        if ($isChoXuLy) {
+                            $soDoanhNghiepChoXuLy++;
+                        }
+                    } else {
+                        $soNguoiTieuDung++;
+                        if ($isChoXuLy) {
+                            $soNguoiTieuDungChoXuLy++;
+                        }
+                    }
+                }
 
                 $hanDungFormatted = null;
                 if ($lo->hanSuDung) {
@@ -97,7 +170,6 @@ class ThuHoiLoHangController extends Controller
                         'lyDo' => $thuHoi->lyDo,
                         'ngayThuHoi' => $thuHoi->ngayThuHoi ? date('d/m/Y H:i', strtotime($thuHoi->ngayThuHoi)) : null,
                         'trangThaiDongBo' => $bcTx?->trangThai ?? 'CHO_DONG_BO',
-                        // Chỉ hiển thị txHash thật sau khi recallBatch được xác nhận.
                         'hashBlockchain' => $txHash,
                     ];
                 }
@@ -112,7 +184,16 @@ class ThuHoiLoHangController extends Controller
                     'ngaySanXuat' => $ngaySanXuatFormatted,
                     'tongSoLuong' => (int) ($lo->soLuong ?? 0),
                     'trangThaiLo' => strtoupper((string) $trangThaiValue),
-                    'soBaoCaoNghiVan' => $soBaoCao,
+                    'soBaoCaoNghiVan' => $soHopLe,
+                    'thongKeBaoCao' => [
+                        'hopLe' => $soHopLe,
+                        'choXuLy' => $soChoXuLy,
+                        'doanhNghiep' => $soDoanhNghiep,
+                        'doanhNghiepChoXuLy' => $soDoanhNghiepChoXuLy,
+                        'nguoiTieuDung' => $soNguoiTieuDung,
+                        'nguoiTieuDungChoXuLy' => $soNguoiTieuDungChoXuLy,
+                        'tuChoi' => $soTuChoi,
+                    ],
                     'thongTinThuHoi' => $thongTinThuHoi,
                     'phanBoKho' => ($lo->tonKhoLo ?? collect())->map(function ($tk) {
                         $loai = $tk->toChuc?->loaiToChuc;
@@ -175,14 +256,11 @@ class ThuHoiLoHangController extends Controller
         }
     }
 
-    /**
-     * API kiểm tra tiến trình xác nhận trên Blockchain (Polling)
-     */
     public function kiemTraTrangThai(int $id): JsonResponse
     {
         try {
             $thuHoi = ThuHoiLoHang::with('blockchainTx')->find($id);
-            if (!$thuHoi) {
+            if (! $thuHoi) {
                 return response()->json(['success' => false, 'message' => 'Không tìm thấy quyết định thu hồi'], 404);
             }
 

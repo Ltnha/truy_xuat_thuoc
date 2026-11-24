@@ -42,6 +42,60 @@ document.addEventListener('DOMContentLoaded', function () {
         return lo.phanBoKho.reduce((sum, item) => sum + (item.daBan || 0), 0);
     }
 
+    /**
+     * Đề xuất 3: Hiển thị tách bạch nguồn báo cáo (Doanh nghiệp vs Người tiêu dùng) & loại bỏ phiếu TU_CHOI
+     */
+    function taoHtmlCotNghiVan(item) {
+        const tk = item.thongKeBaoCao || {
+            hopLe: item.soBaoCaoNghiVan || 0,
+            choXuLy: item.soBaoCaoNghiVan || 0,
+            doanhNghiep: 0,
+            doanhNghiepChoXuLy: 0,
+            nguoiTieuDung: item.soBaoCaoNghiVan || 0,
+            nguoiTieuDungChoXuLy: item.soBaoCaoNghiVan || 0,
+            tuChoi: 0
+        };
+
+        if (tk.hopLe === 0) {
+            const tuChoiSub = tk.tuChoi > 0
+                ? `<span class="block text-[10px] text-slate-400 mt-0.5">(${tk.tuChoi} đã từ chối)</span>`
+                : '';
+            return `<span class="font-mono font-bold text-slate-400">0 báo cáo</span>${tuChoiSub}`;
+        }
+
+        let badgeChinh = '';
+        if (tk.choXuLy > 0) {
+            const badgeStyle = tk.doanhNghiepChoXuLy > 0
+                ? 'text-red-700 bg-red-50 border-red-200'
+                : 'text-amber-800 bg-amber-50 border-amber-200';
+            badgeChinh = `
+                <span class="inline-block font-mono font-bold ${badgeStyle} px-2 py-0.5 rounded border text-[11px]">
+                    ${tk.choXuLy} chờ xử lý
+                </span>
+            `;
+        } else {
+            badgeChinh = `
+                <span class="inline-block font-mono font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 text-[11px]">
+                    ${tk.hopLe} đã xử lý
+                </span>
+            `;
+        }
+
+        const dnClass = tk.doanhNghiep > 0 ? 'text-indigo-700 font-bold' : 'text-slate-400';
+        const ntdClass = tk.nguoiTieuDung > 0 ? 'text-slate-700 font-semibold' : 'text-slate-400';
+
+        return `
+            <div class="inline-flex flex-col items-center">
+                ${badgeChinh}
+                <div class="text-[10px] font-mono mt-1 flex items-center gap-1.5" title="DN: Báo cáo từ Doanh nghiệp chuỗi cung ứng | NTD: Báo cáo từ Người tiêu dùng">
+                    <span class="${dnClass}"><i class="fa-solid fa-building text-[9px]"></i> DN: ${tk.doanhNghiep}</span>
+                    <span class="text-slate-300">•</span>
+                    <span class="${ntdClass}"><i class="fa-solid fa-user text-[9px]"></i> NTD: ${tk.nguoiTieuDung}</span>
+                </div>
+            </div>
+        `;
+    }
+
     // ══ 1. TẢI DỮ LIỆU TỪ BACKEND API ══
     async function loadDanhSachLo() {
         thanBang.innerHTML = `<tr><td colspan="8" class="text-center py-8 text-slate-400 italic"><i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang tải dữ liệu từ máy chủ...</td></tr>`;
@@ -50,7 +104,8 @@ document.addEventListener('DOMContentLoaded', function () {
             page: trangHienTai,
             tuKhoa: oTimKiem ? oTimKiem.value.trim() : '',
             nhaSanXuatId: locNSX ? locNSX.value : 'TAT_CA',
-            trangThaiLo: locTrangThai ? locTrangThai.value : 'TAT_CA'
+            trangThaiLo: locTrangThai ? locTrangThai.value : 'TAT_CA',
+            locNghiVan: locNghiVan ? locNghiVan.value : 'TAT_CA'
         });
 
         try {
@@ -71,14 +126,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // ══ 2. RENDER BẢNG VÀ PHÂN TRANG ══
     function renderBang(apiResponse) {
-        let duLieu = apiResponse.data || [];
-        if (locNghiVan && locNghiVan.value === 'CO_BAO_CAO') {
-            duLieu = duLieu.filter(item => (item.soBaoCaoNghiVan || 0) > 0);
-        }
-
-        const tongSo = (locNghiVan && locNghiVan.value === 'CO_BAO_CAO')
-            ? duLieu.length
-            : (apiResponse.total || duLieu.length);
+        const duLieu = apiResponse.data || [];
+        const tongSo = apiResponse.total ?? duLieu.length;
 
         soLuongBadge.textContent = `Hiển thị: ${tongSo} lô`;
         thanBang.innerHTML = '';
@@ -131,11 +180,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     <span class="text-[10px] text-slate-500 font-mono">(${nhanTonKho}: ${dangLuuThong.toLocaleString('vi-VN')} • Đã bán: ${daBanLe.toLocaleString('vi-VN')})</span>
                 </td>
                 <td class="py-3 px-2.5 text-center whitespace-nowrap">${badgeTrangThai}</td>
-                <td class="py-3 px-2.5 text-center whitespace-nowrap">
-                    <span class="font-mono font-bold ${item.soBaoCaoNghiVan > 0 ? 'text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200' : 'text-slate-400'}">
-                        ${item.soBaoCaoNghiVan || 0} báo cáo
-                    </span>
-                </td>
+                <td class="py-3 px-2.5 text-center whitespace-nowrap">${taoHtmlCotNghiVan(item)}</td>
                 <td class="py-3 px-3 text-center whitespace-nowrap">
                     <div class="inline-flex items-center justify-center gap-1.5">
                         <button type="button" class="btn-xem-chi-tiet-lo px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-bold text-xs transition-all flex items-center gap-1 border border-indigo-200 shadow-2xs whitespace-nowrap cursor-pointer" data-id="${item.id}">
@@ -213,7 +258,12 @@ document.addEventListener('DOMContentLoaded', function () {
         const elDaBan = document.getElementById('detailDaBanRaThiTruong');
         if (elDaBan) elDaBan.textContent = `${daBanLe.toLocaleString('vi-VN')} hộp`;
 
-        document.getElementById('detailSoBaoCaoNghiVan').textContent = `${loDangXemDetail.soBaoCaoNghiVan || 0} báo cáo`;
+        const tk = loDangXemDetail.thongKeBaoCao;
+        const nhanBaoCaoDetail = tk
+            ? `${tk.hopLe} hợp lệ (DN: ${tk.doanhNghiep}, NTD: ${tk.nguoiTieuDung})${tk.tuChoi > 0 ? ` • ${tk.tuChoi} từ chối` : ''}`
+            : `${loDangXemDetail.soBaoCaoNghiVan || 0} báo cáo`;
+
+        document.getElementById('detailSoBaoCaoNghiVan').textContent = nhanBaoCaoDetail;
         document.getElementById('detailLinkSangNghiVan').href = `/co-quan/xu-ly-nghi-van?tuKhoa=${encodeURIComponent(loDangXemDetail.maLo)}`;
 
         const thGiu = document.getElementById('thCotSoLuongGiu');
@@ -288,7 +338,7 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.addEventListener('click', () => modalDetail.classList.add('hidden'));
     });
 
-    // ══ 4. MODAL THU HỒI LÔ THUỐC (CHỜ BLOCKCHAIN CONFIRMED MỚI CHUYỂN POPUP) ══
+    // ══ 4. MODAL THU HỒI LÔ THUỐC ══
     const modalThuHoi = document.getElementById('modalThuHoiLoHang');
     const manHinhFormThuHoi = document.getElementById('manHinhFormThuHoi');
     const manHinhDangGhiBlockchain = document.getElementById('manHinhDangGhiBlockchain');

@@ -37,7 +37,10 @@
 
             <select id="locNghiVanLo" class="px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-indigo-700 outline-none cursor-pointer">
                 <option value="TAT_CA">-- Tất cả hồ sơ nghi vấn --</option>
-                <option value="CO_BAO_CAO">Có báo cáo nghi vấn</option>
+                <option value="CHO_XU_LY">Có báo cáo chờ xử lý</option>
+                <option value="CO_BAO_CAO_DN">Có báo cáo từ Doanh nghiệp</option>
+                <option value="CHI_NGUOI_TIEU_DUNG">Chỉ có báo cáo từ Người tiêu dùng</option>
+                <option value="CO_BAO_CAO">Có báo cáo hợp lệ (đã loại từ chối)</option>
             </select>
         </div>
     </div>

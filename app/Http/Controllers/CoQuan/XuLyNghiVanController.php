@@ -11,9 +11,17 @@ use App\Models\ThuHoiLoHang;
 use App\Services\CoQuan\ThuHoiLoService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 class XuLyNghiVanController extends Controller
 {
+    private const NHAN_VAI_TRO_MAP = [
+        'NHA_SAN_XUAT' => 'NSX',
+        'NHA_PHAN_PHOI' => 'NPP',
+        'NHA_THUOC' => 'Nhà thuốc',
+        'CO_QUAN_QUAN_LY' => 'Cơ quan QL',
+    ];
+
     public function __construct(protected ThuHoiLoService $thuHoiLoService) {}
 
     public function index()
@@ -22,12 +30,111 @@ class XuLyNghiVanController extends Controller
     }
 
     /**
-     * API Lấy danh sách báo cáo nghi vấn
+     * Chuẩn hóa dữ liệu 1 bản ghi BaoCaoNghiVan để dùng chung cho bảng chính và danh sách báo cáo liên quan
+     */
+    private function formatBaoCaoItem(BaoCaoNghiVan $bc, Collection $thuHoiDoiChieuMap): array
+    {
+        $loaiBaoCao = $bc->loaiBaoCao ?: ($bc->loThuocId ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG');
+
+        $maLo = $loaiBaoCao === 'TRONG_VONG_DOI'
+            ? ($bc->loThuoc?->maLoNghiepVu ?? $bc->loThuoc?->maLo ?? $bc->maLoKhaiBao ?? 'N/A')
+            : ($bc->maLoKhaiBao ?? 'N/A');
+
+        $toChucGui = $bc->toChuc ?? $bc->taiKhoan?->toChuc;
+        $laDoanhNghiep = (bool) $toChucGui;
+
+        if ($toChucGui) {
+            $vtRaw = $toChucGui->loaiToChuc instanceof \BackedEnum
+                ? $toChucGui->loaiToChuc->value
+                : (string) ($toChucGui->loaiToChuc ?? '');
+            $prefix = self::NHAN_VAI_TRO_MAP[$vtRaw] ?? 'Doanh nghiệp';
+            $donVi = "[{$prefix}] {$toChucGui->tenToChuc}";
+        } elseif ($bc->taiKhoan) {
+            $donVi = $bc->taiKhoan->hoTen ?? $bc->taiKhoan->tenDangNhap ?? "Tài khoản #{$bc->taiKhoanId}";
+        } else {
+            $donVi = 'Người tiêu dùng (Công khai)';
+        }
+
+        $thoiGianRaw = $bc->ngayGui ?? $bc->created_at;
+        $thoiGianFormatted = null;
+        if ($thoiGianRaw) {
+            $thoiGianFormatted = $thoiGianRaw instanceof \Carbon\CarbonInterface
+                ? $thoiGianRaw->toIso8601String()
+                : date('Y-m-d H:i:s', strtotime($thoiGianRaw));
+        }
+
+        $trangThaiVal = $bc->trangThai instanceof ReportStatus ? $bc->trangThai->value : (string) $bc->trangThai;
+        $isDaXuLy = in_array(strtoupper($trangThaiVal), ['DA_XU_LY', 'RESOLVED', 'APPROVED'], true);
+
+        $quyetDinhVal = $bc->ketQuaXuLyBaoCao?->quyetDinh instanceof DecisionType
+            ? $bc->ketQuaXuLyBaoCao->quyetDinh->value
+            : (string) ($bc->ketQuaXuLyBaoCao?->quyetDinh ?? '');
+
+        $loGoc = $bc->loBiLamGia;
+        $loBiLamGiaData = null;
+        if ($loGoc) {
+            $trangThaiLoGoc = $loGoc->trangThai instanceof \BackedEnum
+                ? $loGoc->trangThai->value
+                : (string) $loGoc->trangThai;
+            $banGhiThuHoiLoGoc = $thuHoiDoiChieuMap->get($loGoc->id);
+            $daThuHoiLoGoc = ($trangThaiLoGoc === 'RECALLED') || ($banGhiThuHoiLoGoc !== null);
+
+            $loBiLamGiaData = [
+                'id' => $loGoc->id,
+                'maLoNghiepVu' => $loGoc->maLoNghiepVu ?? $loGoc->maLo,
+                'tenSanPham' => $loGoc->sanPham?->tenSanPham ?? 'N/A',
+                'soDangKy' => $loGoc->sanPham?->soDangKy ?? 'N/A',
+                'nhaSanXuat' => $loGoc->toChuc?->tenToChuc ?? 'N/A',
+                'hanSuDung' => $loGoc->hanSuDung ? date('d/m/Y', strtotime($loGoc->hanSuDung)) : 'N/A',
+                'trangThai' => $trangThaiLoGoc,
+                'daThuHoi' => $daThuHoiLoGoc,
+                'txHashThuHoi' => $banGhiThuHoiLoGoc?->blockchainTx?->txHash,
+            ];
+        }
+
+        $minhChungs = $bc->minhChungs ? $bc->minhChungs->map(function ($mc) {
+            return [
+                'id' => $mc->id,
+                'tenFile' => $mc->tenFile,
+                'loaiFile' => $mc->loaiFile,
+                'duongDan' => $mc->duongDan ? asset('storage/' . $mc->duongDan) : '#',
+            ];
+        })->values()->all() : [];
+
+        return [
+            'id' => $bc->id,
+            'maBaoCao' => $bc->maBaoCao ?? "BC-{$bc->id}",
+            'loaiBaoCao' => $loaiBaoCao,
+            'loaiBaoCaoNhan' => $loaiBaoCao === 'TRONG_VONG_DOI' ? 'Lô trong vòng đời' : 'Lô ngoài hệ thống / Nghi giả',
+            'loThuocId' => $loaiBaoCao === 'TRONG_VONG_DOI' ? $bc->loThuocId : null,
+            'loBiLamGia' => $loBiLamGiaData,
+            'maLo' => $maLo,
+            'maLoKhaiBao' => $bc->maLoKhaiBao ?? $maLo,
+            'tenSanPham' => $loaiBaoCao === 'TRONG_VONG_DOI'
+                ? ($bc->loThuoc?->sanPham?->tenSanPham ?? 'Dược phẩm hệ thống')
+                : ($loGoc?->sanPham?->tenSanPham ? "Nghi giả mạo: {$loGoc->sanPham->tenSanPham}" : 'Lô ngoài hệ thống'),
+            'donViBaoCao' => $donVi,
+            'laDoanhNghiep' => $laDoanhNghiep,
+            'thoiGianGui' => $thoiGianFormatted,
+            'lyDo' => $bc->lyDo ?? 'Không rõ lý do',
+            'noiDung' => $bc->lyDo ? ($bc->moTa ? "{$bc->lyDo}\nChi tiết: {$bc->moTa}" : $bc->lyDo) : ($bc->moTa ?? 'Không có mô tả chi tiết.'),
+            'trangThai' => $isDaXuLy ? 'DA_XU_LY' : 'CHO_XU_LY',
+            'trangThaiGoc' => strtoupper($trangThaiVal),
+            'minhChungs' => $minhChungs,
+            'quyetDinhXuLy' => $quyetDinhVal ?: null,
+            'ketQuaXuLy' => $bc->ketQuaXuLyBaoCao?->lyDoXuLy,
+            'thoiGianXuLy' => $bc->ketQuaXuLyBaoCao?->ngayXuLy ? date('Y-m-d H:i:s', strtotime($bc->ketQuaXuLyBaoCao->ngayXuLy)) : null,
+            'txHashThuHoi' => $bc->ketQuaXuLyBaoCao?->thuHoiLoHang?->blockchainTx?->txHash,
+        ];
+    }
+
+    /**
+     * API Lấy danh sách báo cáo nghi vấn (kèm gom nhóm các báo cáo liên quan cùng lô)
      */
     public function danhSach(Request $request): JsonResponse
     {
         try {
-            $query = BaoCaoNghiVan::with([
+            $relations = [
                 'loThuoc.sanPham',
                 'loThuoc.toChuc',
                 'loBiLamGia.sanPham',
@@ -36,7 +143,9 @@ class XuLyNghiVanController extends Controller
                 'taiKhoan.toChuc',
                 'minhChungs',
                 'ketQuaXuLyBaoCao.thuHoiLoHang.blockchainTx',
-            ]);
+            ];
+
+            $query = BaoCaoNghiVan::with($relations);
 
             if ($request->filled('tuKhoa')) {
                 $tuKhoa = trim($request->tuKhoa);
@@ -103,120 +212,84 @@ class XuLyNghiVanController extends Controller
             }
 
             $danhSach = $query->orderByDesc('id')->paginate(10);
+            $pageItems = $danhSach->getCollection();
 
-            // Kiểm tra trạng thái thu hồi của các lô đối chiếu (loBiLamGiaId)
-            $loDoiChieuIds = $danhSach->getCollection()
-                ->pluck('loBiLamGiaId')
+            // ĐỀ XUẤT 4: Nạp tất cả báo cáo liên quan cùng lô cho các hồ sơ trên trang hiện tại
+            $loThuocIds = $pageItems->pluck('loThuocId')->filter()->unique()->values()->all();
+            $loBiLamGiaIds = $pageItems->pluck('loBiLamGiaId')->filter()->unique()->values()->all();
+            $maLoKhaiBaos = $pageItems->pluck('maLoKhaiBao')
+                ->filter()
+                ->map(fn($m) => strtoupper(trim((string) $m)))
+                ->unique()
+                ->values()
+                ->all();
+
+            $tatCaLienQuan = collect();
+            if (! empty($loThuocIds) || ! empty($loBiLamGiaIds) || ! empty($maLoKhaiBaos)) {
+                $tatCaLienQuan = BaoCaoNghiVan::with($relations)
+                    ->where(function ($q) use ($loThuocIds, $loBiLamGiaIds, $maLoKhaiBaos) {
+                        if (! empty($loThuocIds)) {
+                            $q->orWhereIn('loThuocId', $loThuocIds)
+                                ->orWhereIn('loBiLamGiaId', $loThuocIds);
+                        }
+                        if (! empty($loBiLamGiaIds)) {
+                            $q->orWhereIn('loBiLamGiaId', $loBiLamGiaIds);
+                        }
+                        if (! empty($maLoKhaiBaos)) {
+                            $q->orWhereIn('maLoKhaiBao', $maLoKhaiBaos);
+                        }
+                    })
+                    ->orderByDesc('id')
+                    ->get();
+            }
+
+            // Kiểm tra trạng thái thu hồi của tất cả lô đối chiếu (loBiLamGiaId)
+            $allLoDoiChieuIds = $pageItems->pluck('loBiLamGiaId')
+                ->merge($tatCaLienQuan->pluck('loBiLamGiaId'))
                 ->filter()
                 ->unique()
                 ->values();
 
-            $thuHoiDoiChieuMap = $loDoiChieuIds->isNotEmpty()
+            $thuHoiDoiChieuMap = $allLoDoiChieuIds->isNotEmpty()
                 ? ThuHoiLoHang::with('blockchainTx')
-                ->whereIn('loThuocId', $loDoiChieuIds)
+                ->whereIn('loThuocId', $allLoDoiChieuIds)
                 ->orderByDesc('id')
                 ->get()
                 ->unique('loThuocId')
                 ->keyBy('loThuocId')
                 : collect();
 
-            $nhanVaiTroMap = [
-                'NHA_SAN_XUAT' => 'NSX',
-                'NHA_PHAN_PHOI' => 'NPP',
-                'NHA_THUOC' => 'Nhà thuốc',
-                'CO_QUAN_QUAN_LY' => 'Cơ quan QL',
-            ];
+            $danhSach->getCollection()->transform(function ($bc) use ($tatCaLienQuan, $thuHoiDoiChieuMap) {
+                $formatted = $this->formatBaoCaoItem($bc, $thuHoiDoiChieuMap);
+                $maLoUpper = strtoupper(trim((string) ($bc->maLoKhaiBao ?? '')));
 
-            $danhSach->getCollection()->transform(function ($bc) use ($nhanVaiTroMap, $thuHoiDoiChieuMap) {
-                $loaiBaoCao = $bc->loaiBaoCao ?: ($bc->loThuocId ? 'TRONG_VONG_DOI' : 'NGOAI_HE_THONG');
+                $lienQuanRaw = $tatCaLienQuan->filter(function ($other) use ($bc, $maLoUpper) {
+                    if ($other->id === $bc->id) {
+                        return false;
+                    }
+                    if ($bc->loThuocId) {
+                        return ((int) $other->loThuocId === (int) $bc->loThuocId)
+                            || ((int) $other->loBiLamGiaId === (int) $bc->loThuocId);
+                    }
+                    if ($bc->loBiLamGiaId && (int) $other->loBiLamGiaId === (int) $bc->loBiLamGiaId) {
+                        return true;
+                    }
+                    return $maLoUpper !== '' && strtoupper(trim((string) ($other->maLoKhaiBao ?? ''))) === $maLoUpper;
+                })->sortBy(function ($other) {
+                    $tt = strtoupper($other->trangThai instanceof ReportStatus ? $other->trangThai->value : (string) $other->trangThai);
+                    $isCho = in_array($tt, ['DA_GUI', 'DANG_XU_LY', 'CHO_XU_LY', 'PENDING'], true);
+                    return ($isCho ? '0_' : '1_') . str_pad((string) (999999999 - $other->id), 10, '0', STR_PAD_LEFT);
+                })->values();
 
-                $maLo = $loaiBaoCao === 'TRONG_VONG_DOI'
-                    ? ($bc->loThuoc?->maLoNghiepVu ?? $bc->loThuoc?->maLo ?? $bc->maLoKhaiBao ?? 'N/A')
-                    : ($bc->maLoKhaiBao ?? 'N/A');
+                $lienQuanFormatted = $lienQuanRaw
+                    ->map(fn($other) => $this->formatBaoCaoItem($other, $thuHoiDoiChieuMap))
+                    ->values()
+                    ->all();
 
-                $toChucGui = $bc->toChuc ?? $bc->taiKhoan?->toChuc;
-                if ($toChucGui) {
-                    $vtRaw = $toChucGui->loaiToChuc instanceof \BackedEnum
-                        ? $toChucGui->loaiToChuc->value
-                        : (string) ($toChucGui->loaiToChuc ?? '');
-                    $prefix = $nhanVaiTroMap[$vtRaw] ?? 'Doanh nghiệp';
-                    $donVi = "[{$prefix}] {$toChucGui->tenToChuc}";
-                } elseif ($bc->taiKhoan) {
-                    $donVi = $bc->taiKhoan->hoTen ?? $bc->taiKhoan->tenDangNhap ?? "Tài khoản #{$bc->taiKhoanId}";
-                } else {
-                    $donVi = 'Người tiêu dùng (Công khai)';
-                }
+                $formatted['tongBaoCaoCungLo'] = 1 + count($lienQuanFormatted);
+                $formatted['baoCaoLienQuan'] = $lienQuanFormatted;
 
-                $thoiGianRaw = $bc->ngayGui ?? $bc->created_at;
-                $thoiGianFormatted = null;
-                if ($thoiGianRaw) {
-                    $thoiGianFormatted = $thoiGianRaw instanceof \Carbon\CarbonInterface
-                        ? $thoiGianRaw->toIso8601String()
-                        : date('Y-m-d H:i:s', strtotime($thoiGianRaw));
-                }
-
-                $trangThaiVal = $bc->trangThai instanceof ReportStatus ? $bc->trangThai->value : (string) $bc->trangThai;
-                $isDaXuLy = in_array(strtoupper($trangThaiVal), ['DA_XU_LY', 'RESOLVED', 'APPROVED'], true);
-
-                $quyetDinhVal = $bc->ketQuaXuLyBaoCao?->quyetDinh instanceof DecisionType
-                    ? $bc->ketQuaXuLyBaoCao->quyetDinh->value
-                    : (string) ($bc->ketQuaXuLyBaoCao?->quyetDinh ?? '');
-
-                $loGoc = $bc->loBiLamGia;
-                $loBiLamGiaData = null;
-                if ($loGoc) {
-                    $trangThaiLoGoc = $loGoc->trangThai instanceof \BackedEnum
-                        ? $loGoc->trangThai->value
-                        : (string) $loGoc->trangThai;
-                    $banGhiThuHoiLoGoc = $thuHoiDoiChieuMap->get($loGoc->id);
-                    $daThuHoiLoGoc = ($trangThaiLoGoc === 'RECALLED') || ($banGhiThuHoiLoGoc !== null);
-
-                    $loBiLamGiaData = [
-                        'id' => $loGoc->id,
-                        'maLoNghiepVu' => $loGoc->maLoNghiepVu ?? $loGoc->maLo,
-                        'tenSanPham' => $loGoc->sanPham?->tenSanPham ?? 'N/A',
-                        'soDangKy' => $loGoc->sanPham?->soDangKy ?? 'N/A',
-                        'nhaSanXuat' => $loGoc->toChuc?->tenToChuc ?? 'N/A',
-                        'hanSuDung' => $loGoc->hanSuDung ? date('d/m/Y', strtotime($loGoc->hanSuDung)) : 'N/A',
-                        'trangThai' => $trangThaiLoGoc,
-                        'daThuHoi' => $daThuHoiLoGoc,
-                        'txHashThuHoi' => $banGhiThuHoiLoGoc?->blockchainTx?->txHash,
-                    ];
-                }
-
-                $minhChungs = $bc->minhChungs ? $bc->minhChungs->map(function ($mc) {
-                    return [
-                        'id' => $mc->id,
-                        'tenFile' => $mc->tenFile,
-                        'loaiFile' => $mc->loaiFile,
-                        'duongDan' => $mc->duongDan ? asset('storage/' . $mc->duongDan) : '#',
-                    ];
-                })->values()->all() : [];
-
-                return [
-                    'id' => $bc->id,
-                    'maBaoCao' => $bc->maBaoCao ?? "BC-{$bc->id}",
-                    'loaiBaoCao' => $loaiBaoCao,
-                    'loaiBaoCaoNhan' => $loaiBaoCao === 'TRONG_VONG_DOI' ? 'Lô trong vòng đời' : 'Lô ngoài hệ thống / Nghi giả',
-                    'loThuocId' => $loaiBaoCao === 'TRONG_VONG_DOI' ? $bc->loThuocId : null,
-                    'loBiLamGia' => $loBiLamGiaData,
-                    'maLo' => $maLo,
-                    'maLoKhaiBao' => $bc->maLoKhaiBao ?? $maLo,
-                    'tenSanPham' => $loaiBaoCao === 'TRONG_VONG_DOI'
-                        ? ($bc->loThuoc?->sanPham?->tenSanPham ?? 'Dược phẩm hệ thống')
-                        : ($loGoc?->sanPham?->tenSanPham ? "Nghi giả mạo: {$loGoc->sanPham->tenSanPham}" : 'Lô ngoài hệ thống'),
-                    'donViBaoCao' => $donVi,
-                    'thoiGianGui' => $thoiGianFormatted,
-                    'lyDo' => $bc->lyDo ?? 'Không rõ lý do',
-                    'noiDung' => $bc->lyDo ? ($bc->moTa ? "{$bc->lyDo}\nChi tiết: {$bc->moTa}" : $bc->lyDo) : ($bc->moTa ?? 'Không có mô tả chi tiết.'),
-                    'trangThai' => $isDaXuLy ? 'DA_XU_LY' : 'CHO_XU_LY',
-                    'trangThaiGoc' => strtoupper($trangThaiVal),
-                    'minhChungs' => $minhChungs,
-                    'quyetDinhXuLy' => $quyetDinhVal ?: null,
-                    'ketQuaXuLy' => $bc->ketQuaXuLyBaoCao?->lyDoXuLy,
-                    'thoiGianXuLy' => $bc->ketQuaXuLyBaoCao?->ngayXuLy ? date('Y-m-d H:i:s', strtotime($bc->ketQuaXuLyBaoCao->ngayXuLy)) : null,
-                    'txHashThuHoi' => $bc->ketQuaXuLyBaoCao?->thuHoiLoHang?->blockchainTx?->txHash,
-                ];
+                return $formatted;
             });
 
             return response()->json($danhSach);

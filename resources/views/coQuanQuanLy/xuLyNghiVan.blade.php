@@ -84,6 +84,14 @@
         </div>
 
         <div class="flex-1 overflow-y-auto space-y-3.5 text-xs pr-1">
+            <!-- Thanh điều hướng khi chuyển sang xem phiếu liên quan -->
+            <div id="detailThanhQuayLaiPhieuGoc" class="hidden px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-xl flex items-center justify-between text-[11px] text-indigo-900">
+                <span><i class="fa-solid fa-code-branch mr-1"></i> Đang xem phiếu liên quan cùng lô</span>
+                <button type="button" id="nutQuayLaiPhieuTruoc" class="font-bold underline hover:text-indigo-700 cursor-pointer flex items-center gap-1">
+                    <i class="fa-solid fa-arrow-left text-[10px]"></i> Quay lại phiếu trước
+                </button>
+            </div>
+
             <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 p-3 bg-nenChinh rounded-xl border border-emerald-900/10">
                 <div>
                     <span class="text-slate-500 block text-[11px]">Mã lô khai báo:</span>
@@ -146,6 +154,18 @@
                 </div>
                 <div class="text-[10px] opacity-80 pt-0.5 font-mono" id="detailThoiGianXuLy"></div>
             </div>
+
+            <!-- ĐỀ XUẤT 4: CÁC LƯỢT BÁO CÁO KHÁC CÙNG LÔ -->
+            <div id="detailKhungBaoCaoLienQuan" class="hidden space-y-2 bg-indigo-50/50 p-3 rounded-xl border border-indigo-200/80">
+                <div class="flex items-center justify-between gap-2 flex-wrap">
+                    <span class="font-bold text-indigo-950 uppercase tracking-wide flex items-center gap-1.5 text-[11px]">
+                        <i class="fa-solid fa-layer-group text-indigo-600"></i>
+                        <span id="detailTieuDeBaoCaoLienQuan">Các Báo Cáo Khác Cùng Lô</span>
+                    </span>
+                    <span id="detailTomTatNguonLienQuan" class="text-[10px] font-mono font-semibold text-indigo-800"></span>
+                </div>
+                <div id="detailDanhSachBaoCaoLienQuan" class="space-y-1.5 max-h-44 overflow-y-auto pr-0.5"></div>
+            </div>
         </div>
 
         <div class="border-t border-slate-100 pt-3 flex items-center justify-between gap-2 shrink-0">
@@ -181,6 +201,9 @@
                     <strong id="modalNghiVanMaLo" class="font-mono text-indigo-900"></strong>
                 </div>
             </div>
+
+            <!-- Thông báo gộp các phiếu chờ cùng lô khi ban hành thu hồi -->
+            <div id="thongBaoGopPhieuCungLo" class="hidden p-2.5 bg-red-50 border border-red-200 rounded-xl text-red-900 text-[11px] leading-relaxed"></div>
 
             <!-- Chọn hướng quyết định -->
             <div id="khungHinhThucQuyetDinh" class="space-y-1.5">
