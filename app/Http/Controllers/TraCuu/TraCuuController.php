@@ -116,17 +116,8 @@ class TraCuuController extends Controller
             Log::info("[TraCuuController] Signer microservice không phản hồi, chuyển sang đối soát RPC Sepolia: " . $exception->getMessage());
         }
 
-        // Tier 2: Nếu Signer microservice không có sẵn, gọi trực tiếp Ethereum Sepolia RPC (eth_call)
-        if ($chainReadStatus !== 'AVAILABLE') {
-            $rpcData = $this->readFromRpcDirectly($batchId, $productId);
-            if ($rpcData !== null) {
-                $batch = $rpcData['batch'];
-                $approval = $rpcData['approval'];
-                $chainReadStatus = 'AVAILABLE';
-            }
-        }
-
-        // Đánh giá trạng thái On-Chain (khi Tier 1 hoặc Tier 2 thành công)
+        // Chỉ xem dữ liệu là đã xác minh khi Signer đọc thành công trực tiếp từ contract.
+        // Không dùng DB hoặc RPC tự giải mã ABI làm bằng chứng thay thế cho trạng thái on-chain.
         if ($chainReadStatus === 'AVAILABLE') {
             $batchExists = ! empty($batch['batch']['exists']);
             $chainRecalled = ! empty($batch['batch']['recalled']);
@@ -142,35 +133,30 @@ class TraCuuController extends Controller
             } else {
                 $productIntegrity = 'MISMATCH';
             }
-        } else {
-            // Tier 3: Nếu RPC mạng ngoài gián đoạn (offline), đối chiếu với bằng chứng đã xác nhận trong database
-            $confirmedProdTx = DB::table('blockchainTransaction')
-                ->where('loThuocId', $lo->id)
-                ->whereIn('eventName', ['BatchRegistered', 'PRODUCTION'])
-                ->where('trangThai', 'CONFIRMED')
-                ->first();
+        }
 
-            if ($confirmedProdTx && ! empty($confirmedProdTx->txHash)) {
-                $chainReadStatus = 'AVAILABLE';
-                $batchExists = true;
-                $chainRecalled = ($lo->trangThai === 'RECALLED');
 
-                $productApprovedTx = DB::table('blockchainTransaction')
-                    ->where('sanPhamId', $lo->sanPhamId)
-                    ->where('eventName', 'ProductApproved')
-                    ->where('trangThai', 'CONFIRMED')
-                    ->first();
+        // Chủ sở hữu hiện tại phải khớp giữa tồn kho MySQL và ví ACTIVE trên blockchain.
+        $stockOwner = DB::table('tonKhoLo as tk')
+            ->join('blockchainIdentity as bi', function ($join) {
+                $join->on('bi.toChucId', '=', 'tk.toChucId')
+                    ->where('bi.trangThai', '=', 'ACTIVE');
+            })
+            ->where('tk.loThuocId', $lo->id)
+            ->orderByDesc('bi.id')
+            ->first(['tk.toChucId', 'bi.diaChiVi']);
 
-                if (
-                    $lo->trangThaiSanPham === 'DA_DUYET'
-                    && $expectedHash !== null
-                    && $dbHash !== ''
-                    && $dbHash === $expHash
-                    && $productApprovedTx
-                ) {
-                    $productIntegrity = 'MATCH';
-                }
-            }
+        $chainOwner = strtolower((string) ($batch['batch']['currentOwner'] ?? ''));
+        $databaseOwnerAddress = strtolower((string) ($stockOwner->diaChiVi ?? ''));
+        $ownerIntegrity = 'UNVERIFIED';
+
+        if (
+            $chainReadStatus === 'AVAILABLE'
+            && $batchExists
+            && preg_match('/^0x[a-f0-9]{40}$/', $chainOwner)
+            && preg_match('/^0x[a-f0-9]{40}$/', $databaseOwnerAddress)
+        ) {
+            $ownerIntegrity = hash_equals($databaseOwnerAddress, $chainOwner) ? 'MATCH' : 'MISMATCH';
         }
 
         $expired = (string) $lo->hanSuDung < today()->toDateString();
@@ -178,7 +164,9 @@ class TraCuuController extends Controller
             : ($expired ? 'EXPIRED'
                 : ($chainReadStatus !== 'AVAILABLE' ? 'UNAVAILABLE'
                     : (! $batchExists ? 'NOT_REGISTERED_ON_CHAIN'
-                        : ($lo->trangThaiSanPham === 'DA_DUYET' && $productIntegrity === 'MATCH' ? 'VALID' : 'INVALID'))));
+                        : ($lo->trangThaiSanPham === 'DA_DUYET'
+                            && $productIntegrity === 'MATCH'
+                            && $ownerIntegrity === 'MATCH' ? 'VALID' : 'INVALID'))));
 
         // 1. Sự kiện sản xuất lô thuốc ban đầu
         $prodTx = DB::table('blockchainTransaction')
@@ -281,6 +269,8 @@ class TraCuuController extends Controller
             'chainReadStatus' => $chainReadStatus,
             'batchExistsOnChain' => $batchExists,
             'chainOwner' => $batch['batch']['currentOwner'] ?? null,
+            'databaseOwnerAddress' => $databaseOwnerAddress ?: null,
+            'ownerIntegrity' => $ownerIntegrity,
             'chainRecalled' => $chainRecalled,
             'chainTransferIds' => $batch['transferIds'] ?? [],
             'chainTransfers' => [],
@@ -293,87 +283,4 @@ class TraCuuController extends Controller
         ];
     }
 
-    /**
-     * Truy vấn trực tiếp Ethereum Sepolia RPC qua JSON-RPC eth_call
-     * Đảm bảo đối soát On-chain hoạt động độc lập ngay cả khi Signer Microservice bảo trì.
-     */
-    protected function readFromRpcDirectly(string $batchId, string $productId): ?array
-    {
-        $rpcEndpoints = array_filter([
-            config('truyXuat.blockchain.rpcUrl'),
-            env('BLOCKCHAIN_RPC_URL'),
-            'https://ethereum-sepolia-rpc.publicnode.com',
-            'https://1rpc.io/sepolia',
-            'https://rpc.sepolia.org',
-        ]);
-        $contractAddress = config('truyXuat.blockchain.diaChiHopDong') ?: env('BLOCKCHAIN_CONTRACT_ADDRESS');
-
-        if (empty($contractAddress) || ! preg_match('/^0x[a-fA-F0-9]{40}$/', $contractAddress)) {
-            return null;
-        }
-
-        $cleanBatchId = ltrim(strtolower($batchId), '0x');
-        $cleanProductId = ltrim(strtolower($productId), '0x');
-
-        // approvedProducts(bytes32): selector 0x476b12e0
-        $dataApproved = '0x476b12e0' . str_pad($cleanProductId, 64, '0', STR_PAD_LEFT);
-        // batches(bytes32): selector 0xc81e25ab
-        $dataBatches = '0xc81e25ab' . str_pad($cleanBatchId, 64, '0', STR_PAD_LEFT);
-
-        foreach (array_unique($rpcEndpoints) as $rpcUrl) {
-            try {
-                $batchPayload = [
-                    ['jsonrpc' => '2.0', 'id' => 1, 'method' => 'eth_call', 'params' => [['to' => $contractAddress, 'data' => $dataApproved], 'latest']],
-                    ['jsonrpc' => '2.0', 'id' => 2, 'method' => 'eth_call', 'params' => [['to' => $contractAddress, 'data' => $dataBatches], 'latest']],
-                ];
-
-                $response = Http::timeout(6)->connectTimeout(3)->post($rpcUrl, $batchPayload);
-                if ($response->successful() && is_array($response->json())) {
-                    $results = collect($response->json())->keyBy('id');
-                    $appRes = $results->get(1)['result'] ?? '0x';
-                    $batchRes = $results->get(2)['result'] ?? '0x';
-
-                    // Parse approvedProducts result (bytes32)
-                    $payloadHash = (strlen($appRes) >= 66 && $appRes !== '0x' . str_repeat('0', 64)) ? $appRes : null;
-                    $isApproved = ! empty($payloadHash);
-
-                    // Parse batches result (bool exists, bool recalled, address manufacturer, address currentOwner, uint256 createdAt)
-                    $batchHex = ltrim($batchRes, '0x');
-                    $exists = false;
-                    $recalled = false;
-                    $currentOwner = null;
-                    if (strlen($batchHex) >= 64) {
-                        $exists = ltrim(substr($batchHex, 0, 64), '0') === '1';
-                        if (strlen($batchHex) >= 128) {
-                            $recalled = ltrim(substr($batchHex, 64, 64), '0') === '1';
-                        }
-                        if (strlen($batchHex) >= 256) {
-                            $currentOwner = '0x' . substr($batchHex, 192 + 24, 40);
-                        }
-                    }
-
-                    return [
-                        'source' => 'DIRECT_RPC',
-                        'rpcUrl' => $rpcUrl,
-                        'approval' => [
-                            'isApproved' => $isApproved,
-                            'payloadHash' => $payloadHash,
-                        ],
-                        'batch' => [
-                            'batch' => [
-                                'exists' => $exists,
-                                'recalled' => $recalled,
-                                'currentOwner' => $currentOwner,
-                            ],
-                            'transferIds' => [],
-                        ],
-                    ];
-                }
-            } catch (\Throwable $e) {
-                continue;
-            }
-        }
-
-        return null;
-    }
 }
