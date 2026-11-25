@@ -32,7 +32,12 @@ class ThuHoiLoService
                 throw new NghiepVuException("Lô thuốc [{$maLo}] đã được ban hành quyết định thu hồi trước đó.");
             }
 
-            // 2. Nếu xuất phát từ Báo cáo nghi vấn -> Kiểm tra đúng loại TRONG_VONG_DOI và ghi nhận kết quả
+            // 2. Quyết định thu hồi có hiệu lực nghiệp vụ ngay khi được ban hành.
+            // Không chờ giao dịch Sepolia xác nhận mới cập nhật trạng thái lô trong hệ thống.
+            $loThuoc->trangThai = BatchStatus::recalled;
+            $loThuoc->save();
+
+            // 3. Nếu xuất phát từ Báo cáo nghi vấn -> kiểm tra đúng loại và ghi nhận kết quả.
             $ketQuaXuLyId = null;
             if ($baoCaoNghiVanId) {
                 $baoCaoGoc = BaoCaoNghiVan::findOrFail($baoCaoNghiVanId);
@@ -44,7 +49,7 @@ class ThuHoiLoService
                 $ketQuaXuLyId = $kq->id;
             }
 
-            // 3. Tạo bản ghi ThuHoiLoHang chuẩn schema SQL
+            // 4. Tạo bản ghi ThuHoiLoHang chuẩn schema SQL
             $thuHoi = ThuHoiLoHang::create([
                 'loThuocId' => $loThuoc->id,
                 'coQuanQuyetDinhId' => $taiKhoanId,
@@ -53,7 +58,7 @@ class ThuHoiLoService
                 'ngayThuHoi' => now(),
             ]);
 
-            // 4. Đồng bộ đóng toàn bộ báo cáo TRONG_VONG_DOI đang chờ của lô này (kể cả khi thu hồi trực tiếp từ trang Quản lý thu hồi)
+            // 5. Đồng bộ đóng toàn bộ báo cáo TRONG_VONG_DOI đang chờ của lô này (kể cả khi thu hồi trực tiếp từ trang Quản lý thu hồi)
             if ($gopCungLo || $baoCaoNghiVanId === null) {
                 $cacBaoCaoCungLo = BaoCaoNghiVan::where('loThuocId', $loThuoc->id)
                     ->where(function ($q) {
@@ -73,7 +78,7 @@ class ThuHoiLoService
                 }
             }
 
-            // 5. Tạo bản ghi BlockchainTransaction (PENDING)
+            // 6. Tạo bản ghi BlockchainTransaction (PENDING)
             BlockchainTransaction::create([
                 'txHash' => null,
                 'eventName' => 'BatchRecalled',
@@ -87,7 +92,7 @@ class ThuHoiLoService
                 'loThuocId' => $loThuoc->id,
             ]);
 
-            // 6. Ghi nhật ký hệ thống
+            // 7. Ghi nhật ký hệ thống
             NhatKyHeThong::create([
                 'taiKhoanId' => $taiKhoanId,
                 'doiTuongId' => $loThuoc->id,
@@ -97,7 +102,7 @@ class ThuHoiLoService
                 'chiTiet' => "Ban hành quyết định thu hồi lô thuốc [{$maLo}]. Lý do: {$lyDo}",
             ]);
 
-            // 7. Dispatch Queue Job đồng bộ Blockchain
+            // 8. Dispatch Queue Job đồng bộ Blockchain
             DB::afterCommit(function () use ($thuHoi) {
                 ProcessBatchRecallJob::dispatch($thuHoi->id);
             });
