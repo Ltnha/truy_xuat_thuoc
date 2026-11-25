@@ -5,188 +5,230 @@
 @endpush
 
 @section('content')
-<main class="pharma-home">
-    <section class="ph-hero">
-        <div class="ph-hero-orb ph-orb-one"></div>
-        <div class="ph-hero-orb ph-orb-two"></div>
-        <div class="ph-container ph-hero-grid">
-            <div class="ph-hero-copy">
-                <span class="ph-eyebrow"><i class="fa-solid fa-shield-halved"></i> NỀN TẢNG TRUY XUẤT DƯỢC PHẨM</span>
-                <h1>Biết rõ nguồn gốc.<br><span>An tâm sử dụng thuốc.</span></h1>
-                <p>Theo dõi hành trình thuốc từ nhà sản xuất, qua nhà phân phối đến nhà thuốc. Kiểm tra thông tin lô và đối chiếu trạng thái ghi nhận trên Blockchain.</p>
-                <div class="ph-hero-actions">
-                    <a href="{{ url('/tra-cuu-nguon-goc') }}" class="ph-btn ph-btn-primary"><i class="fa-solid fa-magnifying-glass"></i> Tra cứu nguồn gốc</a>
-                    <a href="{{ url('/tra-cuu-nguon-goc?cheDo=quet') }}" class="ph-btn ph-btn-glass"><i class="fa-solid fa-qrcode"></i> Quét mã QR</a>
+<main class="phx-home">
+    <section class="phx-hero">
+        <div class="phx-hero-grid">
+            <div class="phx-hero-copy">
+                <span class="phx-overline"><i class="fa-solid fa-shield-halved"></i> PHARMACHAIN · TRUY XUẤT DƯỢC PHẨM</span>
+                <h1>Mỗi viên thuốc<br>đều có <em>nguồn gốc.</em></h1>
+                <p>Kiểm tra hành trình lưu thông của thuốc từ nhà sản xuất đến nhà thuốc. Tra cứu thông tin lô, đơn vị tham gia và trạng thái xác thực trên Blockchain.</p>
+                <div class="phx-actions">
+                    <a class="phx-button phx-button-light" href="{{ url('/tra-cuu-nguon-goc') }}"><i class="fa-solid fa-magnifying-glass"></i> Tra cứu thuốc</a>
+                    <a class="phx-button phx-button-outline" href="{{ url('/tra-cuu-nguon-goc?cheDo=quet') }}"><i class="fa-solid fa-qrcode"></i> Kiểm tra bằng QR</a>
                 </div>
-                <div class="ph-trust-note"><i class="fa-solid fa-circle-check"></i> Tra cứu công khai, không cần đăng nhập</div>
+                <div class="phx-assurance"><i class="fa-solid fa-circle-check"></i><span>Tra cứu công khai · Không cần tài khoản</span></div>
             </div>
-            <div class="ph-lookup-card">
-                <div class="ph-lookup-icon"><i class="fa-solid fa-prescription-bottle-medical"></i></div>
-                <span class="ph-card-kicker">TRA CỨU NHANH</span>
-                <h2>Kiểm tra thuốc của bạn</h2>
-                <p>Nhập mã lô hoặc mã định danh in trên bao bì để xem thông tin sản phẩm.</p>
-                <form action="{{ url('/tra-cuu-nguon-goc') }}" method="GET" class="ph-lookup-form">
-                    <label for="maDinhDanhHome">Mã lô / mã định danh</label>
-                    <div class="ph-input-wrap">
+
+            <div class="phx-search-panel">
+                <div class="phx-search-top">
+                    <span class="phx-search-symbol"><i class="fa-solid fa-prescription-bottle-medical"></i></span>
+                    <span class="phx-search-label">CỔNG TRA CỨU NHANH</span>
+                </div>
+                <h2>Thuốc bạn đang sử dụng có rõ nguồn gốc?</h2>
+                <p>Nhập mã lô hoặc mã định danh được in trên bao bì thuốc.</p>
+                <form action="{{ url('/tra-cuu-nguon-goc') }}" method="GET" class="phx-search-form">
+                    <label for="phxBatchCode">Mã lô / mã định danh</label>
+                    <div class="phx-input">
                         <i class="fa-solid fa-barcode"></i>
-                        <input id="maDinhDanhHome" type="text" name="maDinhDanh" placeholder="Ví dụ: LOT-2026-001" autocomplete="off">
+                        <input id="phxBatchCode" name="maDinhDanh" type="text" placeholder="Nhập mã được in trên bao bì" autocomplete="off" required>
                     </div>
-                    <button type="submit" class="ph-btn ph-btn-submit">Kiểm tra ngay <i class="fa-solid fa-arrow-right"></i></button>
+                    <button type="submit">Bắt đầu tra cứu <i class="fa-solid fa-arrow-right"></i></button>
                 </form>
-                <div class="ph-lookup-foot"><i class="fa-solid fa-lock"></i> Kết quả đối chiếu hiển thị theo dữ liệu hệ thống và trạng thái Blockchain đọc được.</div>
+                <a class="phx-qr-link" href="{{ url('/tra-cuu-nguon-goc?cheDo=quet') }}"><i class="fa-solid fa-camera"></i> Hoặc tải ảnh mã QR để kiểm tra</a>
+                <div class="phx-search-note"><i class="fa-solid fa-circle-info"></i> Kết quả sẽ phân biệt dữ liệu hệ thống và dữ liệu xác thực đọc được từ Blockchain.</div>
             </div>
         </div>
-        <div class="ph-hero-bottom">
-            <div class="ph-container ph-hero-bottom-inner">
-                <span><i class="fa-solid fa-link"></i> Theo dõi chuỗi cung ứng</span>
-                <span><i class="fa-solid fa-cubes-stacked"></i> Dữ liệu ghi nhận trên Blockchain</span>
-                <span><i class="fa-solid fa-bell"></i> Cảnh báo lô thuốc thu hồi</span>
-            </div>
+        <div class="phx-hero-foot">
+            <div><i class="fa-solid fa-link"></i> Theo dõi chuỗi cung ứng</div>
+            <div><i class="fa-solid fa-cubes-stacked"></i> Đối chiếu dữ liệu Blockchain</div>
+            <div><i class="fa-solid fa-bell"></i> Nhận biết thông tin thu hồi</div>
         </div>
     </section>
 
-    <section class="ph-container ph-stat-section" aria-label="Thống kê hệ thống">
-        <div class="ph-section-heading">
-            <div><span class="ph-kicker">PHARМACHAIN TRONG SỐ LIỆU</span><h2>Mạng lưới dược phẩm đang được quản lý</h2></div>
-            <p>Số liệu tổng hợp từ dữ liệu hiện có của hệ thống.</p>
+    <section class="phx-section phx-intro">
+        <div class="phx-section-heading">
+            <span class="phx-eyebrow">MINH BẠCH TRONG TỪNG CHẶNG</span>
+            <h2>Tra cứu những thông tin quan trọng</h2>
+            <p>Một điểm tra cứu, các thông tin cần thiết để người dùng chủ động kiểm tra thuốc.</p>
         </div>
-        <div class="ph-stats-grid">
-            <article class="ph-stat-card"><span class="ph-stat-icon green"><i class="fa-solid fa-boxes-stacked"></i></span><strong>{{ number_format($tongLoDangKy) }}</strong><span>Lô thuốc đã đăng ký</span></article>
-            <article class="ph-stat-card"><span class="ph-stat-icon blue"><i class="fa-solid fa-capsules"></i></span><strong>{{ number_format($tongSanPhamDuyet) }}</strong><span>Sản phẩm đã được duyệt</span></article>
-            <article class="ph-stat-card"><span class="ph-stat-icon cyan"><i class="fa-solid fa-building-circle-check"></i></span><strong>{{ number_format($tongToChucDuyet) }}</strong><span>Tổ chức đã được duyệt</span></article>
-            <article class="ph-stat-card"><span class="ph-stat-icon violet"><i class="fa-solid fa-cart-shopping"></i></span><strong>{{ number_format($tongDonViDaBan) }}</strong><span>Đơn vị đã bán lẻ</span></article>
-            <article class="ph-stat-card ph-stat-alert"><span class="ph-stat-icon red"><i class="fa-solid fa-triangle-exclamation"></i></span><strong>{{ number_format($tongLoThuHoi) }}</strong><span>Lô thuốc có thông tin thu hồi</span></article>
+        <div class="phx-benefit-grid">
+            <article class="phx-benefit">
+                <span class="phx-benefit-icon mint"><i class="fa-solid fa-capsules"></i></span>
+                <h3>Thông tin sản phẩm</h3>
+                <p>Tên thuốc, số đăng ký, thành phần, hàm lượng và đơn vị sản xuất.</p>
+            </article>
+            <article class="phx-benefit">
+                <span class="phx-benefit-icon blue"><i class="fa-solid fa-route"></i></span>
+                <h3>Hành trình lô thuốc</h3>
+                <p>Theo dõi các mốc chuyển giao và đơn vị đang quản lý lô thuốc.</p>
+            </article>
+            <article class="phx-benefit">
+                <span class="phx-benefit-icon violet"><i class="fa-solid fa-link"></i></span>
+                <h3>Đối chiếu Blockchain</h3>
+                <p>Kiểm tra trạng thái ghi nhận on-chain, mã giao dịch và tính toàn vẹn dữ liệu.</p>
+            </article>
+            <article class="phx-benefit">
+                <span class="phx-benefit-icon amber"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <h3>Cảnh báo thu hồi</h3>
+                <p>Chú ý các lô thuốc có thông tin thu hồi được công bố trong hệ thống.</p>
+            </article>
         </div>
     </section>
 
-    <section class="ph-process-section">
-        <div class="ph-container">
-            <div class="ph-section-heading ph-centered">
-                <span class="ph-kicker">HÀNH TRÌNH CỦA MỘT LÔ THUỐC</span>
-                <h2>Mỗi mắt xích, một dấu vết rõ ràng</h2>
-                <p>Thông tin được cập nhật xuyên suốt quá trình lưu thông. Người tiêu dùng có thể tra cứu công khai ở bước cuối.</p>
+    <section class="phx-flow-section">
+        <div class="phx-section phx-flow-inner">
+            <div class="phx-section-heading">
+                <span class="phx-eyebrow">TỪ NHÀ SẢN XUẤT ĐẾN NGƯỜI DÙNG</span>
+                <h2>Hành trình của một lô thuốc</h2>
+                <p>Mỗi bước tiếp nhận và chuyển giao đều là một phần của lịch sử lưu thông.</p>
             </div>
-            <div class="ph-process-grid">
-                <article class="ph-process-card">
-                    <span class="ph-step">01</span><div class="ph-process-icon green"><i class="fa-solid fa-industry"></i></div>
-                    <h3>Nhà sản xuất</h3><p>Đăng ký sản phẩm, tạo lô thuốc và cung cấp mã QR định danh cho từng lô.</p>
+            <div class="phx-flow">
+                <article class="phx-flow-step">
+                    <span class="phx-flow-number">01</span>
+                    <span class="phx-flow-icon"><i class="fa-solid fa-industry"></i></span>
+                    <h3>Nhà sản xuất</h3>
+                    <p>Đăng ký sản phẩm, tạo lô và mã QR định danh.</p>
                 </article>
-                <article class="ph-process-card">
-                    <span class="ph-step">02</span><div class="ph-process-icon blue"><i class="fa-solid fa-truck-fast"></i></div>
-                    <h3>Nhà phân phối</h3><p>Tiếp nhận lô hàng, quản lý tồn kho và chuyển giao số lượng đến nhà thuốc.</p>
+                <span class="phx-flow-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+                <article class="phx-flow-step">
+                    <span class="phx-flow-number">02</span>
+                    <span class="phx-flow-icon"><i class="fa-solid fa-truck-fast"></i></span>
+                    <h3>Nhà phân phối</h3>
+                    <p>Tiếp nhận, quản lý tồn kho và chuyển giao.</p>
                 </article>
-                <article class="ph-process-card">
-                    <span class="ph-step">03</span><div class="ph-process-icon cyan"><i class="fa-solid fa-house-medical"></i></div>
-                    <h3>Nhà thuốc</h3><p>Quét mã QR để kiểm tra thông tin lô trước khi tiếp nhận và bán lẻ thuốc.</p>
+                <span class="phx-flow-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+                <article class="phx-flow-step">
+                    <span class="phx-flow-number">03</span>
+                    <span class="phx-flow-icon"><i class="fa-solid fa-house-medical"></i></span>
+                    <h3>Nhà thuốc</h3>
+                    <p>Kiểm tra QR, tiếp nhận và bán lẻ thuốc.</p>
                 </article>
-                <article class="ph-process-card">
-                    <span class="ph-step">04</span><div class="ph-process-icon violet"><i class="fa-solid fa-user-shield"></i></div>
-                    <h3>Người tiêu dùng</h3><p>Chủ động tra cứu nguồn gốc, thông tin sản phẩm và cảnh báo thu hồi.</p>
+                <span class="phx-flow-arrow"><i class="fa-solid fa-arrow-right"></i></span>
+                <article class="phx-flow-step">
+                    <span class="phx-flow-number">04</span>
+                    <span class="phx-flow-icon"><i class="fa-solid fa-user-check"></i></span>
+                    <h3>Người tiêu dùng</h3>
+                    <p>Chủ động kiểm tra thông tin trước khi sử dụng.</p>
                 </article>
             </div>
         </div>
     </section>
 
-    <section id="canhBaoThuoc" class="ph-container ph-data-section">
-        <div class="ph-data-card ph-warning-card">
-            <div class="ph-data-heading">
-                <div class="ph-heading-icon warning"><i class="fa-solid fa-triangle-exclamation"></i></div>
-                <div class="ph-heading-copy"><span class="ph-kicker">CẬP NHẬT AN TOÀN</span><h2>Thông tin lô thuốc thu hồi</h2><p>Danh sách các trường hợp thu hồi được ghi nhận trong hệ thống. Mở mã giao dịch để xem bằng chứng trên Sepolia khi có.</p></div>
-                <a href="{{ url('/bao-cao-nghi-van') }}" class="ph-btn ph-btn-outline-warning"><i class="fa-solid fa-flag"></i> Báo cáo nghi vấn</a>
+    @if($danhSachThuHoi->isNotEmpty())
+    <section class="phx-section phx-content-section">
+        <div class="phx-section-title-row">
+            <div>
+                <span class="phx-eyebrow phx-eyebrow-danger">CẬP NHẬT AN TOÀN</span>
+                <h2>Lô thuốc có thông tin thu hồi</h2>
+                <p>Vui lòng kiểm tra kỹ mã lô nếu sản phẩm của bạn xuất hiện trong danh sách.</p>
             </div>
-            <div class="ph-table-wrap">
-                <table class="ph-table">
-                    <thead><tr><th>Mã lô</th><th>Sản phẩm</th><th>Nhà sản xuất</th><th>Lý do thu hồi</th><th>Ngày thu hồi</th><th>Giao dịch Blockchain</th><th></th></tr></thead>
-                    <tbody id="thanBangThuHoiPublic">
-                        @forelse($danhSachThuHoi as $th)
-                        <tr class="dong-thu-hoi-item">
-                            <td class="ph-code">{{ $th['maLo'] }}</td>
-                            <td class="ph-strong">{{ $th['tenThuoc'] }}</td>
-                            <td>{{ $th['nhaSanXuat'] }}</td>
-                            <td class="ph-reason">{{ $th['lyDo'] }}</td>
-                            <td class="ph-nowrap">{{ \Carbon\Carbon::parse($th['ngayThuHoi'])->format('d/m/Y') }}</td>
-                            <td class="ph-nowrap">
-                                @if($th['txHash'])
-                                <a href="https://sepolia.etherscan.io/tx/{{ $th['txHash'] }}" target="_blank" rel="noopener noreferrer" class="ph-chain-link">{{ Str::limit($th['txHash'], 12) }} <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
-                                @else
-                                <span class="ph-muted">Chưa có mã giao dịch xác nhận</span>
-                                @endif
-                            </td>
-                            <td><a class="ph-row-link" href="{{ url('/tra-cuu-nguon-goc?maDinhDanh=' . $th['maLo']) }}">Tra cứu <i class="fa-solid fa-arrow-right"></i></a></td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="7" class="ph-empty">Chưa ghi nhận lô thuốc bị thu hồi.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            <div id="thanhPhanTrangThuHoi" class="ph-pagination"><span id="thongTinTrangThuHoi">Hiển thị 0 / 0 lô thu hồi</span><div id="nutPhanTrangThuHoi"></div></div>
+            <a class="phx-text-link" href="{{ url('/bao-cao-nghi-van') }}">Báo cáo nghi vấn <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
         </div>
-    </section>
-
-    <section class="ph-container ph-data-section">
-        <div class="ph-data-card">
-            <div class="ph-data-heading">
-                <div class="ph-heading-icon product"><i class="fa-solid fa-capsules"></i></div>
-                <div class="ph-heading-copy"><span class="ph-kicker">DANH MỤC SẢN PHẨM</span><h2>Sản phẩm dược phẩm đã được duyệt</h2><p>Tra cứu thông tin đăng ký và đơn vị sản xuất. Muốn xác thực một lô cụ thể, hãy dùng chức năng tra cứu nguồn gốc phía trên.</p></div>
-                <div class="ph-search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="timKiemThuocPublic" placeholder="Tìm tên thuốc, số đăng ký..."></div>
-            </div>
-            <div class="ph-table-wrap">
-                <table class="ph-table">
-                    <thead><tr><th>Tên thuốc</th><th>Số đăng ký</th><th>Thành phần</th><th>Hàm lượng</th><th>Dạng bào chế</th><th>Nhà sản xuất</th></tr></thead>
-                    <tbody id="thanBangThuocPublic">
-                        @forelse($danhSachSanPham as $sp)
-                        <tr class="dong-thuoc-item">
-                            <td class="ph-strong ten-thuoc">{{ $sp['tenSanPham'] }}</td><td class="ph-code so-dk">{{ $sp['soDangKy'] }}</td><td class="thanh-phan">{{ $sp['thanhPhan'] }}</td><td>{{ $sp['hamLuong'] }}</td><td>{{ $sp['dangBaoChe'] }}</td><td>{{ $sp['nhaSanXuat'] }}</td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="6" class="ph-empty">Chưa có sản phẩm nào được duyệt.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            <div id="thanhPhanTrangThuoc" class="ph-pagination"><span id="thongTinTrangThuoc">Hiển thị 0 / 0 sản phẩm</span><div id="nutPhanTrangThuoc"></div></div>
-        </div>
-    </section>
-
-    <section class="ph-container ph-data-section ph-last-section">
-        <div class="ph-data-card">
-            <div class="ph-data-heading">
-                <div class="ph-heading-icon organization"><i class="fa-solid fa-building-circle-check"></i></div>
-                <div class="ph-heading-copy"><span class="ph-kicker">MẠNG LƯỚI ĐỐI TÁC</span><h2>Cơ sở dược phẩm đã được duyệt</h2><p>Danh sách các tổ chức tham gia chuỗi cung ứng đã được hệ thống phê duyệt.</p></div>
-                <div class="ph-filter-tools">
-                    <select id="locLoaiCoSoPublic"><option value="ALL">Tất cả loại hình</option><option value="NHA_SAN_XUAT">Nhà sản xuất</option><option value="NHA_PHAN_PHOI">Nhà phân phối</option><option value="NHA_THUOC">Nhà thuốc</option></select>
-                    <div class="ph-search-box"><i class="fa-solid fa-magnifying-glass"></i><input type="search" id="timKiemCoSoPublic" placeholder="Tìm tên cơ sở, địa chỉ..."></div>
+        <div class="phx-recall-list">
+            @foreach($danhSachThuHoi->take(4) as $th)
+            <article class="phx-recall-item">
+                <span class="phx-recall-icon"><i class="fa-solid fa-triangle-exclamation"></i></span>
+                <div class="phx-recall-main">
+                    <div class="phx-recall-meta"><span class="phx-code">{{ $th['maLo'] }}</span><span>{{ \Carbon\Carbon::parse($th['ngayThuHoi'])->format('d/m/Y') }}</span></div>
+                    <h3>{{ $th['tenThuoc'] }}</h3>
+                    <p>{{ $th['lyDo'] ?: 'Chưa có mô tả lý do thu hồi.' }}</p>
+                    <small>Nhà sản xuất: {{ $th['nhaSanXuat'] }}</small>
                 </div>
+                <div class="phx-recall-actions">
+                    @if($th['txHash'])
+                    <a href="https://sepolia.etherscan.io/tx/{{ $th['txHash'] }}" target="_blank" rel="noopener noreferrer">Giao dịch <i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                    @else
+                    <span>Chưa có TX xác nhận</span>
+                    @endif
+                    <a href="{{ url('/tra-cuu-nguon-goc?maDinhDanh=' . urlencode($th['maLo'])) }}">Tra cứu lô <i class="fa-solid fa-arrow-right"></i></a>
+                </div>
+            </article>
+            @endforeach
+        </div>
+        @if($danhSachThuHoi->count() > 4)
+        <p class="phx-list-note">Đang hiển thị 4 trên {{ $danhSachThuHoi->count() }} lô có thông tin thu hồi gần đây.</p>
+        @endif
+    </section>
+    @endif
+
+    @if($danhSachSanPham->isNotEmpty())
+    <section class="phx-section phx-content-section">
+        <div class="phx-section-title-row">
+            <div>
+                <span class="phx-eyebrow">DANH MỤC ĐƯỢC PHÊ DUYỆT</span>
+                <h2>Sản phẩm dược phẩm</h2>
+                <p>Một số sản phẩm đã được cơ quan quản lý phê duyệt trong hệ thống.</p>
             </div>
-            <div class="ph-table-wrap">
-                <table class="ph-table">
-                    <thead><tr><th>Tên cơ sở</th><th>Loại hình</th><th>Địa chỉ</th><th>Trạng thái</th></tr></thead>
-                    <tbody id="thanBangCoSoPublic">
-                        @forelse($danhSachToChuc as $tc)
-                        <tr class="dong-co-so-item" data-loai="{{ $tc->loaiToChuc }}">
-                            <td class="ph-strong ten-co-so">{{ $tc->tenToChuc }}</td>
-                            <td>
-                                @if($tc->loaiToChuc === 'NHA_SAN_XUAT')<span class="ph-type-tag green">Nhà sản xuất</span>
-                                @elseif($tc->loaiToChuc === 'NHA_PHAN_PHOI')<span class="ph-type-tag blue">Nhà phân phối</span>
-                                @elseif($tc->loaiToChuc === 'NHA_THUOC')<span class="ph-type-tag violet">Nhà thuốc</span>
-                                @else<span class="ph-type-tag">Cơ quan quản lý</span>@endif
-                            </td>
-                            <td class="dia-chi-co-so">{{ $tc->diaChi ?? 'Chưa cập nhật' }}</td>
-                            <td><span class="ph-status-tag"><i class="fa-solid fa-circle-check"></i> Đã duyệt</span></td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="4" class="ph-empty">Chưa có cơ sở dược phẩm nào được duyệt.</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
+            <span class="phx-count">{{ number_format($tongSanPhamDuyet) }} sản phẩm</span>
+        </div>
+        <div class="phx-product-grid">
+            @foreach($danhSachSanPham->take(4) as $sp)
+            <article class="phx-product-card">
+                <span class="phx-product-icon"><i class="fa-solid fa-prescription-bottle-medical"></i></span>
+                <span class="phx-product-status"><i class="fa-solid fa-circle-check"></i> Đã duyệt</span>
+                <h3>{{ $sp['tenSanPham'] }}</h3>
+                <dl>
+                    <div><dt>Số đăng ký</dt><dd>{{ $sp['soDangKy'] ?: 'Chưa cập nhật' }}</dd></div>
+                    <div><dt>Thành phần</dt><dd>{{ $sp['thanhPhan'] ?: 'Chưa cập nhật' }}</dd></div>
+                    <div><dt>Hàm lượng</dt><dd>{{ $sp['hamLuong'] ?: 'Chưa cập nhật' }}</dd></div>
+                    <div><dt>Nhà sản xuất</dt><dd>{{ $sp['nhaSanXuat'] }}</dd></div>
+                </dl>
+            </article>
+            @endforeach
+        </div>
+        @if($danhSachSanPham->count() > 4)
+        <p class="phx-list-note">Đang hiển thị 4 trên {{ $danhSachSanPham->count() }} sản phẩm được duyệt.</p>
+        @endif
+    </section>
+    @endif
+
+    @if($danhSachToChuc->isNotEmpty())
+    <section class="phx-section phx-partner-section">
+        <div class="phx-section-title-row">
+            <div>
+                <span class="phx-eyebrow">MẠNG LƯỚI THAM GIA</span>
+                <h2>Các đơn vị trong chuỗi cung ứng</h2>
+                <p>Tổ chức có trạng thái phê duyệt trong hệ thống PharmaChain.</p>
             </div>
-            <div id="thanhPhanTrangCoSo" class="ph-pagination"><span id="thongTinTrangCoSo">Hiển thị 0 / 0 cơ sở</span><div id="nutPhanTrangCoSo"></div></div>
+            <span class="phx-count">{{ number_format($tongToChucDuyet) }} tổ chức</span>
+        </div>
+        <div class="phx-partner-grid">
+            @foreach($danhSachToChuc->take(6) as $tc)
+            <article class="phx-partner-card">
+                <span class="phx-partner-icon">
+                    @if($tc->loaiToChuc === 'NHA_SAN_XUAT')<i class="fa-solid fa-industry"></i>
+                    @elseif($tc->loaiToChuc === 'NHA_PHAN_PHOI')<i class="fa-solid fa-truck-fast"></i>
+                    @else<i class="fa-solid fa-house-medical"></i>@endif
+                </span>
+                <div>
+                    <h3>{{ $tc->tenToChuc }}</h3>
+                    <p>
+                        @if($tc->loaiToChuc === 'NHA_SAN_XUAT')Nhà sản xuất
+                        @elseif($tc->loaiToChuc === 'NHA_PHAN_PHOI')Nhà phân phối
+                        @elseif($tc->loaiToChuc === 'NHA_THUOC')Nhà thuốc
+                        @elseĐơn vị tham gia hệ thống@endif
+                    </p>
+                    <small><i class="fa-solid fa-location-dot"></i> {{ $tc->diaChi ?: 'Chưa cập nhật địa chỉ' }}</small>
+                </div>
+                <span class="phx-approved" title="Đã được duyệt"><i class="fa-solid fa-check"></i></span>
+            </article>
+            @endforeach
+        </div>
+        @if($danhSachToChuc->count() > 6)
+        <p class="phx-list-note">Đang hiển thị 6 trên {{ $danhSachToChuc->count() }} tổ chức đã được duyệt.</p>
+        @endif
+    </section>
+    @endif
+
+    <section class="phx-bottom-cta">
+        <div class="phx-bottom-cta-inner">
+            <div>
+                <span class="phx-eyebrow">CHỦ ĐỘNG BẢO VỆ BẠN VÀ GIA ĐÌNH</span>
+                <h2>Đừng chỉ nhìn bao bì. Hãy kiểm tra nguồn gốc.</h2>
+                <p>Dùng mã lô hoặc QR trên sản phẩm để bắt đầu tra cứu.</p>
+            </div>
+            <a class="phx-button phx-button-light" href="{{ url('/tra-cuu-nguon-goc') }}">Tra cứu ngay <i class="fa-solid fa-arrow-right"></i></a>
         </div>
     </section>
 </main>
 @endsection
-
-@push('scripts')
-<script src="{{ asset('assets/js/nguoiTieuDung/trangChu.js') }}"></script>
-@endpush
