@@ -35,23 +35,23 @@ class TrangChuController extends Controller
 
     public function mangLuoi(Request $request)
     {
+        $perPage = 20;
+
         $tongSanPhamDuyet = SanPham::where('trangThaiDuyet', 'DA_DUYET')->count();
         $tongToChucDuyet = ToChuc::where('trangThaiDuyet', 'DA_DUYET')->count();
 
-        $danhSachSanPham = SanPham::where('trangThaiDuyet', 'DA_DUYET')
-            ->with('nhaSanXuat')->latest('id')->get()->map(fn ($sp) => [
-                'id' => $sp->id,
-                'tenSanPham' => $sp->tenSanPham,
-                'soDangKy' => $sp->soDangKy,
-                'thanhPhan' => $sp->thanhPhan ?? '---',
-                'hamLuong' => $sp->hamLuong ?? '---',
-                'dangBaoChe' => $sp->dangBaoChe ?? '---',
-                'nhaSanXuat' => $sp->nhaSanXuat?->tenToChuc ?? 'Chưa xác định',
-            ]);
-
         $danhSachToChuc = ToChuc::where('trangThaiDuyet', 'DA_DUYET')
             ->select('id', 'tenToChuc', 'loaiToChuc', 'diaChi')
-            ->orderBy('loaiToChuc')->get();
+            ->orderBy('loaiToChuc')
+            ->orderBy('tenToChuc')
+            ->paginate($perPage, ['*'], 'toChuc')
+            ->withQueryString();
+
+        $danhSachSanPham = SanPham::where('trangThaiDuyet', 'DA_DUYET')
+            ->with('nhaSanXuat')
+            ->latest('id')
+            ->paginate($perPage, ['*'], 'sanPham')
+            ->withQueryString();
 
         return view('nguoiTieuDung.mangLuoi', compact(
             'tongSanPhamDuyet',
