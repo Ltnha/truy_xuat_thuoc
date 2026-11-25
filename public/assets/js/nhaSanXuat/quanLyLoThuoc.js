@@ -403,7 +403,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const khaDung = getKhaDung(item);
 
             const canTransfer = batchConfirmed && khaDung > 0
-                && item.trangThai !== 'RECALLED'
+                && !isRecalled
                 && !coChuyenGiaoCho;
 
             return `
