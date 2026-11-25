@@ -4,32 +4,15 @@ namespace App\Http\Controllers\NguoiTieuDung;
 
 use App\Http\Controllers\Controller;
 use App\Models\BlockchainTransaction;
-use App\Models\LoThuoc;
 use App\Models\SanPham;
 use App\Models\ThuHoiLoHang;
 use App\Models\ToChuc;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class TrangChuController extends Controller
 {
     public function index(Request $request)
     {
-        $tongLoDangKy = LoThuoc::count();
-        $tongSanPhamDuyet = SanPham::where('trangThaiDuyet', 'DA_DUYET')->count();
-        $tongToChucDuyet = ToChuc::where('trangThaiDuyet', 'DA_DUYET')->count();
-        $tongDonViDaBan = (int) DB::table('chiTietBanLe as ct')
-            ->join('banLe as bl', 'bl.id', '=', 'ct.banLeId')
-            ->where('bl.trangThai', 'DA_HOAN_TAT')
-            ->sum('ct.soLuong');
-        $tongLoThuHoi = ThuHoiLoHang::count();
-
-        $thongKeToChuc = [
-            'NHA_SAN_XUAT' => ToChuc::where('trangThaiDuyet', 'DA_DUYET')->where('loaiToChuc', 'NHA_SAN_XUAT')->count(),
-            'NHA_PHAN_PHOI' => ToChuc::where('trangThaiDuyet', 'DA_DUYET')->where('loaiToChuc', 'NHA_PHAN_PHOI')->count(),
-            'NHA_THUOC' => ToChuc::where('trangThaiDuyet', 'DA_DUYET')->where('loaiToChuc', 'NHA_THUOC')->count(),
-        ];
-
         $danhSachThuHoi = ThuHoiLoHang::with(['loThuoc.sanPham', 'loThuoc.toChuc'])
             ->latest('ngayThuHoi')->get()->map(function ($item) {
                 $lo = $item->loThuoc;
@@ -47,6 +30,14 @@ class TrangChuController extends Controller
                 ];
             });
 
+        return view('nguoiTieuDung.trangChu', compact('danhSachThuHoi'));
+    }
+
+    public function mangLuoi(Request $request)
+    {
+        $tongSanPhamDuyet = SanPham::where('trangThaiDuyet', 'DA_DUYET')->count();
+        $tongToChucDuyet = ToChuc::where('trangThaiDuyet', 'DA_DUYET')->count();
+
         $danhSachSanPham = SanPham::where('trangThaiDuyet', 'DA_DUYET')
             ->with('nhaSanXuat')->latest('id')->get()->map(fn ($sp) => [
                 'id' => $sp->id,
@@ -62,10 +53,11 @@ class TrangChuController extends Controller
             ->select('id', 'tenToChuc', 'loaiToChuc', 'diaChi')
             ->orderBy('loaiToChuc')->get();
 
-        return view('nguoiTieuDung.trangChu', compact(
-            'tongLoDangKy', 'tongSanPhamDuyet', 'tongToChucDuyet',
-            'tongDonViDaBan', 'tongLoThuHoi', 'thongKeToChuc',
-            'danhSachThuHoi', 'danhSachSanPham', 'danhSachToChuc'
+        return view('nguoiTieuDung.mangLuoi', compact(
+            'tongSanPhamDuyet',
+            'tongToChucDuyet',
+            'danhSachSanPham',
+            'danhSachToChuc'
         ));
     }
 }

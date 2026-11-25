@@ -17,13 +17,16 @@
       <a href="{{ url('/') }}" class="text-sm font-semibold hover:text-emerald-700 transition-colors {{ Request::is('/') ? 'text-emerald-700 border-b-2 border-emerald-700 pb-1' : 'text-slate-600' }}">
         <i class="fa-solid fa-house-chimney mr-1.5"></i> Trang Chủ
       </a>
+      <a href="{{ url('/mang-luoi') }}" class="text-sm font-semibold hover:text-emerald-700 transition-colors {{ Request::is('mang-luoi') ? 'text-emerald-700 border-b-2 border-emerald-700 pb-1' : 'text-slate-600' }}">
+        <i class="fa-solid fa-network-wired mr-1.5"></i> Đơn vị &amp; Sản phẩm
+      </a>
       <a href="{{ url('/tra-cuu-nguon-goc') }}" class="text-sm font-semibold hover:text-emerald-700 transition-colors {{ Request::is('tra-cuu-nguon-goc') ? 'text-emerald-700 border-b-2 border-emerald-700 pb-1' : 'text-slate-600' }}">
         <i class="fa-solid fa-qrcode mr-1.5 text-cyan-800"></i> Tra Cứu Thuốc
       </a>
       <a href="{{ url('/lich-su-tra-cuu') }}" class="text-sm font-semibold hover:text-emerald-700 transition-colors {{ Request::is('lich-su-tra-cuu') ? 'text-emerald-700 border-b-2 border-emerald-700 pb-1' : 'text-slate-600' }}">
         <i class="fa-solid fa-clock-rotate-left mr-1.5"></i> Lịch Sử Tra Cứu
       </a>
-      <a href="{{ url('/bao-cao-nghi-van') }}" class="text-sm font-semibold hover:text-amber-600 transition-colors {{ Request::is('bao-cao-nghi-van') ? 'text-amber-600 border-b-2 border-amber-600 pb-1' : 'text-slate-600' }}">
+      <a href="{{ url('/bao-cao-nghi-van') }}" class="text-sm font-semibold hover:text-amber-600 transition-colors {{ Request::is('bao-cao-nghi-van') ? 'text-emerald-700 border-b-2 border-amber-600 pb-1' : 'text-slate-600' }}">
         <i class="fa-solid fa-file-shield mr-1.5 text-amber-600"></i> Báo Cáo Nghi Vấn
       </a>
     </nav>
@@ -50,6 +53,9 @@
   <div id="hopMenuDiDong" class="hidden md:hidden border-t border-emerald-900/10 bg-white px-4 pt-3 pb-6 space-y-3">
     <a href="{{ url('/') }}" class="block py-2 text-sm font-semibold text-slate-900 hover:text-emerald-700">
       <i class="fa-solid fa-house-chimney w-6 text-emerald-700"></i> Trang Chủ
+    </a>
+    <a href="{{ url('/mang-luoi') }}" class="block py-2 text-sm font-semibold text-slate-900 hover:text-emerald-700">
+      <i class="fa-solid fa-network-wired w-6 text-emerald-700"></i> Đơn vị &amp; Sản phẩm
     </a>
     <a href="{{ url('/tra-cuu-nguon-goc') }}" class="block py-2 text-sm font-semibold text-slate-900 hover:text-emerald-700">
       <i class="fa-solid fa-qrcode w-6 text-cyan-800"></i> Tra Cứu Thuốc
