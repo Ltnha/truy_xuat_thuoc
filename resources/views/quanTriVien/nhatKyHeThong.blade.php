@@ -7,6 +7,20 @@
 @endpush
 
 @section('content')
+@php
+    // Hàm tự động sửa lỗi font tiếng Việt (UTF-8 bị lưu nhầm sang Latin1/Windows-1252)
+    $suaFontTiengViet = function (?string $text): string {
+        if (!$text) return '';
+        if (preg_match('/(Ä|Ă|á»|áº|Æ°|Æ¡)/u', $text)) {
+            $fixed = @mb_convert_encoding($text, 'Windows-1252', 'UTF-8');
+            if ($fixed && mb_check_encoding($fixed, 'UTF-8')) {
+                return $fixed;
+            }
+        }
+        return $text;
+    };
+@endphp
+
 <div class="space-y-6 max-w-7xl w-full mx-auto">
 
     <!-- BỘ LỌC NHẬT KÝ -->
@@ -30,8 +44,14 @@
                     <option value="DANG_NHAP" {{ $hanhDong === 'DANG_NHAP' ? 'selected' : '' }}>Đăng nhập</option>
                     <option value="DANG_NHAP_THAT_BAI" {{ $hanhDong === 'DANG_NHAP_THAT_BAI' ? 'selected' : '' }}>Đăng nhập thất bại</option>
                     <option value="KHOA_TAI_KHOAN" {{ $hanhDong === 'KHOA_TAI_KHOAN' ? 'selected' : '' }}>Khóa tài khoản</option>
-                    <option value="MO_KHOA_TAI_KHOAN" {{ $hanhDong === 'MO_KHOA_TAI_KHOAN' ? 'selected' : '' }}>Mở khóa</option>
+                    <option value="MO_KHOA_TAI_KHOAN" {{ $hanhDong === 'MO_KHOA_TAI_KHOAN' ? 'selected' : '' }}>Mở khóa tài khoản</option>
                     <option value="DOI_MAT_KHAU" {{ $hanhDong === 'DOI_MAT_KHAU' ? 'selected' : '' }}>Đổi mật khẩu</option>
+                    <option value="PHE_DUYET_TO_CHUC_ONCHAIN" {{ $hanhDong === 'PHE_DUYET_TO_CHUC_ONCHAIN' ? 'selected' : '' }}>Phê duyệt tổ chức (On-chain)</option>
+                    <option value="TU_CHOI_TO_CHUC" {{ $hanhDong === 'TU_CHOI_TO_CHUC' ? 'selected' : '' }}>Từ chối tổ chức</option>
+                    <option value="THU_HOI_QUYEN_TO_CHUC" {{ $hanhDong === 'THU_HOI_QUYEN_TO_CHUC' ? 'selected' : '' }}>Thu hồi quyền tổ chức</option>
+                    <option value="REVOKE_ROLE_ONCHAIN" {{ $hanhDong === 'REVOKE_ROLE_ONCHAIN' ? 'selected' : '' }}>Tước quyền On-chain</option>
+                    <option value="RESTORE_ROLE_ONCHAIN" {{ $hanhDong === 'RESTORE_ROLE_ONCHAIN' ? 'selected' : '' }}>Khôi phục quyền On-chain</option>
+                    <option value="ROTATE_WALLET_ONCHAIN" {{ $hanhDong === 'ROTATE_WALLET_ONCHAIN' ? 'selected' : '' }}>Đổi ví On-chain</option>
                     <option value="GIAO_DICH_TU_CHOI" {{ $hanhDong === 'GIAO_DICH_TU_CHOI' ? 'selected' : '' }}>Giao dịch bị từ chối</option>
                     <option value="LOI_HE_THONG" {{ $hanhDong === 'LOI_HE_THONG' ? 'selected' : '' }}>Lỗi hệ thống / Blockchain</option>
                 </select>
@@ -90,6 +110,9 @@
                 </thead>
                 <tbody class="divide-y divide-slate-100 font-medium">
                     @forelse ($nhatKys as $log)
+                    @php
+                        $chiTietSach = $suaFontTiengViet($log->chiTiet);
+                    @endphp
                     <tr class="hover:bg-slate-50 transition-colors">
                         <td class="py-3 px-3 font-mono text-[11px] text-slate-600 whitespace-nowrap">
                             {{ \Carbon\Carbon::parse($log->thoiGian)->format('d/m/Y H:i:s') }}
@@ -102,13 +125,23 @@
                         </td>
                         <td class="py-3 px-3 font-semibold text-slate-800 whitespace-nowrap">
                             @switch($log->hanhDong)
-                            @case('DANG_NHAP') Đăng nhập @break
-                            @case('DANG_NHAP_THAT_BAI') Đăng nhập thất bại @break
-                            @case('KHOA_TAI_KHOAN') Khóa tài khoản @break
-                            @case('MO_KHOA_TAI_KHOAN') Mở khóa @break
-                            @case('DOI_MAT_KHAU') Đổi mật khẩu @break
-                            @case('GIAO_DICH_TU_CHOI') Giao dịch bị từ chối @break
-                            @default {{ $log->hanhDong }}
+                                @case('DANG_NHAP') Đăng nhập @break
+                                @case('DANG_NHAP_THAT_BAI') Đăng nhập thất bại @break
+                                @case('KHOA_TAI_KHOAN') Khóa tài khoản @break
+                                @case('MO_KHOA_TAI_KHOAN') Mở khóa tài khoản @break
+                                @case('DOI_MAT_KHAU') Đổi mật khẩu @break
+                                @case('PHE_DUYET_TO_CHUC_ONCHAIN') Phê duyệt tổ chức (On-chain) @break
+                                @case('TU_CHOI_TO_CHUC') Từ chối hồ sơ tổ chức @break
+                                @case('THU_HOI_QUYEN_TO_CHUC') Thu hồi quyền tổ chức @break
+                                @case('REVOKE_ROLE_ONCHAIN') Tước quyền On-chain @break
+                                @case('RESTORE_ROLE_ONCHAIN') Khôi phục quyền On-chain @break
+                                @case('ROTATE_WALLET_ONCHAIN') Đổi ví On-chain @break
+                                @case('PHE_DUYET_SAN_PHAM_ONCHAIN') Phê duyệt sản phẩm (On-chain) @break
+                                @case('TU_CHOI_SAN_PHAM') Từ chối sản phẩm @break
+                                @case('THU_HOI_LO_ONCHAIN') Thu hồi lô hàng (On-chain) @break
+                                @case('GIAO_DICH_TU_CHOI') Giao dịch bị từ chối @break
+                                @case('LOI_HE_THONG') Lỗi hệ thống / Blockchain @break
+                                @default {{ $log->hanhDong }}
                             @endswitch
                         </td>
                         <td class="py-3 px-2.5 text-center whitespace-nowrap">
@@ -120,14 +153,14 @@
                             <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-800 border border-amber-300"><i class="fa-solid fa-triangle-exclamation"></i> Lỗi</span>
                             @endif
                         </td>
-                        <td class="py-3 px-3 text-slate-600 truncate max-w-[280px]" title="{{ $log->chiTiet }}">{{ $log->chiTiet }}</td>
+                        <td class="py-3 px-3 text-slate-600 truncate max-w-[280px]" title="{{ $chiTietSach }}">{{ $chiTietSach }}</td>
                         <td class="py-3 px-3 text-center whitespace-nowrap">
                             <button type="button" class="btn-xem-log px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs border border-slate-300 cursor-pointer"
                                 data-id="LOG-{{ $log->id }}"
                                 data-thoigian="{{ \Carbon\Carbon::parse($log->thoiGian)->format('d/m/Y H:i:s') }}"
                                 data-taikhoan="{{ $log->taiKhoan?->tenDangNhap ?? '—' }}"
                                 data-doituong="{{ $log->doiTuong?->tenDangNhap ?? '—' }}"
-                                data-mota="{{ $log->chiTiet }}">
+                                data-mota="{{ $chiTietSach }}">
                                 <i class="fa-solid fa-eye text-[10px]"></i> Xem
                             </button>
                         </td>
@@ -162,7 +195,7 @@
             </div>
             <div class="space-y-1">
                 <span class="font-bold text-slate-700 block">Nội dung sự kiện:</span>
-                <div id="modalLogMoTa" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-800 leading-relaxed"></div>
+                <div id="modalLogMoTa" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-800 leading-relaxed break-words"></div>
             </div>
         </div>
         <div class="pt-2 border-t border-slate-100 flex justify-end">
