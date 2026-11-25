@@ -308,7 +308,10 @@
                 <i class="fa-solid fa-triangle-exclamation"></i> Báo cáo nghi vấn lô này
             </a>
 
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2 flex-wrap justify-end">
+                <a id="detailTraCuuLink" href="#" target="_blank" class="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-cyan-700"></i> Tra cứu vòng đời
+                </a>
                 <button type="button" class="dong-modal-detail px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
                     Đóng
                 </button>
@@ -405,7 +408,7 @@
                 <span class="font-bold text-cyan-950 uppercase tracking-wide flex items-center gap-1.5">
                     <i class="fa-solid fa-boxes-stacked text-cyan-800"></i> Tình trạng của lô này tại nhà thuốc (tính cho tất cả các lần nhận):
                 </span>
-                <a id="linkSangQuanLyBanHang" href="quanLyBanHang.php" class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-[11px] shadow-2xs transition-all">
+                <a id="linkSangQuanLyBanHang" href="{{ route('nha-thuoc.ban-hang') }}" class="inline-flex items-center gap-1 px-3 py-1 rounded-lg bg-cyan-700 hover:bg-cyan-800 text-white font-bold text-[11px] shadow-2xs transition-all">
                     Xem trong Quản lý bán hàng <i class="fa-solid fa-arrow-right text-[10px]"></i>
                 </a>
             </div>
@@ -451,9 +454,14 @@
                 <i class="fa-solid fa-triangle-exclamation"></i> Phát hiện bất thường? Báo cáo nghi vấn lô này
             </a>
 
-            <button type="button" class="dong-modal-danhan-detail px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
-                Đóng
-            </button>
+            <div class="flex items-center gap-2 flex-wrap justify-end">
+                <a id="daNhanModalTraCuuLink" href="#" target="_blank" class="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-emerald-700"></i> Tra cứu vòng đời
+                </a>
+                <button type="button" class="dong-modal-danhan-detail px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+                    Đóng
+                </button>
+            </div>
         </div>
     </div>
 </div>

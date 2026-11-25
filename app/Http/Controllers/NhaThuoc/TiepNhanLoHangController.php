@@ -60,6 +60,7 @@ class TiepNhanLoHangController extends Controller
             $lo = $cg->loThuoc;
             return [
                 'id'            => $cg->id,
+                'loThuocId'     => $lo?->id,
                 'maGiaoDich'    => $cg->maChuyenGiao,
                 'maLo'          => $lo?->maLoNghiepVu,
                 'tenSanPham'    => $lo?->sanPham?->tenSanPham,
@@ -114,15 +115,29 @@ class TiepNhanLoHangController extends Controller
 
         $paginator = $query->paginate((int) $request->input('per_page', 10));
 
-        $data = $paginator->getCollection()->map(function (ChuyenGiao $cg) {
+        $data = $paginator->getCollection()->map(function (ChuyenGiao $cg) use ($toChuc) {
             $lo = $cg->loThuoc;
+            $tonKho = $lo ? TonKhoLo::where('loThuocId', $lo->id)->where('toChucId', $toChuc->id)->first() : null;
+            $daBan = 0;
+            if ($lo) {
+                $daBan = (int) \Illuminate\Support\Facades\DB::table('chiTietBanLe as ct')
+                    ->join('banLe as bl', 'bl.id', '=', 'ct.banLeId')
+                    ->where('ct.loThuocId', $lo->id)
+                    ->where('bl.toChucId', $toChuc->id)
+                    ->where('bl.trangThai', 'DA_HOAN_TAT')
+                    ->sum('ct.soLuong');
+            }
+            $soLuongTon = (int) ($tonKho?->soLuong ?? 0);
+            $tongNhanLo = $soLuongTon + $daBan;
+
             return [
                 'id'            => $cg->id,
+                'loThuocId'     => $lo?->id,
                 'maGiaoDich'    => $cg->maChuyenGiao,
                 'maLo'          => $lo?->maLoNghiepVu,
                 'tenSanPham'    => $lo?->sanPham?->tenSanPham,
                 'soDangKy'      => $lo?->sanPham?->soDangKy ?? null,
-                'nhaSanXuat'    => $lo?->sanPham?->nhaSanXuat ?? null,
+                'nhaSanXuat'    => $lo?->sanPham?->nhaSanXuat ?? $lo?->toChuc?->tenToChuc ?? 'N/A',
                 'benGui'        => $cg->benGui?->tenToChuc,
                 'soLuong'       => (int) $cg->soLuong,
                 'hanDung'       => optional($lo?->hanSuDung)->format('Y-m-d'),
@@ -131,6 +146,9 @@ class TiepNhanLoHangController extends Controller
                 'trangThaiLo'   => $lo?->trangThai?->value ?? $lo?->trangThai,
                 'txHash'        => $cg->blockchainTransactions->sortByDesc('id')->first()?->txHash,
                 'trangThai'     => $cg->trangThai?->value ?? $cg->trangThai,
+                'tongNhanLo'    => $tongNhanLo > 0 ? $tongNhanLo : (int) $cg->soLuong,
+                'daBan'         => $daBan,
+                'soLuongConBan' => $soLuongTon,
             ];
         });
 

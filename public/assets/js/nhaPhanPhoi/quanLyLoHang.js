@@ -124,21 +124,31 @@ document.addEventListener('DOMContentLoaded', function () {
                         </span>
                     </td>
                     <td class="py-3 px-3 text-center">
-                        ${isRecalled || isExpired
-                            ? '<span class="text-[11px] text-amber-600 font-medium">Không thể tiếp nhận</span>'
-                            : `<div class="flex items-center justify-center gap-1.5">
-                                <button type="button" data-id="${item.id}" class="btn-tiep-nhan px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition">
+                        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button type="button" data-id="${item.id}" class="btn-chi-tiet-pending px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold transition shadow-2xs" title="Xem chi tiết lô thuốc">
+                                <i class="fa-solid fa-eye me-1"></i> Chi tiết
+                            </button>
+                            ${isRecalled || isExpired
+                                ? '<span class="text-[11px] text-amber-600 font-medium">Không thể tiếp nhận</span>'
+                                : `<button type="button" data-id="${item.id}" class="btn-tiep-nhan px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-bold transition shadow-2xs">
                                     Tiếp nhận
-                                </button>
-                                <button type="button" data-id="${item.id}" class="btn-tu-choi px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">
-                                    Từ chối
-                                </button>
-                               </div>`
-                        }
-                        ${(isRecalled || isExpired) ? `<button type="button" data-id="${item.id}" class="btn-tu-choi px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Từ chối</button>` : ''}
+                                </button>`
+                            }
+                            <button type="button" data-id="${item.id}" class="btn-tu-choi px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shadow-2xs">
+                                Từ chối
+                            </button>
+                        </div>
                     </td>
                 </tr>`;
             }).join('');
+
+            // Xem chi tiết lô hàng chờ tiếp nhận
+            tbody.querySelectorAll('.btn-chi-tiet-pending').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const item = list.find(x => String(x.id) === String(this.dataset.id));
+                    if (item) moModalChiTietPending(item);
+                });
+            });
 
             // Xác nhận tiếp nhận: API chỉ trả thành công sau khi TransferReceived đã mined.
             tbody.querySelectorAll('.btn-tiep-nhan').forEach(btn => {
@@ -263,9 +273,19 @@ document.addEventListener('DOMContentLoaded', function () {
                     : khaDung > 0
                         ? '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">KHẢ DỤNG</span>'
                         : '<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600">HẾT KHẢ DỤNG</span>';
-                const action = khaDung > 0
-                    ? `<button type="button" class="btn-chuyen-tiep px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition" data-lo-id="${item.loThuocId}" data-ma-lo="${item.maLo}" data-ten="${item.tenSanPham || ''}" data-kha-dung="${khaDung}">Chuyển sang Nhà thuốc</button>`
-                    : '<span class="text-[11px] font-semibold text-amber-700">Chờ Nhà thuốc xác nhận</span>';
+                const action = `
+                    <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                        <button type="button" class="btn-chi-tiet-kho px-2.5 py-1 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 rounded-lg text-[11px] font-bold transition shadow-2xs" data-lo-id="${item.loThuocId}" title="Xem chi tiết lô hàng trong kho">
+                            <i class="fa-solid fa-eye me-1"></i> Chi tiết
+                        </button>
+                        ${khaDung > 0 ? `
+                            <button type="button" class="btn-chuyen-tiep px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-bold transition shadow-2xs" data-lo-id="${item.loThuocId}" data-ma-lo="${item.maLo}" data-ten="${item.tenSanPham || ''}" data-kha-dung="${khaDung}">
+                                <i class="fa-solid fa-truck-fast me-1"></i> Chuyển tiếp
+                            </button>
+                        ` : `
+                            <span class="text-[11px] font-semibold text-amber-700">Đang giữ</span>
+                        `}
+                    </div>`;
 
                 return `
                     <tr class="hover:bg-slate-50/80">
@@ -279,6 +299,14 @@ document.addEventListener('DOMContentLoaded', function () {
                         <td class="py-3 px-3 text-center whitespace-nowrap">${action}</td>
                     </tr>`;
             }).join('');
+
+            // Bind nút xem chi tiết kho
+            tbody.querySelectorAll('.btn-chi-tiet-kho').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const item = list.find(x => String(x.loThuocId) === String(this.dataset.loId));
+                    if (item) moModalChiTietKho(item);
+                });
+            });
 
             // Bind nút chuyển
             tbody.querySelectorAll('.btn-chuyen-tiep').forEach(btn => {
@@ -396,6 +424,160 @@ document.addEventListener('DOMContentLoaded', function () {
             b.onclick = () => callback(parseInt(b.dataset.page, 10));
         });
     }
+
+    // ========== MODAL CHI TIẾT LÔ HÀNG CHỜ TIẾP NHẬN ==========
+    function moModalChiTietPending(item) {
+        const modal = document.getElementById('modalChiTietPending');
+        if (!modal) return;
+
+        const maLo = item.maLo || '--';
+        document.getElementById('pendingModalMaLo').textContent = maLo;
+        document.getElementById('pendingModalSanPham').textContent = item.tenSanPham || '--';
+        document.getElementById('pendingModalBenGui').textContent = item.benGui || '--';
+        document.getElementById('pendingModalSoLuong').textContent = Number(item.soLuong || 0).toLocaleString('vi-VN') + ' hộp';
+        document.getElementById('pendingModalHanDung').textContent = dinhDangNgay(item.hanDung);
+        document.getElementById('pendingModalNgayGui').textContent = item.ngayGui || '--';
+
+        const txHash = item.txHash || '';
+        const txLink = document.getElementById('pendingModalTxLink');
+        const txText = document.getElementById('pendingModalTxHash');
+        if (txHash && txHash.startsWith('0x')) {
+            if (txText) txText.textContent = txHash;
+            if (txLink) {
+                txLink.href = EXPLORER_BASE + txHash;
+                txLink.classList.remove('pointer-events-none', 'text-slate-400');
+                txLink.classList.add('text-cyan-800');
+            }
+        } else {
+            if (txText) txText.textContent = 'Chưa có giao dịch on-chain';
+            if (txLink) {
+                txLink.removeAttribute('href');
+                txLink.classList.add('pointer-events-none', 'text-slate-400');
+                txLink.classList.remove('text-cyan-800');
+            }
+        }
+
+        const nutCopy = document.getElementById('nutCopyPendingTx');
+        if (nutCopy) {
+            nutCopy.onclick = () => {
+                if (txHash) {
+                    navigator.clipboard.writeText(txHash);
+                    toast('Đã sao chép mã giao dịch vào bộ nhớ tạm.');
+                }
+            };
+        }
+
+        const linkBaoCao = document.getElementById('linkBaoCaoTuPendingDetail');
+        if (linkBaoCao) {
+            linkBaoCao.href = `/bao-cao-nghi-van?maLo=${encodeURIComponent(maLo)}`;
+        }
+
+        const linkTraCuu = document.getElementById('pendingModalTraCuuLink');
+        if (linkTraCuu) {
+            linkTraCuu.href = `/tra-cuu-nguon-goc?maDinhDanh=${encodeURIComponent(maLo)}`;
+        }
+
+        const nutNhan = document.getElementById('nutNhanHangTuDetail');
+        if (nutNhan) {
+            nutNhan.onclick = () => {
+                modal.classList.add('hidden');
+                const targetBtn = document.querySelector(`.btn-tiep-nhan[data-id="${item.id}"]`);
+                if (targetBtn) targetBtn.click();
+            };
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    // ========== MODAL CHI TIẾT LÔ HÀNG TRONG KHO ==========
+    function moModalChiTietKho(item) {
+        const modal = document.getElementById('modalChiTietKho');
+        if (!modal) return;
+
+        const maLo = item.maLo || '--';
+        document.getElementById('modalKhoMaLoTitle').textContent = maLo;
+        document.getElementById('modalKhoSanPham').textContent = item.tenSanPham || '--';
+        document.getElementById('modalKhoHanDung').textContent = dinhDangNgay(item.hanDung);
+        document.getElementById('modalKhoTongNhap').textContent = Number(item.soLuongHienCo || 0).toLocaleString('vi-VN') + ' hộp';
+        document.getElementById('modalKhoKhaDung').textContent = Number(item.soLuongKhaDung || 0).toLocaleString('vi-VN') + ' hộp';
+
+        const txHash = item.txHash || '';
+        const txLink = document.getElementById('modalKhoTxLink');
+        const txText = document.getElementById('modalKhoTxHash');
+        if (txHash && txHash.startsWith('0x')) {
+            if (txText) txText.textContent = txHash;
+            if (txLink) {
+                txLink.href = EXPLORER_BASE + txHash;
+                txLink.classList.remove('pointer-events-none', 'text-slate-400');
+                txLink.classList.add('text-cyan-800');
+            }
+        } else {
+            if (txText) txText.textContent = 'Chưa có giao dịch on-chain';
+            if (txLink) {
+                txLink.removeAttribute('href');
+                txLink.classList.add('pointer-events-none', 'text-slate-400');
+                txLink.classList.remove('text-cyan-800');
+            }
+        }
+
+        const nutCopy = document.getElementById('nutCopyModalKhoTx');
+        if (nutCopy) {
+            nutCopy.onclick = () => {
+                if (txHash) {
+                    navigator.clipboard.writeText(txHash);
+                    toast('Đã sao chép mã giao dịch vào bộ nhớ tạm.');
+                }
+            };
+        }
+
+        const timeline = document.getElementById('danhSachTimelineKho');
+        if (timeline) {
+            const dangChuyen = Number(item.soLuongDangChuyenGiao || 0);
+            timeline.innerHTML = `
+                <div class="relative pl-2 space-y-1">
+                    <span class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-blue-600 border-2 border-white ring-2 ring-blue-100"></span>
+                    <div class="font-bold text-slate-800">Tiếp nhận nhập kho Nhà phân phối</div>
+                    <div class="text-[11px] text-slate-500 font-mono">Tổng lượng đã nhập: <strong class="text-blue-700">${Number(item.soLuongHienCo || 0).toLocaleString('vi-VN')} hộp</strong></div>
+                </div>
+                ${dangChuyen > 0 ? `
+                <div class="relative pl-2 space-y-1">
+                    <span class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-amber-500 border-2 border-white ring-2 ring-amber-100"></span>
+                    <div class="font-bold text-amber-800">Đang khởi tạo chuyển tiếp sang Nhà thuốc</div>
+                    <div class="text-[11px] text-slate-500 font-mono">Đang tạm khóa để chờ xác nhận: <strong class="text-amber-700">${dangChuyen.toLocaleString('vi-VN')} hộp</strong></div>
+                </div>` : ''}
+                <div class="relative pl-2 space-y-1">
+                    <span class="absolute -left-[31px] top-1 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white ring-2 ring-emerald-100"></span>
+                    <div class="font-bold text-emerald-800">Sẵn sàng phân phối tiếp</div>
+                    <div class="text-[11px] text-slate-500 font-mono">Lượng khả dụng: <strong class="text-emerald-700">${Number(item.soLuongKhaDung || 0).toLocaleString('vi-VN')} hộp</strong></div>
+                </div>
+            `;
+        }
+
+        const linkBaoCao = document.getElementById('linkBaoCaoTuKhoDetail');
+        if (linkBaoCao) {
+            linkBaoCao.href = `/bao-cao-nghi-van?maLo=${encodeURIComponent(maLo)}`;
+        }
+
+        const linkTraCuu = document.getElementById('modalKhoTraCuuLink');
+        if (linkTraCuu) {
+            linkTraCuu.href = `/tra-cuu-nguon-goc?maDinhDanh=${encodeURIComponent(maLo)}`;
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    // Đóng modals chi tiết
+    document.querySelectorAll('.dong-modal-pending-detail').forEach(btn => {
+        btn?.addEventListener('click', () => {
+            document.getElementById('modalChiTietPending')?.classList.add('hidden');
+        });
+    });
+
+    document.querySelectorAll('.dong-modal-chitiet').forEach(btn => {
+        btn?.addEventListener('click', () => {
+            document.getElementById('modalChiTietKho')?.classList.add('hidden');
+        });
+    });
 
     // ========== TAB SWITCH ==========
     function showTab(tab) {

@@ -64,9 +64,12 @@ class QuanLyLoHangController extends Controller
             $lo = $cg->loThuoc;
             return [
                 'id'            => $cg->id,
+                'loThuocId'     => $lo?->id,
                 'maGiaoDich'    => $cg->maChuyenGiao,
                 'maLo'          => $lo?->maLoNghiepVu,
                 'tenSanPham'    => $lo?->sanPham?->tenSanPham,
+                'soDangKy'      => $lo?->sanPham?->soDangKy ?? null,
+                'nhaSanXuat'    => $lo?->sanPham?->nhaSanXuat ?? $lo?->toChuc?->tenToChuc ?? 'N/A',
                 'benGui'        => $cg->benGui?->tenToChuc,
                 'maBenGui'      => $cg->benGui?->maSoThue,
                 'soLuong'       => (int) $cg->soLuong,
@@ -119,16 +122,25 @@ class QuanLyLoHangController extends Controller
         $items = $query->get()->map(function (TonKhoLo $tk) use ($toChuc) {
             $lo = $tk->loThuoc;
             $khaDung = $this->tonKhoService->soLuongKhaDung($lo->id, $toChuc->id);
+            $txHash = BlockchainTransaction::where('loThuocId', $lo->id)
+                ->where('trangThai', 'CONFIRMED')
+                ->whereNotNull('txHash')
+                ->latest('id')
+                ->value('txHash');
 
             return [
-                'loThuocId'      => $lo->id,
-                'maLo'           => $lo->maLoNghiepVu,
-                'tenSanPham'     => $lo->sanPham?->tenSanPham,
-                'hanDung'        => optional($lo->hanSuDung)->format('Y-m-d'),
-                'soLuongHienCo'  => (int) $tk->soLuong,
+                'loThuocId'             => $lo->id,
+                'maLo'                  => $lo->maLoNghiepVu,
+                'tenSanPham'            => $lo->sanPham?->tenSanPham,
+                'soDangKy'              => $lo->sanPham?->soDangKy ?? null,
+                'nhaSanXuat'            => $lo->sanPham?->nhaSanXuat ?? $lo->toChuc?->tenToChuc ?? 'N/A',
+                'ngaySanXuat'           => optional($lo->ngaySanXuat)->format('d/m/Y'),
+                'hanDung'               => optional($lo->hanSuDung)->format('Y-m-d'),
+                'soLuongHienCo'         => (int) $tk->soLuong,
                 'soLuongDangChuyenGiao' => $this->tonKhoService->soLuongDangChuyenGiao($lo->id, $toChuc->id),
-                'soLuongKhaDung' => $khaDung,
-                'trangThaiLo'    => $lo->trangThai instanceof \App\Enums\BatchStatus ? $lo->trangThai->value : (string) ($lo->trangThai ?? ''),
+                'soLuongKhaDung'        => $khaDung,
+                'trangThaiLo'           => $lo->trangThai instanceof \App\Enums\BatchStatus ? $lo->trangThai->value : (string) ($lo->trangThai ?? ''),
+                'txHash'                => $txHash,
             ];
         })->values();
 

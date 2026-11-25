@@ -135,16 +135,26 @@ document.addEventListener('DOMContentLoaded', function () {
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${badgeClass}">${badgeText}</span>
                     </td>
                     <td class="py-3.5 px-3 text-center">
-                        <div class="flex items-center justify-center gap-1.5">
+                        <div class="flex items-center justify-center gap-1.5 flex-wrap">
+                            <button type="button" data-id="${item.id}" class="btn-chi-tiet-pending px-2.5 py-1 bg-cyan-50 hover:bg-cyan-100 text-cyan-800 border border-cyan-200 rounded-lg text-[11px] font-bold transition shadow-2xs" title="Xem chi tiết lô thuốc">
+                                <i class="fa-solid fa-eye me-1"></i> Chi tiết
+                            </button>
                             ${isRecalled || isExpired
                         ? '<span class="text-[11px] text-amber-600 font-medium">Không thể nhận</span>'
-                        : `<button type="button" data-id="${item.id}" class="btn-xac-nhan px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Xác nhận nhận hàng</button>`
+                        : `<button type="button" data-id="${item.id}" class="btn-xac-nhan px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shadow-2xs">Xác nhận nhận hàng</button>`
                     }
-                            <button type="button" data-id="${item.id}" class="btn-tu-choi px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition">Từ chối</button>
+                            <button type="button" data-id="${item.id}" class="btn-tu-choi px-2.5 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[11px] font-bold transition shadow-2xs">Từ chối</button>
                         </div>
                     </td>
                 </tr>`;
             }).join('');
+
+            tbody.querySelectorAll('.btn-chi-tiet-pending').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const item = list.find(x => String(x.id) === String(this.dataset.id));
+                    if (item) moModalChiTietPending(item);
+                });
+            });
 
             tbody.querySelectorAll('.btn-xac-nhan').forEach(btn => {
                 btn.addEventListener('click', function () {
@@ -193,13 +203,24 @@ document.addEventListener('DOMContentLoaded', function () {
                     <td class="py-3 px-3">${item.tenSanPham || '--'}</td>
                     <td class="py-3 px-3">${item.benGui || '--'}</td>
                     <td class="py-3 px-3 text-right font-bold">${Number(item.soLuong).toLocaleString('vi-VN')}</td>
-                    <td class="py-3 px-2.5 text-center text-[11px]">${item.ngayGui || '--'}</td>
-                    <td class="py-3 px-2.5 text-center text-[11px]">${item.ngayNhan || '--'}</td>
+                    <td class="py-3 px-2.5 text-center text-[11px]">${item.ngayNhan || item.ngayGui || '--'}</td>
                     <td class="py-3 px-2.5 text-center">
                         <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-700">ĐÃ NHẬN</span>
                     </td>
+                    <td class="py-3 px-3 text-center whitespace-nowrap">
+                        <button type="button" data-id="${item.id}" class="btn-chi-tiet-danhan px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-lg text-[11px] font-bold transition shadow-2xs" title="Xem chi tiết lô đã tiếp nhận">
+                            <i class="fa-solid fa-eye me-1"></i> Chi tiết
+                        </button>
+                    </td>
                 </tr>
             `).join('');
+
+            tbody.querySelectorAll('.btn-chi-tiet-danhan').forEach(btn => {
+                btn.addEventListener('click', function () {
+                    const item = list.find(x => String(x.id) === String(this.dataset.id));
+                    if (item) moModalChiTietDaNhan(item);
+                });
+            });
 
             renderPagination('cumNutPhanTrangDaNhan', meta, loadDaTiepNhan);
         } catch (err) {
@@ -258,6 +279,180 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.getElementById('nutDongModalFailure')?.addEventListener('click', () => {
         document.getElementById('modalLoadingBlockchain')?.classList.add('hidden');
+    });
+
+    // ========== MODAL CHI TIẾT LÔ HÀNG CHỜ TIẾP NHẬN ==========
+    function moModalChiTietPending(item) {
+        const modal = document.getElementById('modalChiTietPending');
+        if (!modal) return;
+
+        const maLo = item.maLo || '--';
+        document.getElementById('detailMaLoTitle').textContent = maLo;
+        document.getElementById('detailSanPham').textContent = item.tenSanPham || '--';
+        document.getElementById('detailSoDK').textContent = item.soDangKy || '--';
+        document.getElementById('detailNhaSanXuat').textContent = item.nhaSanXuat || '--';
+        document.getElementById('detailBenGui').textContent = item.benGui || '--';
+        document.getElementById('detailSoLuong').textContent = Number(item.soLuong || 0).toLocaleString('vi-VN') + ' hộp';
+        document.getElementById('detailHanDung').textContent = dinhDangNgay(item.hanDung);
+        document.getElementById('detailNgayGui').textContent = item.ngayGui || '--';
+
+        const txHash = item.txHash || '';
+        const txLink = document.getElementById('detailTxLink');
+        const txText = document.getElementById('detailTxHash');
+        if (txHash && txHash.startsWith('0x')) {
+            if (txText) txText.textContent = txHash;
+            if (txLink) {
+                txLink.href = EXPLORER_BASE + txHash;
+                txLink.classList.remove('pointer-events-none', 'text-slate-400');
+                txLink.classList.add('text-cyan-800');
+            }
+        } else {
+            if (txText) txText.textContent = 'Chưa có giao dịch on-chain';
+            if (txLink) {
+                txLink.removeAttribute('href');
+                txLink.classList.add('pointer-events-none', 'text-slate-400');
+                txLink.classList.remove('text-cyan-800');
+            }
+        }
+
+        const nutCopy = document.getElementById('nutCopyDetailTx');
+        if (nutCopy) {
+            nutCopy.onclick = () => {
+                if (txHash) {
+                    navigator.clipboard.writeText(txHash);
+                    toast('Đã sao chép mã giao dịch vào bộ nhớ tạm.');
+                }
+            };
+        }
+
+        const linkBaoCao = document.getElementById('linkBaoCaoTuDetail');
+        if (linkBaoCao) {
+            linkBaoCao.href = `/bao-cao-nghi-van?maLo=${encodeURIComponent(maLo)}`;
+        }
+
+        const linkTraCuu = document.getElementById('detailTraCuuLink');
+        if (linkTraCuu) {
+            linkTraCuu.href = `/tra-cuu-nguon-goc?maDinhDanh=${encodeURIComponent(maLo)}`;
+        }
+
+        const nutNhan = document.getElementById('nutChuyenSangNhanHang');
+        if (nutNhan) {
+            nutNhan.onclick = () => {
+                modal.classList.add('hidden');
+                thucHienTiepNhan(item.id);
+            };
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    // ========== MODAL CHI TIẾT LÔ HÀNG ĐÃ TIẾP NHẬN ==========
+    function moModalChiTietDaNhan(item) {
+        const modal = document.getElementById('modalChiTietDaTiepNhan');
+        if (!modal) return;
+
+        const maLo = item.maLo || '--';
+        document.getElementById('daNhanModalMaLoTitle').textContent = maLo;
+        document.getElementById('daNhanModalTenThuoc').textContent = item.tenSanPham || '--';
+        document.getElementById('daNhanModalSoDK').textContent = item.soDangKy || '--';
+        document.getElementById('daNhanModalNhaSanXuat').textContent = item.nhaSanXuat || '--';
+        document.getElementById('daNhanModalBenGiao').textContent = item.benGui || '--';
+        document.getElementById('daNhanModalHanDung').textContent = dinhDangNgay(item.hanDung);
+        document.getElementById('daNhanModalSoLuongDot').textContent = Number(item.soLuong || 0).toLocaleString('vi-VN') + ' hộp';
+        document.getElementById('daNhanModalThoiGianGui').textContent = item.ngayGui || '--';
+        document.getElementById('daNhanModalThoiGianXacNhan').textContent = item.ngayNhan || '--';
+
+        const isRecalled = item.trangThaiLo === 'RECALLED';
+        const isExpired = item.hanDung && item.hanDung < new Date().toISOString().slice(0, 10);
+
+        const bannerThuHoi = document.getElementById('daNhanBannerThuHoi');
+        if (bannerThuHoi) {
+            if (isRecalled) {
+                bannerThuHoi.classList.remove('hidden');
+                const lyDo = document.getElementById('daNhanLyDoThuHoiText');
+                if (lyDo) lyDo.textContent = item.lyDoThuHoi || 'Lô thuốc bị thu hồi theo quyết định của Cơ quan quản lý.';
+            } else {
+                bannerThuHoi.classList.add('hidden');
+            }
+        }
+
+        const bannerHetHan = document.getElementById('daNhanBannerHetHan');
+        if (bannerHetHan) {
+            bannerHetHan.classList.toggle('hidden', !isExpired);
+        }
+
+        const tagHetHan = document.getElementById('daNhanModalHetHanTag');
+        if (tagHetHan) {
+            tagHetHan.classList.toggle('hidden', !isExpired);
+        }
+
+        // Tình trạng tại nhà thuốc
+        const tongNhan = Number(item.tongNhanLo || item.soLuong || 0);
+        const daBan = Number(item.daBan || 0);
+        const conBan = Number(item.soLuongConBan !== undefined ? item.soLuongConBan : item.soLuong || 0);
+
+        const elTongNhan = document.getElementById('daNhanTongNhanLo');
+        if (elTongNhan) elTongNhan.textContent = tongNhan.toLocaleString('vi-VN') + ' hộp';
+
+        const elDaBan = document.getElementById('daNhanSoLuongDaBan');
+        if (elDaBan) elDaBan.textContent = daBan.toLocaleString('vi-VN') + ' hộp';
+
+        const elConBan = document.getElementById('daNhanSoLuongConBan');
+        if (elConBan) elConBan.textContent = conBan.toLocaleString('vi-VN') + ' hộp';
+
+        const txHash = item.txHash || '';
+        const txLink = document.getElementById('daNhanModalTxLink');
+        const txText = document.getElementById('daNhanModalTxHash');
+        if (txHash && txHash.startsWith('0x')) {
+            if (txText) txText.textContent = txHash;
+            if (txLink) {
+                txLink.href = EXPLORER_BASE + txHash;
+                txLink.classList.remove('pointer-events-none', 'text-slate-400');
+                txLink.classList.add('text-cyan-800');
+            }
+        } else {
+            if (txText) txText.textContent = 'Chưa có giao dịch on-chain';
+            if (txLink) {
+                txLink.removeAttribute('href');
+                txLink.classList.add('pointer-events-none', 'text-slate-400');
+                txLink.classList.remove('text-cyan-800');
+            }
+        }
+
+        const nutCopy = document.getElementById('nutCopyDaNhanTx');
+        if (nutCopy) {
+            nutCopy.onclick = () => {
+                if (txHash) {
+                    navigator.clipboard.writeText(txHash);
+                    toast('Đã sao chép mã giao dịch vào bộ nhớ tạm.');
+                }
+            };
+        }
+
+        const linkBaoCao = document.getElementById('linkBaoCaoTuDaNhan');
+        if (linkBaoCao) {
+            linkBaoCao.href = `/bao-cao-nghi-van?maLo=${encodeURIComponent(maLo)}`;
+        }
+
+        const linkTraCuu = document.getElementById('daNhanModalTraCuuLink');
+        if (linkTraCuu) {
+            linkTraCuu.href = `/tra-cuu-nguon-goc?maDinhDanh=${encodeURIComponent(maLo)}`;
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    // Đóng modals chi tiết
+    document.querySelectorAll('.dong-modal-detail').forEach(btn => {
+        btn?.addEventListener('click', () => {
+            document.getElementById('modalChiTietPending')?.classList.add('hidden');
+        });
+    });
+
+    document.querySelectorAll('.dong-modal-danhan-detail').forEach(btn => {
+        btn?.addEventListener('click', () => {
+            document.getElementById('modalChiTietDaTiepNhan')?.classList.add('hidden');
+        });
     });
 
 

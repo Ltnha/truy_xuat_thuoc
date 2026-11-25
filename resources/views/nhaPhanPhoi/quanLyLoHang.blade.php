@@ -310,7 +310,10 @@
                 <i class="fa-solid fa-triangle-exclamation"></i> Báo cáo nghi vấn lô này
             </a>
 
-            <div class="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                <a id="pendingModalTraCuuLink" href="#" target="_blank" class="px-3.5 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-blue-600"></i> Tra cứu vòng đời
+                </a>
                 <button type="button" class="dong-modal-pending-detail px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
                     Đóng
                 </button>
@@ -435,9 +438,14 @@
             <a id="linkBaoCaoTuKhoDetail" href="#" class="text-xs text-amber-700 hover:text-amber-900 font-bold hover:underline flex items-center gap-1.5">
                 <i class="fa-solid fa-triangle-exclamation"></i> Báo cáo nghi vấn lô này
             </a>
-            <button type="button" class="dong-modal-chitiet px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
-                Đóng Cửa Sổ
-            </button>
+            <div class="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+                <a id="modalKhoTraCuuLink" href="#" target="_blank" class="px-3.5 py-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition flex items-center gap-1.5 shadow-2xs">
+                    <i class="fa-solid fa-arrow-up-right-from-square text-blue-600"></i> Tra cứu vòng đời
+                </a>
+                <button type="button" class="dong-modal-chitiet px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-all">
+                    Đóng Cửa Sổ
+                </button>
+            </div>
         </div>
     </div>
 </div>
