@@ -14,3 +14,15 @@
   line-height: 1 !important;
   flex-shrink: 0 !important;
 }
+
+/* KHÔNG CHO PHÉP HIỂN THỊ MŨI TÊN TĂNG GIẢM TRÊN Ô NHẬP SỐ LƯỢNG */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none !important;
+  margin: 0 !important;
+}
+
+input[type=number] {
+  -moz-appearance: textfield !important;
+}
+

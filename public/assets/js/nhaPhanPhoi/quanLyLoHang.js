@@ -339,7 +339,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-600 mb-1">Số lượng chuyển</label>
-                        <input type="number" id="modalSoLuong" min="1" class="w-full border rounded-xl px-3 py-2.5 text-sm" />
+                        <input type="number" id="modalSoLuong" min="1" class="w-full border rounded-xl px-3 py-2.5 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
                     </div>
                     <div class="flex gap-3 pt-2">
                         <button type="button" id="modalHuy" class="flex-1 py-2.5 rounded-xl border text-sm font-bold">Hủy</button>
@@ -349,6 +349,19 @@ document.addEventListener('DOMContentLoaded', function () {
             document.body.appendChild(modal);
 
             document.getElementById('modalHuy').onclick = () => modal.remove();
+
+            // Chặn tăng giảm số lượng bằng phím mũi tên hoặc cuộn chuột
+            const inputSoLuong = document.getElementById('modalSoLuong');
+            if (inputSoLuong) {
+                inputSoLuong.addEventListener('keydown', function (e) {
+                    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                        e.preventDefault();
+                    }
+                });
+                inputSoLuong.addEventListener('wheel', function (e) {
+                    e.preventDefault();
+                }, { passive: false });
+            }
         }
 
         document.getElementById('modalMaLo').textContent = data.maLo;
@@ -608,6 +621,19 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Init
     showTab('cho');
+
+    // Chặn tăng giảm số lượng trên ô nhập chuyển tiếp (modal chuyển blade nếu có)
+    const inpNhapChuyen = document.getElementById('nhapSoLuongChuyen');
+    if (inpNhapChuyen) {
+        inpNhapChuyen.addEventListener('keydown', function (e) {
+            if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+            }
+        });
+        inpNhapChuyen.addEventListener('wheel', function (e) {
+            e.preventDefault();
+        }, { passive: false });
+    }
 
     function debounce(fn, delay) {
         let t;

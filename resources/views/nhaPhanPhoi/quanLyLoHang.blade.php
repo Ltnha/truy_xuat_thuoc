@@ -360,7 +360,7 @@
 
             <div class="space-y-1">
                 <label for="nhapSoLuongChuyen" class="font-bold text-slate-700">Số Lượng Chuyển Tiếp (hộp) <span class="text-red-500">*</span></label>
-                <input type="number" id="nhapSoLuongChuyen" required min="1" placeholder="Nhập số lượng xuất..." class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-blue-700 outline-none">
+                <input type="number" id="nhapSoLuongChuyen" required min="1" placeholder="Nhập số lượng xuất..." class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-blue-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
                 <span id="loiSoLuongChuyen" class="text-[11px] text-red-600 hidden font-bold">Số lượng xuất không được vượt quá số khả dụng trong kho!</span>
             </div>
 
