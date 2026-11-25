@@ -1,4 +1,29 @@
-/* Styling thanh menu điều hướng */
-header a {
+/* Thanh điều hướng người tiêu dùng – tránh tràn chữ */
+header.bong-xanh {
+  box-shadow: 0 1px 0 rgba(6, 78, 59, 0.06);
+}
+
+header.bong-xanh a {
   position: relative;
+}
+
+/* Giữ một dòng, không xuống dòng giữa icon và chữ */
+header.bong-xanh nav a {
+  white-space: nowrap;
+  line-height: 1.25;
+}
+
+/* Tablet hẹp: ưu tiên menu hamburger thay vì nhồi chữ */
+@media (max-width: 1023px) {
+  header.bong-xanh .max-w-7xl {
+    min-height: 4rem;
+  }
+}
+
+/* Desktop rộng: nới nhẹ khoảng cách menu */
+@media (min-width: 1280px) {
+  header.bong-xanh nav a {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
 }
