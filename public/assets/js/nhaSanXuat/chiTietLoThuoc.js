@@ -63,6 +63,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
         lastTxStatus = currentStatus;
         renderBadgeTong(tx);
+        renderBatchStatus(data);
         renderBlockchainCard(tx);
         renderTimeline(data);
         handlePolling(tx);
@@ -110,6 +111,21 @@ document.addEventListener('DOMContentLoaded', function () {
         badgeTong.innerHTML = getStatus(tx).badgeHtml;
     }
 
+    // Trạng thái nghiệp vụ được cập nhật độc lập với trạng thái giao dịch Blockchain.
+    function renderBatchStatus(data) {
+        const el = document.getElementById('trangThaiNghiepVu');
+        if (!el) return;
+
+        const status = String(data.trangThai || 'CREATED').toUpperCase();
+        const config = {
+            CREATED: { label: 'Đã tạo', css: 'bg-blue-100 text-blue-800' },
+            IN_TRANSIT: { label: 'Đang lưu thông', css: 'bg-amber-100 text-amber-800' },
+            RECALLED: { label: 'Đã thu hồi', css: 'bg-red-100 text-red-800' }
+        };
+        const item = config[status] || { label: status, css: 'bg-slate-100 text-slate-700' };
+        el.className = `inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold ${item.css}`;
+        el.textContent = item.label;
+    }
     function renderBlockchainCard(tx) {
         if (!khuVucBlockchain) return;
         const status = getStatus(tx);
@@ -245,6 +261,28 @@ document.addEventListener('DOMContentLoaded', function () {
                     desc: 'Có lỗi xảy ra khi gửi giao dịch. Có thể thử gửi lại.'
                 });
             }
+        }
+
+        // Sự kiện thu hồi lấy từ quyết định thu hồi thực tế trong CSDL.
+        // Trạng thái đồng bộ Blockchain được mô tả riêng với quyết định nghiệp vụ.
+        if (data.thu_hoi) {
+            const recall = data.thu_hoi;
+            const recallTx = recall.blockchain || null;
+            const recallTxStatus = String(recallTx?.trangThai || '').toUpperCase();
+            let chainInfo = 'Quyết định thu hồi đã được ghi nhận trong hệ thống.';
+            if (recallTxStatus === 'PENDING') {
+                chainInfo += ' Giao dịch thu hồi đang chờ Signer ký và xác nhận trên Sepolia.';
+            } else if (recallTxStatus === 'CONFIRMED' && recallTx?.txHash) {
+                chainInfo += ` Đã ghi nhận On-chain: <code class="text-[11px]">${escapeHtml(recallTx.txHash)}</code>`;
+            } else if (recallTxStatus === 'FAILED') {
+                chainInfo += ' Ghi nhận Blockchain thất bại; cần đồng bộ lại.';
+            }
+
+            events.push({
+                time: recall.ngayThuHoi,
+                title: 'Thu hồi lô thuốc',
+                desc: `<span class="font-semibold text-red-700">Lý do:</span> ${escapeHtml(recall.lyDo || 'Không có thông tin lý do')}.<br>${chainInfo}`
+            });
         }
 
         // Lịch sử chuyển giao từ CSDL
