@@ -53,8 +53,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const confirmed = list.filter(tx => {
             const st = String(tx.trangThai || '').toUpperCase();
+            const ev = String(tx.eventName || tx.event_name || '').toUpperCase();
             const hash = String(tx.txHash || '');
-            return (st === 'CONFIRMED' || st === 'SUCCESS') && /^0x[a-fA-F0-9]{64}$/.test(hash);
+            return !ev.includes('TRANSFER') && !ev.includes('RECALL')
+                && (st === 'CONFIRMED' || st === 'SUCCESS')
+                && /^0x[a-fA-F0-9]{64}$/.test(hash);
         });
         if (confirmed.length > 0) {
             return [...confirmed].sort((a, b) => (a.id || 0) - (b.id || 0))[0];
@@ -345,7 +348,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 || isTxFailedOrRejected(transferTx);
 
             let txHtml = `<span class="text-slate-400 italic text-[11px]">Chưa gửi</span>`;
-            const displayTx = batchTx || latestTx;
+            const displayTx = batchTx || (isRecalled ? null : latestTx);
             const displayHash = displayTx ? displayTx.txHash : null;
 
             if (batchPending) {
