@@ -43,8 +43,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const ev = String(tx.eventName || tx.event_name || '').toUpperCase();
             const hasCg = tx.chuyenGiaoId != null || tx.chuyen_giao_id != null;
             if (hasCg) return false;
-            if (ev.includes('TRANSFER')) return false;
-            return true;
+            if (ev.includes('TRANSFER') || ev.includes('RECALL')) return false;
+            return ev === 'BATCHREGISTERED' || ev === 'BATCH_REGISTERED';
         });
 
         if (reg.length > 0) {
@@ -335,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             const batchConfirmed = isTxConfirmed(batchTx);
             const batchPending = isTxPending(batchTx);
+            const isRecalled = !!item.daThuHoi || String(item.trangThai || '').toUpperCase() === 'RECALLED';
 
             const cgInfo = item.chuyenGiaoGanNhat || item.chuyen_giao_gan_nhat || null;
             const cgStatus = cgInfo ? String(cgInfo.trangThai || '').toUpperCase() : '';
@@ -369,12 +370,25 @@ document.addEventListener('DOMContentLoaded', function () {
                 txHtml = `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-200 rounded text-[11px] font-semibold">CG bị từ chối</span>`;
             }
 
-            let badgeStatusHtml = renderBadgeTrangThai(item.trangThai);
-            if (batchPending) {
+            // Thu hồi là trạng thái ưu tiên cao nhất: giữ txHash đăng ký lô và gắn cảnh báo đỏ bên dưới.
+            if (isRecalled) {
+                if (displayHash && /^0x[a-fA-F0-9]{64}$/.test(String(displayHash))) {
+                    const recallShortHash = displayHash.length > 14
+                        ? `${displayHash.substring(0, 8)}...${displayHash.substring(displayHash.length - 6)}`
+                        : displayHash;
+                    txHtml = `<a href="https://sepolia.etherscan.io/tx/${displayHash}" target="_blank" rel="noopener"
+                        class="text-cyan-800 bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200 hover:underline font-mono text-[11px]"
+                        title="${escapeHtml(displayHash)}">${escapeHtml(recallShortHash)}</a>`;
+                }
+                txHtml += `<div class="mt-0.5 text-[10px] text-red-600 font-bold"><i class="fa-solid fa-ban mr-1"></i>Đã thu hồi</div>`;
+            }
+
+            let badgeStatusHtml = renderBadgeTrangThai(isRecalled ? 'RECALLED' : item.trangThai);
+            if (!isRecalled && batchPending) {
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-[10px] font-bold">Chờ On-chain</span>`;
-            } else if (transferPending) {
+            } else if (!isRecalled && transferPending) {
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-cyan-50 text-cyan-800 border border-cyan-200 rounded-full text-[10px] font-bold">Đang chờ NPP nhận</span>`;
-            } else if (transferFailed && getKhaDung(item) > 0) {
+            } else if (!isRecalled && transferFailed && getKhaDung(item) > 0) {
                 badgeStatusHtml = `<span class="px-2 py-0.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-full text-[10px] font-bold">Sẵn sàng chuyển</span>`;
             }
 
