@@ -26,25 +26,34 @@
         </div>
         <div class="phx-partner-grid">
             @foreach($danhSachToChuc as $tc)
-            <article class="phx-partner-card">
-                <span class="phx-partner-icon">
-                    @if($tc->loaiToChuc === 'NHA_SAN_XUAT')<i class="fa-solid fa-industry"></i>
-                    @elseif($tc->loaiToChuc === 'NHA_PHAN_PHOI')<i class="fa-solid fa-truck-fast"></i>
-                    @else<i class="fa-solid fa-house-medical"></i>@endif
-                </span>
-                <div>
-                    <h3>{{ $tc->tenToChuc }}</h3>
-                    <p>
-                        @if($tc->loaiToChuc === 'NHA_SAN_XUAT')Nhà sản xuất
-                        @elseif($tc->loaiToChuc === 'NHA_PHAN_PHOI')Nhà phân phối
-                        @elseif($tc->loaiToChuc === 'NHA_THUOC')Nhà thuốc
-                        @elseĐơn vị tham gia hệ thống@endif
-                    </p>
-                    <small><i class="fa-solid fa-location-dot"></i> {{ $tc->diaChi ?: 'Chưa cập nhật địa chỉ' }}</small>
-                </div>
-                <span class="phx-approved" title="Đã được duyệt"><i class="fa-solid fa-check"></i></span>
-            </article>
-            @endforeach
+                <article class="phx-partner-card">
+                    <span class="phx-partner-icon">
+                        @if($tc->loaiToChuc === 'NHA_SAN_XUAT')
+                            <i class="fa-solid fa-industry"></i>
+                        @elseif($tc->loaiToChuc === 'NHA_PHAN_PHOI')
+                            <i class="fa-solid fa-truck-fast"></i>
+                        @else
+                            <i class="fa-solid fa-house-medical"></i>
+                        @endif
+                    </span>
+                    <div>
+                        <h3>{{ $tc->tenToChuc }}</h3>
+                        <p>
+                            @if($tc->loaiToChuc === 'NHA_SAN_XUAT')
+                                Nhà sản xuất
+                            @elseif($tc->loaiToChuc === 'NHA_PHAN_PHOI')
+                                Nhà phân phối
+                            @elseif($tc->loaiToChuc === 'NHA_THUOC')
+                                Nhà thuốc
+                            @else
+                                Đơn vị tham gia hệ thống
+                            @endif
+                        </p>
+                        <small><i class="fa-solid fa-location-dot"></i> {{ $tc->diaChi ?: 'Chưa cập nhật địa chỉ' }}</small>
+                    </div>
+                    <span class="phx-approved" title="Đã được duyệt"><i class="fa-solid fa-check"></i></span>
+                </article>
+                @endforeach
         </div>
     </section>
     @else
