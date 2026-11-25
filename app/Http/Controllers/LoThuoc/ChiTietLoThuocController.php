@@ -54,6 +54,7 @@ class ChiTietLoThuocController extends Controller
             'sanPham',
             'blockchainTransactions',
             'chuyenGiao.benNhan',
+            'thuHoiLoHang.blockchainTx',
         ])
             ->where('id', $id)
             ->where('toChucId', $user->toChucId ?? 0)
@@ -67,9 +68,14 @@ class ChiTietLoThuocController extends Controller
         }
 
         // Lấy transaction mới nhất (theo id giảm dần)
+        // Tách giao dịch đăng ký lô khỏi giao dịch thu hồi để mỗi trạng thái hiển thị đúng nghiệp vụ.
         $tx = $loThuoc->blockchainTransactions
+            ->where('eventName', 'BatchRegistered')
             ->sortByDesc('id')
             ->first();
+
+        $thuHoi = $loThuoc->thuHoiLoHang;
+        $txThuHoi = $thuHoi?->blockchainTx;
 
         // Chuẩn hóa dữ liệu chuyển giao
         $danhSachChuyenGiao = [];
@@ -99,8 +105,23 @@ class ChiTietLoThuocController extends Controller
                 'donViTinh'              => $loThuoc->donViTinh ?? 'Hộp',
                 'ngaySanXuat'            => $loThuoc->ngaySanXuat,
                 'hanSuDung'              => $loThuoc->hanSuDung,
-                'trangThai'              => $loThuoc->trangThai,
+                'trangThai'              => $loThuoc->trangThai instanceof \\BackedEnum
+                    ? $loThuoc->trangThai->value
+                    : (string) $loThuoc->trangThai,
                 'created_at'             => $loThuoc->thoiGianTao ?? null,
+                'thu_hoi'                => $thuHoi ? [
+                    'id'         => $thuHoi->id,
+                    'lyDo'       => $thuHoi->lyDo,
+                    'ngayThuHoi' => $thuHoi->ngayThuHoi,
+                    'blockchain' => $txThuHoi ? [
+                        'txHash'      => $txThuHoi->txHash,
+                        'blockNumber' => $txThuHoi->blockNumber,
+                        'trangThai'   => $txThuHoi->trangThai,
+                        'network'     => $txThuHoi->network,
+                        'thoiGian'    => $txThuHoi->thoiGian,
+                        'loiCuoi'     => $txThuHoi->loiCuoi,
+                    ] : null,
+                ] : null,
                 'san_pham'               => $loThuoc->sanPham ? [
                     'id'          => $loThuoc->sanPham->id,
                     'tenSanPham'  => $loThuoc->sanPham->tenSanPham,
