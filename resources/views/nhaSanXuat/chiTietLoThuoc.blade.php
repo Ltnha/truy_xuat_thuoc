@@ -55,7 +55,9 @@
             </div>
             <div>
                 <span class="text-slate-500 block mb-0.5">Trạng thái nghiệp vụ</span>
-                <span class="font-semibold text-slate-800">{{ $loThuoc->trangThai ?? 'CREATED' }}</span>
+                <span id="trangThaiNghiepVu" class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700">
+                    {{ $loThuoc->trangThai?->nhan() ?? $loThuoc->trangThai ?? 'Đã tạo' }}
+                </span>
             </div>
         </div>
     </div>
