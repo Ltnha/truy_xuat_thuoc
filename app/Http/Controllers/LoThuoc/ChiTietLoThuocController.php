@@ -105,9 +105,9 @@ class ChiTietLoThuocController extends Controller
                 'donViTinh'              => $loThuoc->donViTinh ?? 'Hộp',
                 'ngaySanXuat'            => $loThuoc->ngaySanXuat,
                 'hanSuDung'              => $loThuoc->hanSuDung,
-                'trangThai'              => $loThuoc->trangThai instanceof \BackedEnum
+                'trangThai'              => $thuHoi ? 'RECALLED' : ($loThuoc->trangThai instanceof \BackedEnum
                     ? $loThuoc->trangThai->value
-                    : (string) $loThuoc->trangThai,
+                    : (string) $loThuoc->trangThai),
                 'created_at'             => $loThuoc->thoiGianTao ?? null,
                 'thu_hoi'                => $thuHoi ? [
                     'id'         => $thuHoi->id,
