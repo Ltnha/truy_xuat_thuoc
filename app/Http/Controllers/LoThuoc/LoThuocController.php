@@ -41,7 +41,7 @@ class LoThuocController extends Controller
         $toChucId = (int) ($user->toChucId ?? 0);
 
         // Lấy các lô đang có tồn kho, đang chờ chuyển giao, hoặc vừa khởi tạo (PENDING/FAILED) chưa vào tồn kho
-        $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc', 'tonKhoLos'])
+        $danhSachLo = LoThuoc::with(['sanPham', 'blockchainTransactions', 'toChuc', 'tonKhoLos', 'thuHoiLoHang.blockchainTx'])
             ->where(function ($query) use ($toChucId) {
                 $query->whereHas('tonKhoLos', fn($tonKho) => $tonKho->where('toChucId', $toChucId))
                     ->orWhereHas('chuyenGiao', fn($chuyenGiao) => $chuyenGiao
@@ -52,6 +52,10 @@ class LoThuocController extends Controller
                             ->whereHas('blockchainTransactions', fn($tx) => $tx
                                 ->where('eventName', 'BatchRegistered')
                                 ->whereIn('trangThai', ['PENDING', 'FAILED']));
+                    })
+                    // Giữ lô đã thu hồi trong danh sách nhà sản xuất, kể cả khi tồn kho bằng 0.
+                    ->orWhere(function ($q) use ($toChucId) {
+                        $q->where('toChucId', $toChucId)->where('trangThai', 'RECALLED');
                     });
             })
             ->orderBy('id', 'desc')
@@ -71,6 +75,7 @@ class LoThuocController extends Controller
                     ? (int) $dongTonKho->soLuong
                     : ($tongDangChuyen > 0 ? $tongDangChuyen : (int) $lo->soLuong);
 
+                $lo->daThuHoi = $lo->getRawOriginal('trangThai') === 'RECALLED' || $lo->thuHoiLoHang !== null;
                 $lo->soLuongHienCo = $hienCo;
                 $lo->soLuongDangChuyenGiao = $tongDangChuyen;
                 $lo->soLuongKhaDung = max(0, $hienCo - $tongDangChuyen);
