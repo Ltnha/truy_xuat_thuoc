@@ -281,6 +281,7 @@ document.addEventListener('DOMContentLoaded', function () {
             events.push({
                 time: recall.ngayThuHoi,
                 title: 'Thu hồi lô thuốc',
+                dotClass: 'bg-red-600',
                 desc: `<span class="font-semibold text-red-700">Lý do:</span> ${escapeHtml(recall.lyDo || 'Không có thông tin lý do')}.<br>${chainInfo}`
             });
         }
@@ -306,7 +307,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
         timelineEl.innerHTML = events.map(ev => `
             <div class="relative">
-                <div class="absolute -left-[25px] top-1 w-3 h-3 rounded-full bg-emerald-600 border-2 border-white shadow"></div>
+                <div class="absolute -left-[25px] top-1 w-3 h-3 rounded-full ${ev.dotClass || 'bg-emerald-600'} border-2 border-white shadow"></div>
                 <div class="text-[11px] text-slate-400 font-mono mb-0.5">${formatDateTime(ev.time)}</div>
                 <div class="font-bold text-slate-800 text-xs">${ev.title}</div>
                 <div class="text-[11px] text-slate-600 mt-0.5">${ev.desc}</div>
