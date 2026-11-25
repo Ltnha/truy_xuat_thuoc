@@ -12,7 +12,7 @@
                     Hệ thống truy xuất nguồn gốc dược phẩm và kiểm soát chuỗi cung ứng bằng công nghệ Blockchain phi tập trung.
                 </p>
                 <div class="pt-2 flex items-center gap-2 text-xs font-semibold text-cyan-800">
-                    <i class="fa-brands fa-ethereum text-sm"></i> Mạng: Polygon Testnet (EVM)
+                    <i class="fa-brands fa-ethereum text-sm"></i> Mạng: Ethereum Sepolia Testnet
                 </div>
             </div>
 
