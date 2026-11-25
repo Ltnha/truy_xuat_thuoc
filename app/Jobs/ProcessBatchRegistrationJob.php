@@ -9,6 +9,7 @@ use App\Models\NhatKyHeThong;
 use App\Services\Blockchain\SignerClient;
 use App\Services\ChuoiCungUng\TonKhoService;
 use App\Services\LoThuoc\QrService;
+use App\Support\BatchPayloadHasher;
 use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -64,7 +65,7 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             throw new Exception('Hash hồ sơ sản phẩm trong DB không khớp approvedProducts trên blockchain. Không thể tạo lô.');
         }
 
-        // Contract v2 chỉ cho NSX có role ROLE_NSX gọi registerBatch.
+        // Contract chỉ cho NSX có role ROLE_NSX gọi registerBatch.
         $identity = BlockchainIdentity::query()
             ->where('toChucId', $loThuoc->toChucId)
             ->where('trangThai', 'ACTIVE')
@@ -77,7 +78,9 @@ class ProcessBatchRegistrationJob implements ShouldQueue
         }
 
         $batchId = '0x' . hash('sha256', 'BATCH_' . (string) $loThuoc->maLo);
+        $payloadHash = BatchPayloadHasher::hash($loThuoc);
         $batchState = $signer->getBatchState($batchId);
+
         $existingConfirmedTx = BlockchainTransaction::query()
             ->where('loThuocId', $loThuoc->id)
             ->where('eventName', 'BatchRegistered')
@@ -98,6 +101,7 @@ class ProcessBatchRegistrationJob implements ShouldQueue
             $signer->ensureGas((string) $identity->diaChiVi);
             $result = $signer->tx((string) $identity->signerKeyId, 'registerBatch', [
                 'batchId' => $batchId,
+                'payloadHash' => $payloadHash,
             ]);
 
             if (empty($result['ok']) || empty($result['txHash'])) {

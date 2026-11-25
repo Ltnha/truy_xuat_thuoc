@@ -44,7 +44,6 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
 
-        // Chuyển sang trạng thái đang phân tích
         khungChuaChonAnh.classList.add('hidden');
         khungDaChonAnh.classList.add('hidden');
         khungDangXuLyAnh.classList.remove('hidden');
@@ -56,7 +55,6 @@ document.addEventListener('DOMContentLoaded', function () {
             img.onload = function () {
                 let maKetQua = null;
 
-                // Thử giải mã mã QR thực tế bằng thư viện jsQR nếu có
                 if (typeof jsQR !== 'undefined') {
                     try {
                         const canvas = document.createElement('canvas');
@@ -80,7 +78,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     }
                 }
 
-                // Không suy đoán mã từ tên tệp hoặc mã mặc định: ảnh không có QR phải bị từ chối.
                 if (!maKetQua) {
                     khungDangXuLyAnh.classList.add('hidden');
                     khungChuaChonAnh.classList.remove('hidden');
@@ -89,7 +86,6 @@ document.addEventListener('DOMContentLoaded', function () {
                     return;
                 }
 
-                // Hiển thị kết quả mượt mà sau 300ms
                 setTimeout(() => {
                     khungDangXuLyAnh.classList.add('hidden');
                     khungDaChonAnh.classList.remove('hidden');
@@ -114,7 +110,6 @@ document.addEventListener('DOMContentLoaded', function () {
         reader.readAsDataURL(file);
     }
 
-    // Sự kiện mở hộp thoại chọn file khi nhấp vào khung tải ảnh
     if (khungTaiAnhQR && tepAnhQRInput) {
         khungTaiAnhQR.addEventListener('click', function (e) {
             if (e.target.closest('#nutXoaAnhQR') || e.target.closest('#nutChonAnhKhac') || e.target.closest('#nutTraCuuTuAnh')) {
@@ -129,7 +124,6 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
 
-        // Hỗ trợ Kéo & Thả (Drag and Drop)
         ['dragenter', 'dragover'].forEach(eventName => {
             khungTaiAnhQR.addEventListener(eventName, function (e) {
                 e.preventDefault();
@@ -154,7 +148,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Các nút điều khiển trong khung ảnh đã chọn
     if (nutXoaAnhQR) {
         nutXoaAnhQR.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -187,7 +180,6 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Hỗ trợ dán ảnh trực tiếp từ Clipboard (Ctrl + V)
     window.addEventListener('paste', function (e) {
         if (!khungQuetCamera.classList.contains('hidden') && e.clipboardData && e.clipboardData.items) {
             for (let item of e.clipboardData.items) {
@@ -198,14 +190,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         }
-    });
-
-    // Bấm nút mẫu thử nhanh dạng văn bản
-    document.querySelectorAll('.btn-mau').forEach(btn => {
-        btn.addEventListener('click', function () {
-            oNhapMa.value = this.getAttribute('data-ma');
-            thucHienTraCuu(oNhapMa.value.trim());
-        });
     });
 
     oNhapMa.addEventListener('keydown', (e) => {
@@ -219,13 +203,11 @@ document.addEventListener('DOMContentLoaded', function () {
         thucHienTraCuu(oNhapMa.value.trim());
     });
 
-    // Xử lý tham số truyền từ URL (?cheDo=quet hoặc ?maDinhDanh=...)
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('cheDo') === 'quet' || urlParams.get('cheDo') === 'taiAnh') {
         tabQuetQr.click();
     }
 
-    // Tự động kích hoạt nếu có mã truyền từ URL
     if (oNhapMa.value.trim() !== '') {
         thucHienTraCuu(oNhapMa.value.trim());
     }
@@ -239,7 +221,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const khungDangXacThuc = document.getElementById('khungDangXacThuc');
         const noiDungKetQua = document.getElementById('noiDungKetQuaXacThuc');
 
-        // 1. Cập nhật nút bấm hiển thị trạng thái đang xác thực
         if (nutXacNhanTraCuu) {
             nutXacNhanTraCuu.disabled = true;
             nutXacNhanTraCuu.classList.add('opacity-75', 'cursor-not-allowed');
@@ -250,13 +231,11 @@ document.addEventListener('DOMContentLoaded', function () {
             nutTraCuuTuAnh.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-1.5"></i> Đang Xác Thực...';
         }
 
-        // 2. Mở khu vực kết quả và hiển thị loading animation
         khuVucKetQua.classList.remove('hidden');
         khuVucKetQua.setAttribute('aria-busy', 'true');
         if (khungDangXacThuc) khungDangXacThuc.classList.remove('hidden');
         if (noiDungKetQua) noiDungKetQua.classList.add('hidden');
 
-        // Cuộn mượt đến vị trí kết quả để người dùng theo dõi tiến trình
         khuVucKetQua.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 
         try {
@@ -285,6 +264,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 txHash: '—',
                 isDispensed: 'Không xác định',
                 productIntegrity: 'UNVERIFIED',
+                batchIntegrity: 'UNVERIFIED',
                 chainReadStatus: 'UNAVAILABLE',
                 chainOwner: null,
                 chainRecalled: false,
@@ -321,7 +301,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
         loaiMa.textContent = kq.loai;
 
-        // Xử lý 5 trạng thái quy chuẩn
         if (kq.trangThai === 'VALID') {
             banner.className = "p-6 rounded-2xl border border-emerald-200 bg-emerald-50/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bong-xanh";
             bieuTuong.className = "w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 bg-emerald-100 text-emerald-700";
@@ -380,10 +359,9 @@ document.addEventListener('DOMContentLoaded', function () {
             theTrangThaiText.textContent = "KHÔNG KHỚP DỮ LIỆU";
             tieuDe.className = "text-lg sm:text-xl font-bold mt-1 text-red-800";
             tieuDe.textContent = "Không thể xác thực tính toàn vẹn hồ sơ";
-            moTa.textContent = "Hash hồ sơ sản phẩm hoặc trạng thái phê duyệt on-chain không khớp dữ liệu hiện tại.";
+            moTa.textContent = "Hash hồ sơ sản phẩm, thông tin lô thuốc hoặc chủ sở hữu on-chain không khớp dữ liệu hiện tại.";
             khoiChiTiet.classList.remove('opacity-50', 'pointer-events-none');
         } else {
-            // NOT_FOUND
             banner.className = "p-6 rounded-2xl border border-slate-300 bg-slate-50 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bong-xanh";
             bieuTuong.className = "w-14 h-14 rounded-xl flex items-center justify-center text-3xl shrink-0 bg-slate-200 text-slate-500";
             bieuTuong.innerHTML = '<i class="fa-solid fa-circle-question"></i>';
@@ -393,6 +371,13 @@ document.addEventListener('DOMContentLoaded', function () {
             tieuDe.textContent = "Không tìm thấy mã định danh trong hệ thống";
             moTa.textContent = "Mã QR hoặc chuỗi định danh này chưa được đăng ký trong cơ sở dữ liệu.";
             khoiChiTiet.classList.add('opacity-50', 'pointer-events-none');
+        }
+
+        const nutBaoCao = document.getElementById('nutBaoCaoNghiVan');
+        if (nutBaoCao) {
+            const baseUrl = nutBaoCao.getAttribute('href').split('?')[0];
+            const maTruyen = kq.maLo && kq.trangThai !== 'NOT_FOUND' ? kq.maLo : ma;
+            nutBaoCao.setAttribute('href', `${baseUrl}?maDinhDanh=${encodeURIComponent(maTruyen)}`);
         }
 
         // Đổ dữ liệu chi tiết
@@ -406,14 +391,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         document.getElementById('batchIdHash').textContent = kq.batchIdHash || '—';
         document.getElementById('txHashKhoiTao').textContent = kq.txHash || 'Chưa có giao dịch blockchain';
+
         const ownerNode = document.getElementById('chainOwner');
         if (ownerNode) ownerNode.textContent = kq.chainOwner || 'Chưa có dữ liệu on-chain';
+
         const ownerIntegrityNode = document.getElementById('ownerIntegrity');
         if (ownerIntegrityNode) {
-            let ownerLabel = kq.ownerIntegrity || 'UNVERIFIED';
+            let ownerLabel = 'CHƯA ĐỐI SOÁT ĐƯỢC';
             if (kq.ownerIntegrity === 'MATCH') ownerLabel = 'KHỚP CHỦ SỞ HỮU';
             else if (kq.ownerIntegrity === 'MISMATCH') ownerLabel = 'KHÔNG KHỚP CHỦ SỞ HỮU';
-            else ownerLabel = 'CHƯA ĐỐI SOÁT ĐƯỢC';
             ownerIntegrityNode.textContent = ownerLabel;
             ownerIntegrityNode.className = 'font-bold px-2.5 py-1 rounded text-[11px] inline-block ' +
                 (kq.ownerIntegrity === 'MATCH' ? 'bg-emerald-100 text-emerald-800' :
@@ -422,16 +408,27 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const integrityNode = document.getElementById('productIntegrity');
         if (integrityNode) {
-            let label = kq.productIntegrity || 'UNVERIFIED';
+            let label = 'CHƯA ĐỐI SOÁT ĐƯỢC';
             if (kq.productIntegrity === 'MATCH') label = 'TRÙNG KHỚP (HỢP LỆ)';
             else if (kq.productIntegrity === 'MISMATCH') label = 'SAI LỆCH HỒ SƠ';
             else if (kq.productIntegrity === 'NOT_APPROVED_ON_CHAIN') label = 'CHƯA PHÊ DUYỆT ON-CHAIN';
-            else if (kq.productIntegrity === 'UNVERIFIED') label = 'CHƯA ĐỐI SOÁT ĐƯỢC';
             integrityNode.textContent = label;
             integrityNode.className = 'font-bold px-2.5 py-1 rounded text-[11px] inline-block ' +
                 (kq.productIntegrity === 'MATCH' ? 'bg-emerald-100 text-emerald-800' :
                     (kq.productIntegrity === 'MISMATCH' || kq.productIntegrity === 'NOT_APPROVED_ON_CHAIN' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'));
         }
+
+        const batchIntegrityNode = document.getElementById('batchIntegrity');
+        if (batchIntegrityNode) {
+            let bLabel = 'CHƯA ĐỐI SOÁT ĐƯỢC';
+            if (kq.batchIntegrity === 'MATCH') bLabel = 'TRÙNG KHỚP (HỢP LỆ)';
+            else if (kq.batchIntegrity === 'MISMATCH') bLabel = 'SAI LỆCH THÔNG TIN LÔ';
+            batchIntegrityNode.textContent = bLabel;
+            batchIntegrityNode.className = 'font-bold px-2.5 py-1 rounded text-[11px] inline-block ' +
+                (kq.batchIntegrity === 'MATCH' ? 'bg-emerald-100 text-emerald-800' :
+                    (kq.batchIntegrity === 'MISMATCH' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-800'));
+        }
+
         const batchStatusNode = document.getElementById('chainBatchStatus');
         if (batchStatusNode) {
             batchStatusNode.textContent = kq.chainReadStatus !== 'AVAILABLE'
@@ -444,7 +441,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const coBanLe = document.getElementById('coBanLe');
         coBanLe.textContent = kq.isDispensed;
-        coBanLe.className = kq.isDispensed.includes('ĐÃ BÁN')
+        const daCoBanLe = typeof kq.isDispensed === 'string' && !kq.isDispensed.startsWith('Đã bán 0 ');
+        coBanLe.className = daCoBanLe
             ? 'font-bold px-2 py-0.5 rounded text-[11px] inline-block bg-emerald-100 text-emerald-800'
             : 'font-bold px-2 py-0.5 rounded text-[11px] inline-block bg-slate-100 text-slate-600';
 
@@ -468,7 +466,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Tự động lưu cục bộ cho trang lichSuTraCuu.php (FR12)
     function luuVaoLocalStorage(ma, kq) {
         let lichSu = JSON.parse(localStorage.getItem('pharma_lich_su_tra_cuu') || '[]');
         lichSu = lichSu.filter(item => item.ma !== ma);

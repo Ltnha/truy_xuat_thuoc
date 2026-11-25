@@ -4,10 +4,10 @@ namespace App\Http\Controllers\TraCuu;
 
 use App\Http\Controllers\Controller;
 use App\Services\Blockchain\SignerClient;
+use App\Support\BatchPayloadHasher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
@@ -71,10 +71,20 @@ class TraCuuController extends Controller
             ->join('sanPham as sp', 'sp.id', '=', 'lt.sanPhamId')
             ->join('toChuc as tc', 'tc.id', '=', 'lt.toChucId')
             ->where('lt.id', $loId)
-            ->select('lt.*', 'sp.maSanPham', 'sp.tenSanPham', 'sp.soDangKy',
-                'sp.thanhPhan as hoatChat', 'sp.hamLuong', 'sp.dangBaoChe',
-                'sp.quyCachDongGoi', 'sp.nhaSanXuatId', 'sp.hashHoSo', 'sp.trangThaiDuyet as trangThaiSanPham',
-                'tc.tenToChuc')
+            ->select(
+                'lt.*',
+                'sp.maSanPham',
+                'sp.tenSanPham',
+                'sp.soDangKy',
+                'sp.thanhPhan as hoatChat',
+                'sp.hamLuong',
+                'sp.dangBaoChe',
+                'sp.quyCachDongGoi',
+                'sp.nhaSanXuatId',
+                'sp.hashHoSo',
+                'sp.trangThaiDuyet as trangThaiSanPham',
+                'tc.tenToChuc'
+            )
             ->first();
 
         if (! $lo) return ['trangThai' => 'NOT_FOUND', 'loai' => 'MÃ LÔ THUỐC', 'tenThuoc' => 'Không tìm thấy lô.', 'maLo' => $ma, 'hanhTrinh' => []];
@@ -85,6 +95,7 @@ class TraCuuController extends Controller
         $history = [];
         $approval = null;
         $productIntegrity = 'UNVERIFIED';
+        $batchIntegrity = 'UNVERIFIED';
         $chainReadStatus = 'UNAVAILABLE';
         $batchExists = false;
         $chainRecalled = false;
@@ -101,8 +112,9 @@ class TraCuuController extends Controller
         ];
         $json = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRESERVE_ZERO_FRACTION);
         $expectedHash = $json === false ? null : '0x' . hash('sha256', $json);
+        $expectedBatchHash = BatchPayloadHasher::hash($lo);
 
-        // Tier 1: Thử đối soát trực tuyến qua Signer Microservice (Node.js)
+        // Tier 1: Đối soát trực tuyến qua Signer Microservice (Node.js)
         try {
             $batch = $this->signer->getBatchState($batchId);
             $approval = $this->signer->isProductApproved($productId);
@@ -116,32 +128,42 @@ class TraCuuController extends Controller
             Log::warning("[TraCuuController] Không thể xác minh trạng thái trực tiếp từ Signer/Sepolia: " . $exception->getMessage());
         }
 
-        // Chỉ xem dữ liệu là đã xác minh khi Signer đọc thành công trực tiếp từ contract.
-        // Không dùng DB hoặc RPC tự giải mã ABI làm bằng chứng thay thế cho trạng thái on-chain.
         if ($chainReadStatus === 'AVAILABLE') {
             $batchExists = ! empty($batch['batch']['exists']);
             $chainRecalled = ! empty($batch['batch']['recalled']);
 
+            // 1. Đối chiếu toàn vẹn hồ sơ sản phẩm
             $onChainHash = strtolower((string) ($approval['payloadHash'] ?? ''));
             $expHash = strtolower((string) ($expectedHash ?? ''));
             if (empty($approval['isApproved']) || $onChainHash === '0x' . str_repeat('0', 64)) {
                 $productIntegrity = 'NOT_APPROVED_ON_CHAIN';
-            } elseif ($expectedHash !== null && $onChainHash === $expHash) {
+            } elseif ($expectedHash !== null && hash_equals($onChainHash, $expHash)) {
                 $productIntegrity = 'MATCH';
             } else {
                 $productIntegrity = 'MISMATCH';
             }
+
+            // 2. Đối chiếu toàn vẹn thông tin lô thuốc (maLo, NSX, HSD, ĐVT...)
+            $onChainBatchHash = strtolower((string) ($batch['batch']['payloadHash'] ?? ''));
+            $expBatchHash = strtolower($expectedBatchHash);
+            if (! $batchExists || $onChainBatchHash === '' || $onChainBatchHash === '0x' . str_repeat('0', 64)) {
+                $batchIntegrity = 'UNVERIFIED';
+            } elseif (hash_equals($onChainBatchHash, $expBatchHash)) {
+                $batchIntegrity = 'MATCH';
+            } else {
+                $batchIntegrity = 'MISMATCH';
+            }
         }
 
-
-        // Chủ sở hữu hiện tại phải khớp giữa tồn kho MySQL và ví ACTIVE trên blockchain.
+        // 3. Đối chiếu chủ sở hữu hiện tại (ưu tiên bản ghi đang giữ tồn kho > 0)
         $stockOwner = DB::table('tonKhoLo as tk')
             ->join('blockchainIdentity as bi', function ($join) {
                 $join->on('bi.toChucId', '=', 'tk.toChucId')
                     ->where('bi.trangThai', '=', 'ACTIVE');
             })
             ->where('tk.loThuocId', $lo->id)
-            ->orderByDesc('bi.id')
+            ->orderByRaw('CASE WHEN tk.soLuong > 0 THEN 0 ELSE 1 END ASC')
+            ->orderByDesc('tk.id')
             ->first(['tk.toChucId', 'bi.diaChiVi']);
 
         $chainOwner = strtolower((string) ($batch['batch']['currentOwner'] ?? ''));
@@ -157,14 +179,26 @@ class TraCuuController extends Controller
             $ownerIntegrity = hash_equals($databaseOwnerAddress, $chainOwner) ? 'MATCH' : 'MISMATCH';
         }
 
-        $expired = (string) $lo->hanSuDung < today()->toDateString();
+        // 4. Kiểm tra hết hạn theo múi giờ Việt Nam (<= hôm nay là hết hạn)
+        $homNay = now('Asia/Ho_Chi_Minh')->toDateString();
+        $expired = empty($lo->hanSuDung) || (string) $lo->hanSuDung <= $homNay;
+
+        // 5. Kết luận trạng thái (ưu tiên bắt chỉnh sửa trái phép MISMATCH trước EXPIRED)
+        $tampered = ($productIntegrity === 'MISMATCH')
+            || ($batchIntegrity === 'MISMATCH')
+            || ($ownerIntegrity === 'MISMATCH');
+
         $status = ($chainReadStatus === 'AVAILABLE' && $chainRecalled) ? 'RECALLED'
-            : ($expired ? 'EXPIRED'
-                : ($chainReadStatus !== 'AVAILABLE' ? 'UNAVAILABLE'
-                    : (! $batchExists ? 'NOT_REGISTERED_ON_CHAIN'
-                        : ($lo->trangThaiSanPham === 'DA_DUYET'
-                            && $productIntegrity === 'MATCH'
-                            && $ownerIntegrity === 'MATCH' ? 'VALID' : 'INVALID'))));
+            : ($chainReadStatus !== 'AVAILABLE' ? 'UNAVAILABLE'
+                : (! $batchExists ? 'NOT_REGISTERED_ON_CHAIN'
+                    : ($tampered ? 'INVALID'
+                        : ($expired ? 'EXPIRED'
+                            : ($lo->trangThaiSanPham === 'DA_DUYET'
+                                && $productIntegrity === 'MATCH'
+                                && $batchIntegrity === 'MATCH'
+                                && $ownerIntegrity === 'MATCH' ? 'VALID' : 'INVALID')))));
+
+        $donViTinh = $lo->donViTinh ?: 'Hộp';
 
         // 1. Sự kiện sản xuất lô thuốc ban đầu
         $prodTx = DB::table('blockchainTransaction')
@@ -175,7 +209,7 @@ class TraCuuController extends Controller
 
         $prodStep = [
             'tieuDe' => 'PRODUCTION',
-            'donVi' => "{$lo->tenToChuc} sản xuất lô {$lo->maLoNghiepVu} (" . number_format((int)$lo->soLuong) . " {$lo->donViTinh})",
+            'donVi' => "{$lo->tenToChuc} sản xuất lô {$lo->maLoNghiepVu} (" . number_format((int) $lo->soLuong) . " {$donViTinh})",
             'thoiGian' => $prodTx?->thoiGian ?: $lo->ngaySanXuat,
             'canhBao' => false,
             'txHash' => $prodTx?->txHash,
@@ -188,7 +222,7 @@ class TraCuuController extends Controller
             ->join('toChuc as bn', 'bn.id', '=', 'cg.benNhanId')
             ->where('cg.loThuocId', $lo->id)->orderBy('cg.id')
             ->get(['cg.id', 'cg.trangThai', 'cg.soLuong', 'cg.thoiGianKhoiTao', 'cg.thoiGianXacNhan', 'bg.tenToChuc as benGui', 'bn.tenToChuc as benNhan'])
-            ->map(function ($row) {
+            ->map(function ($row) use ($donViTinh) {
                 $cgTx = DB::table('blockchainTransaction')
                     ->where('chuyenGiaoId', $row->id)
                     ->where('trangThai', 'CONFIRMED')
@@ -197,7 +231,7 @@ class TraCuuController extends Controller
 
                 return [
                     'tieuDe' => 'CHUYEN_GIAO_' . $row->trangThai,
-                    'donVi' => $row->benGui . ' → ' . $row->benNhan . ' (' . number_format((int)$row->soLuong) . ' đơn vị)',
+                    'donVi' => $row->benGui . ' → ' . $row->benNhan . ' (' . number_format((int) $row->soLuong) . " {$donViTinh})",
                     'thoiGian' => $row->thoiGianXacNhan ?: $row->thoiGianKhoiTao,
                     'canhBao' => in_array($row->trangThai, ['REJECTED', 'CANCELLED']),
                     'txHash' => $cgTx?->txHash,
@@ -210,9 +244,9 @@ class TraCuuController extends Controller
             ->join('banLe as bl', 'bl.id', '=', 'ct.banLeId')
             ->where('ct.loThuocId', $lo->id)->where('bl.trangThai', 'DA_HOAN_TAT')
             ->orderBy('bl.ngayBan')->get(['bl.maHoaDon', 'bl.ngayBan', 'ct.soLuong'])
-            ->map(fn ($row) => [
+            ->map(fn($row) => [
                 'tieuDe' => 'SOLD',
-                'donVi' => "Hóa đơn {$row->maHoaDon}: bán " . number_format((int)$row->soLuong) . " đơn vị.",
+                'donVi' => "Hóa đơn {$row->maHoaDon}: bán " . number_format((int) $row->soLuong) . " {$donViTinh}.",
                 'thoiGian' => $row->ngayBan,
                 'canhBao' => false,
                 'txHash' => null,
@@ -238,7 +272,7 @@ class TraCuuController extends Controller
 
         // Tổng hợp và sắp xếp hành trình theo thời gian
         $timeline = [$prodStep, ...$transfers, ...$sales, ...$chainSteps];
-        usort($timeline, fn ($a, $b) => strtotime((string) ($a['thoiGian'] ?? '1970-01-01')) <=> strtotime((string) ($b['thoiGian'] ?? '1970-01-01')));
+        usort($timeline, fn($a, $b) => strtotime((string) ($a['thoiGian'] ?? '1970-01-01')) <=> strtotime((string) ($b['thoiGian'] ?? '1970-01-01')));
 
         $soldQuantity = (int) DB::table('chiTietBanLe as ct')
             ->join('banLe as bl', 'bl.id', '=', 'ct.banLeId')
@@ -264,6 +298,7 @@ class TraCuuController extends Controller
             'batchIdHash' => $batchId,
             'txHash' => $batchTx ?: ($batch['registerTxHash'] ?? 'Chưa có giao dịch blockchain'),
             'productIntegrity' => $productIntegrity,
+            'batchIntegrity' => $batchIntegrity,
             'chainReadStatus' => $chainReadStatus,
             'batchExistsOnChain' => $batchExists,
             'chainOwner' => $batch['batch']['currentOwner'] ?? null,
@@ -274,11 +309,10 @@ class TraCuuController extends Controller
             'chainTransfers' => [],
             'chainTransferReadStatus' => $chainReadStatus,
             'chainHistory' => $history,
-            'isDispensed' => "Đã bán {$soldQuantity} đơn vị từ lô",
+            'isDispensed' => "Đã bán {$soldQuantity} {$donViTinh} từ lô",
             'lyDoThuHoi' => DB::table('thuHoiLoHang')->where('loThuocId', $lo->id)->value('lyDo'),
             'loThuocId' => (int) $lo->id,
             'hanhTrinh' => $timeline,
         ];
     }
-
 }

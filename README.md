@@ -282,6 +282,7 @@ truy_xuat_thuoc
 │     │  ├─ dangKyToChuc.blade.php
 │     │  ├─ dangNhap.blade.php
 │     │  ├─ lichSuTraCuu.blade.php
+│     │  ├─ mangLuoi.blade.php
 │     │  ├─ traCuuNguonGoc.blade.php
 │     │  └─ trangChu.blade.php
 │     ├─ nhaPhanPhoi
@@ -314,14 +315,19 @@ truy_xuat_thuoc
 │  │  │     └─ OFuGdXAhMEy1jmo67l9OT9yPhji3u1YU0WyD0ThU.jpg
 │  │  └─ public
 │  │     ├─ minh-chung-bao-cao
+│  │     │  ├─ 0k9fQG9gwVptmykOeIKOdgF8pIQ9Ys7hnEjUtGXh.png
 │  │     │  ├─ 1ySCTNJHdzh6JjTJpXsIfS7EyTN3Zn27FZZfMQUF.jpg
 │  │     │  ├─ 7yIGUMHyMnwMLLyjOaQvN8ti0RlL8Mcmzp897PAp.jpg
 │  │     │  ├─ 88VICWfg9cduo35O9E4q9lBmzmxzQBKgLtOXCbXm.jpg
 │  │     │  ├─ GmQW6U1AlJX93YxlOpuvL6znbWd3DCC5w7yZoizZ.jpg
 │  │     │  ├─ j2KcHwiyBQFjb474TWUMZWDKWPUbhbsZGeSljjWb.jpg
+│  │     │  ├─ o8TluRhomVm4vA206e18bOK3UTXPnDCCqsqwKIAe.png
 │  │     │  ├─ PNWvxFVBDqzcwMaTIMnUw5jEwS9bB92tPZoh0S6O.jpg
+│  │     │  ├─ RLO1HvzojmWW86TTVapeiLpmGcn6ld3WE2khnAYV.png
 │  │     │  ├─ s6FT71SESESYHQxKQS1d8Zwvn6wQcVnjMrdh5QXU.jpg
 │  │     │  ├─ sknRgI2xfL48JPy8d5VShwHh51H8Zf93JpdXa92n.png
+│  │     │  ├─ SzdLMe7IcwGDLujCoItZRjAxYto14n1jbTfwneIC.png
+│  │     │  ├─ ujuR76A8h6ZbxkLA1YjfdO2PrRU3T20UKolm594K.png
 │  │     │  ├─ wjFvRkFKw3E66WLQZIzjI1f6umNaCV8ZalNw9xAf.jpg
 │  │     │  ├─ WNR377I90Mdq5L9GW8XADK1Ad5JaQBMD2Vgzcpr8.jpg
 │  │     │  ├─ ws6dFuxuI5XwKyTC3TjvbgXZVU8zJI7tMDeIXuZK.pdf
@@ -329,22 +335,34 @@ truy_xuat_thuoc
 │  │     └─ tai-lieu-dang-ky
 │  │        ├─ 2TgoU2JHkbAXL4o2RRhtq9VG54c2xdOJyG5Zmlbs.jpg
 │  │        ├─ 3nvor0DGs5hnZrIOybSTWG81BGWZfxVl3lsShZ3I.jpg
+│  │        ├─ 4btAIHvIJ8ab1omeYYWR7LBFfTCY1shpEaQ1GEGb.png
 │  │        ├─ 51ZEUlmnBtrmyPCuhah5dM4KTrWdhVd8NygL4voX.png
 │  │        ├─ aGZPXzf4c077fV4myGNKmCatfb1JWsfIoe9r8VOF.jpg
 │  │        ├─ E3TirZIf6DvC5mRcD7TTdYRElXbNq0o0h4j8dYol.jpg
+│  │        ├─ GTLQ997bjPA0V6xvndAOaOmpYjgQ9LROcOHChX8A.png
 │  │        ├─ he5nsz6yHGBAWOW5l6dAZv7qBVGwkvzGkYIAZT47.jpg
+│  │        ├─ nB4OJ4tIWdBPf4YzSweVWEy3B92N1D6p0njgztdX.png
 │  │        ├─ oXCfKk2gnHNUKS010kQ7fNZ9SMWOfJPHNZ4ukq4i.jpg
 │  │        ├─ pKgQ6Pd5oeFnUswarBiKoACFiHhs5nkpoYyvrdZH.jpg
 │  │        ├─ T1RgcGrGEejgnOZ8mAATU5lqxYmHyRBmlyvfqWS0.jpg
 │  │        ├─ vGNC55rng98nNDfKnNLMtSZT0fxyv3O8Z8czSCC9.png
+│  │        ├─ WovyJ2CSYaEWQ8Kjh4dQrPqrrwgj52Okr6SyeGnR.png
 │  │        ├─ wsvPYzvpg1Vj2YgMCQJKHN7GP9xBqkcZ98QMrzBY.jpg
 │  │        └─ Yqbruru3cnadTn2VpD2pZAEmKr0v8QrTuCCaGZOd.jpg
 │  ├─ framework
 │  │  ├─ cache
 │  │  │  └─ data
+│  │  │     ├─ 53
+│  │  │     │  └─ b5
+│  │  │     │     └─ 53b55feccc6f1d31dbcbfe0618e3c74ef713fada
+│  │  │     ├─ c0
+│  │  │     │  └─ 2a
+│  │  │     │     └─ c02a7051b557c7d187513a142ac15b4665adb095
+│  │  │     └─ de
+│  │  │        └─ a0
+│  │  │           └─ dea0dd6d88f8819755f000886ec04a4a696d8f17
 │  │  ├─ sessions
-│  │  │  ├─ 4zYcxn23NywAZqu55UQ3Tp6omQMHmatmXxJI5h47
-│  │  │  └─ 9ijoB3aADhYPMz0F4FEYs4NcpwuPszniAFjpcVZX
+│  │  │  └─ yydLxNP5Il3nb62vL0b0UfGlUqes3v0MmJFU1Nq5
 │  │  ├─ testing
 │  │  └─ views
 │  │     ├─ 003e2cb6b8073d6c65a8ba29dd3de1a3.php
@@ -353,6 +371,7 @@ truy_xuat_thuoc
 │  │     ├─ 06b08864aa63d3ed854e3c6e16fd1cee.php
 │  │     ├─ 0d04c670e3e803c183a03541de2acaa3.php
 │  │     ├─ 0d8b13144357f330d7c8c861a4c9ab2c.php
+│  │     ├─ 0d8e6a2c686e4236ff8e06f337ce5f4c.php
 │  │     ├─ 1773df56c706204342805adcb42a7115.php
 │  │     ├─ 1878de6f35923c583b84d5595cb57dde.php
 │  │     ├─ 1b8e9dac5559a14c209fd36df5a15225.php
@@ -362,6 +381,7 @@ truy_xuat_thuoc
 │  │     ├─ 396143b79356ad0b0f1053b49e224ec7.php
 │  │     ├─ 3a21b499124aa2e727ce7f19eba89c83.php
 │  │     ├─ 3b78bdc6ff0f0c48847ec749d94c8409.php
+│  │     ├─ 424b1d0965e7e833a6750d3c04bcc5ec.php
 │  │     ├─ 4a3814166a7e64ed0e5a84c7112895db.php
 │  │     ├─ 4a654bb634a5f6bd496577dc1e7468ef.php
 │  │     ├─ 4b6b03a8365874d03bcd495e4b77ff8d.php
@@ -379,11 +399,13 @@ truy_xuat_thuoc
 │  │     ├─ 789fe0400d66a3ce25e508b35006a3db.php
 │  │     ├─ 7d3d11463513c682f5e829a82c2b2df4.php
 │  │     ├─ 7e8c5fb405b097e2cc35e76bcb580f1f.php
+│  │     ├─ 8273b6b455b6a1d9d2a065dde11b4ada.php
 │  │     ├─ 8621b4c20348f86febdc9411ac4bc8e0.php
 │  │     ├─ 887d9f1000bd04da7ecddac96d054b17.php
 │  │     ├─ 8c0cf3c13e4b27bf441bb098299e6494.php
 │  │     ├─ 8ca1b0eea16fb29146e1d683f8c7a85a.php
 │  │     ├─ 8dd846e8df5702fbcb14dadde5a446cb.php
+│  │     ├─ 90e942402fed7819e694b59d917bc2e0.php
 │  │     ├─ 92cdf3283fdb950b52f1d8c6fd963609.php
 │  │     ├─ 95245472938aae797b87da43d15b8f9a.php
 │  │     ├─ 975ecba4f78ec676d860b783a3a522d9.php
@@ -402,6 +424,7 @@ truy_xuat_thuoc
 │  │     ├─ d2cc06a7e3b34c2db5f7d30b1964491a.php
 │  │     ├─ d9a7ae81257b55531ab0eb0bc4ef6b8c.php
 │  │     ├─ daf4e8367eee70874eb348faa52286b3.php
+│  │     ├─ dc15310d0958c03778257d7d7deeaf4f.php
 │  │     ├─ df99fd61a7bfa684895dfdef8df20304.php
 │  │     ├─ e0702df386324677ea105eed8692b265.php
 │  │     ├─ e718ffa9359ce16c3ea7996405287ba2.php
@@ -410,7 +433,9 @@ truy_xuat_thuoc
 │  │     ├─ ee6f5b342e2a2da600f0da9ac26c373c.php
 │  │     ├─ f3d283dc88ac91e1769c92151406293d.php
 │  │     ├─ f6416e93d5de273fb2236af3973588ab.php
+│  │     ├─ f744b042d758e3560a86eb498ecd227f.php
 │  │     ├─ f803dfbbdc2f8598d084089eec010ee1.php
+│  │     ├─ f95e45b15ea80ddfea0df4b22e7ac57b.php
 │  │     └─ ff4e1f4a1ae284b553dbaee3d587464f.php
 │  └─ logs
 ├─ tests
@@ -433,6 +458,7 @@ truy_xuat_thuoc
 │     ├─ EnumTest.php
 │     ├─ ExampleTest.php
 │     └─ RoleMiddlewareTest.php
+├─ test_tim.php
 ├─ truyxuatthuoc v10 cấu trúc bảng.sql
 ├─ truyxuatthuoc v10.sql
 └─ vite.config.js

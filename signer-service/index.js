@@ -41,7 +41,6 @@ function encrypt(plainText) {
 
 function decrypt(value) {
     const parts = String(value).split(':');
-    // Tương thích wallet records cũ được mã hóa bằng aes-256-cbc.
     if (parts.length === 2) {
         const [ivHex, encryptedHex] = parts;
         const keys = [MASTER_KEY, LEGACY_MASTER_KEY].filter((key, index, all) =>
@@ -52,7 +51,6 @@ function decrypt(value) {
                 const decipher = crypto.createDecipheriv('aes-256-cbc', key, Buffer.from(ivHex, 'hex'));
                 return decipher.update(encryptedHex, 'hex', 'utf8') + decipher.final('utf8');
             } catch (_) {
-                // thử key tương thích kế tiếp; không bỏ qua lỗi với định dạng GCM.
             }
         }
         throw new Error('Không giải mã được private key cũ: ENCRYPTION_MASTER_KEY hiện tại không khớp khóa mã hóa ban đầu.');
@@ -224,7 +222,6 @@ function describeContractError(contract, err) {
             const parsed = contract.interface.parseError(data);
             if (parsed) decoded = parsed.name;
         } catch (_) {
-            // ABI deployed có thể khác ABI đang dùng; vẫn trả selector để đối chiếu.
         }
     }
     const selector = data ? data.slice(0, 10) : null;
@@ -269,7 +266,10 @@ app.post('/tx', authMiddleware, async (req, res) => {
                 );
                 break;
             case 'registerBatch':
-                tx = await contract.registerBatch(requireBytes32(params.batchId, 'batchId'));
+                tx = await contract.registerBatch(
+                    requireBytes32(params.batchId, 'batchId'),
+                    requireBytes32(params.payloadHash, 'payloadHash')
+                );
                 break;
             case 'recordBatchEvent':
                 tx = await contract.recordBatchEvent(
@@ -364,9 +364,6 @@ app.get('/roles/check', authMiddleware, async (req, res) => {
 
         const role = requireBytes32(String(req.query.role || ''), 'role');
         const network = await provider.getNetwork();
-
-        // BatchTraceability.sol và API.json khai báo hasRole(address account, bytes32 role).
-        // Giữ đúng thứ tự ABI: account trước, role sau.
         const hasRole = await contractFor(provider).hasRole(account, role);
 
         return res.json({
@@ -392,14 +389,10 @@ app.get('/products/check', authMiddleware, async (req, res) => {
     try {
         const productId = requireBytes32(String(req.query.productId || ''), 'productId');
         const contract = contractFor(provider);
-        // approvedProducts(bytes32) là mapping getter on-chain: dùng nó làm nguồn xác thực.
-        // Không phụ thuộc eth_getLogs để quyết định đã duyệt hay chưa vì RPC có thể prune lịch sử.
         const payloadHash = await contract.approvedProducts(productId);
         const isApproved = payloadHash !== ethers.ZeroHash;
         let txHash = null, blockNumber = null, blockTimestamp = null;
 
-        // Metadata giao dịch chỉ là thông tin bổ sung; lỗi truy vấn lịch sử không được
-        // biến một sản phẩm đã duyệt thành chưa duyệt hoặc làm hỏng luồng đăng ký lô.
         if (isApproved) {
             try {
                 const latest = await provider.getBlockNumber();
@@ -507,7 +500,6 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
         let registerTxHash = null, registerBlockNumber = null, registerBlockTimestamp = null;
         let recallTxHash = null, recallBlockNumber = null, recallBlockTimestamp = null;
         if (batch.exists) {
-            // Trạng thái batch lấy từ storage của contract; log chỉ dùng để bổ sung tx metadata.
             try {
                 const latest = await provider.getBlockNumber();
                 const fromBlock = Math.max(0, latest - 5000);
@@ -540,9 +532,12 @@ app.get('/batches/:batchId', authMiddleware, async (req, res) => {
         return res.json({
             ok: true,
             batch: {
-                exists: batch.exists, recalled: batch.recalled,
-                manufacturer: batch.manufacturer, currentOwner: batch.currentOwner,
-                createdAt: Number(batch.createdAt)
+                exists: batch.exists,
+                recalled: batch.recalled,
+                manufacturer: batch.manufacturer,
+                currentOwner: batch.currentOwner,
+                createdAt: Number(batch.createdAt),
+                payloadHash: batch.payloadHash || ethers.ZeroHash
             },
             pendingTransferId,
             transferIds: transfers,

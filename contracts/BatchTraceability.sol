@@ -68,6 +68,7 @@ contract BatchTraceability {
         address manufacturer;   // NSX đã đăng ký lô (không đổi)
         address currentOwner;
         uint256 createdAt;
+        bytes32 payloadHash;    // Hash thông tin lô (maLo, NSX, HSD, ĐVT...)
     }
 
     mapping(bytes32 => BatchInfo) public batches;
@@ -138,7 +139,7 @@ contract BatchTraceability {
     event RoleGranted(address indexed account, bytes32 indexed role, address indexed sender);
     event RoleRevoked(address indexed account, bytes32 indexed role, address indexed sender);
     event ProductApproved(bytes32 indexed productId, address indexed approver, bytes32 payloadHash, uint256 timestamp);
-    event BatchRegistered(bytes32 indexed batchId, address indexed manufacturer, uint256 timestamp);
+    event BatchRegistered(bytes32 indexed batchId, address indexed manufacturer, bytes32 payloadHash, uint256 timestamp);
     event BatchOwnerChanged(bytes32 indexed batchId, address indexed oldOwner, address indexed newOwner, uint256 timestamp);
     event BatchRecalled(bytes32 indexed batchId, address indexed actor, bytes32 payloadHash, uint256 timestamp);
     event BatchEventRecorded(bytes32 indexed batchId, bytes32 indexed businessId, address indexed actor, bytes32 eventType, bytes32 payloadHash, uint256 timestamp);
@@ -207,8 +208,8 @@ contract BatchTraceability {
     // 8B. BATCH REGISTRATION & EVENTS
     // =====================================================
 
-    function registerBatch(bytes32 batchId) external onlyManufacturer {
-        if (batchId == bytes32(0)) revert InvalidData();
+    function registerBatch(bytes32 batchId, bytes32 payloadHash) external onlyManufacturer {
+        if (batchId == bytes32(0) || payloadHash == bytes32(0)) revert InvalidData();
         if (batches[batchId].exists) revert BatchAlreadyExists();
 
         batches[batchId] = BatchInfo({
@@ -216,10 +217,11 @@ contract BatchTraceability {
             recalled: false,
             manufacturer: msg.sender,
             currentOwner: msg.sender,
-            createdAt: block.timestamp
+            createdAt: block.timestamp,
+            payloadHash: payloadHash
         });
 
-        emit BatchRegistered(batchId, msg.sender, block.timestamp);
+        emit BatchRegistered(batchId, msg.sender, payloadHash, block.timestamp);
     }
 
     function recordBatchEvent(
