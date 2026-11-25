@@ -44,7 +44,7 @@
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-slate-400 text-sm pointer-events-none">
                         <i class="fa-solid fa-magnifying-glass"></i>
                     </span>
-                    <input type="text" id="oNhapMa" value="<?php echo isset($_GET['maDinhDanh']) ? htmlspecialchars($_GET['maDinhDanh']) : ''; ?>" placeholder="Nhập mã lô nghiệp vụ hoặc quét mã QR đại diện cho lô thuốc..." class="w-full pl-10 pr-4 py-3 bg-[#f2faf5] border border-emerald-900/15 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 outline-none transition-all">
+                    <input type="text" id="oNhapMa" value="<?php echo htmlspecialchars($_GET['maDinhDanh'] ?? $_GET['maLo'] ?? $_GET['ma'] ?? ''); ?>" placeholder="Nhập mã lô nghiệp vụ hoặc quét mã QR đại diện cho lô thuốc..." class="w-full pl-10 pr-4 py-3 bg-[#f2faf5] border border-emerald-900/15 rounded-xl text-sm font-medium text-slate-900 focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-100 outline-none transition-all">
                 </div>
                 <button type="button" id="nutXacNhanTraCuu" class="bg-emerald-700 hover:bg-emerald-800 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2">
                     <i class="fa-solid fa-shield-halved"></i> Xác Thực Ngay
@@ -167,9 +167,14 @@
                     </div>
                 </div>
 
-                <a id="nutBaoCaoNghiVan" href="{{ route('bao-cao.public.form') }}" class="px-4 py-2.5 rounded-xl border border-amber-600 text-amber-700 hover:bg-amber-50 font-bold text-xs transition-all flex items-center gap-2 shrink-0">
-                    <i class="fa-solid fa-triangle-exclamation text-amber-600"></i> Báo Cáo Bất Thường
-                </a>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" id="nutInKetQuaTraCuu" onclick="window.print()" class="px-4 py-2.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs transition-all flex items-center gap-2 shrink-0 shadow-2xs">
+                        <i class="fa-solid fa-print text-cyan-800"></i> In Kết Quả
+                    </button>
+                    <a id="nutBaoCaoNghiVan" href="{{ route('bao-cao.public.form') }}" class="px-4 py-2.5 rounded-xl border border-amber-600 text-amber-700 hover:bg-amber-50 font-bold text-xs transition-all flex items-center gap-2 shrink-0">
+                        <i class="fa-solid fa-triangle-exclamation text-amber-600"></i> Báo Cáo Bất Thường
+                    </a>
+                </div>
             </div>
 
             <!-- CHI TIẾT THÔNG TIN DƯỢC PHẨM & CHỨNG THỰC ON-CHAIN -->

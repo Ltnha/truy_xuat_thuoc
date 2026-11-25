@@ -45,3 +45,24 @@
 #anhQRPreview:hover {
   transform: scale(1.04);
 }
+
+/* ĐỊNH DẠNG TRANG IN (PRINT) */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+  header, footer, nav, #khungNhapMa, #khungQuetCamera, #nutInKetQuaTraCuu, #nutBaoCaoNghiVan, .no-print {
+    display: none !important;
+  }
+  #khuVucKetQua {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+

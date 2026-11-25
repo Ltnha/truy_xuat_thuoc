@@ -208,6 +208,11 @@ document.addEventListener('DOMContentLoaded', function () {
         tabQuetQr.click();
     }
 
+    const maTuUrl = urlParams.get('maDinhDanh') || urlParams.get('maLo') || urlParams.get('ma');
+    if (maTuUrl && (!oNhapMa.value || oNhapMa.value.trim() === '')) {
+        oNhapMa.value = maTuUrl.trim();
+    }
+
     if (oNhapMa.value.trim() !== '') {
         thucHienTraCuu(oNhapMa.value.trim());
     }
