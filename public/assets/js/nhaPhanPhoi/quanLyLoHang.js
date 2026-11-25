@@ -248,7 +248,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const tbody = document.getElementById('thanBangKho');
         if (!tbody) return;
 
-        tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-slate-400">Đang tải tồn kho...</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Đang tải tồn kho...</td></tr>`;
 
         try {
             const res = await fetchJSON('/nha-phan-phoi/api/kho');
@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (soLuongKho) soLuongKho.textContent = 'Hiển thị: ' + list.length + ' lô';
 
             if (list.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="8" class="py-10 text-center text-slate-400">Kho trống hoặc không có lô khả dụng</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="7" class="py-10 text-center text-slate-400">Kho trống hoặc không có lô khả dụng</td></tr>`;
                 return;
             }
 
@@ -290,7 +290,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 return `
                     <tr class="hover:bg-slate-50/80">
                         <td class="py-3 px-3 font-semibold whitespace-nowrap">${item.maLo || '--'}</td>
-                        <td class="py-3 px-2 text-center text-slate-400 text-[11px]">${item.temQr || item.maTem || '--'}</td>
                         <td class="py-3 px-3">${item.tenSanPham || '--'}</td>
                         <td class="py-3 px-2.5 text-center whitespace-nowrap">${dinhDangNgay(item.hanDung)}</td>
                         <td class="py-3 px-3 text-right whitespace-nowrap">${Number(item.soLuongHienCo || 0).toLocaleString('vi-VN')}</td>
@@ -313,7 +312,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 btn.addEventListener('click', () => openModalChuyen(btn.dataset));
             });
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="8" class="py-8 text-center text-red-500">${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-red-500">${err.message}</td></tr>`;
         }
     }
 
@@ -338,8 +337,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         <select id="modalBenNhan" class="w-full border rounded-xl px-3 py-2.5 text-sm"></select>
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1">Số lượng chuyển</label>
-                        <input type="number" id="modalSoLuong" min="1" class="w-full border rounded-xl px-3 py-2.5 text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                        <div class="flex items-center justify-between mb-1">
+                            <label class="block text-xs font-bold text-slate-600">Số lượng chuyển</label>
+                            <span class="text-[11px] text-slate-400 font-medium flex items-center gap-1"><i class="fa-solid fa-lock text-[10px]"></i> Cố định (Không cho phép sửa)</span>
+                        </div>
+                        <input type="number" id="modalSoLuong" readonly min="1" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-sm bg-slate-100 text-slate-700 font-bold cursor-not-allowed select-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                        <p class="text-[11px] text-slate-500 mt-1 italic">Hệ thống chuyển giao toàn bộ số lượng khả dụng của lô sang nhà thuốc.</p>
                     </div>
                     <div class="flex gap-3 pt-2">
                         <button type="button" id="modalHuy" class="flex-1 py-2.5 rounded-xl border text-sm font-bold">Hủy</button>
@@ -367,8 +370,12 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('modalMaLo').textContent = data.maLo;
         document.getElementById('modalTenSP').textContent = data.ten;
         document.getElementById('modalKhaDung').textContent = Number(data.khaDung).toLocaleString('vi-VN');
-        document.getElementById('modalSoLuong').value = data.khaDung;
-        document.getElementById('modalSoLuong').max = data.khaDung;
+        const inputModalSL = document.getElementById('modalSoLuong');
+        if (inputModalSL) {
+            inputModalSL.value = data.khaDung;
+            inputModalSL.max = data.khaDung;
+            inputModalSL.readOnly = true;
+        }
 
         // Load danh sách nhà thuốc
         const select = document.getElementById('modalBenNhan');

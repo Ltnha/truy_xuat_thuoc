@@ -146,7 +146,6 @@
                     <thead>
                         <tr class="bg-slate-50 text-slate-600 uppercase tracking-wider border-b border-slate-100 text-[11px]">
                             <th class="py-3 px-3 font-bold whitespace-nowrap">Mã Lô</th>
-                            <th class="py-3 px-2 font-bold text-center whitespace-nowrap">Tem QR Thùng</th>
                             <th class="py-3 px-3 font-bold">Sản Phẩm</th>
                             <th class="py-3 px-2.5 font-bold text-center whitespace-nowrap">Hạn Dùng</th>
                             <th class="py-3 px-3 font-bold text-right whitespace-nowrap">Tổng Nhập</th>
@@ -359,8 +358,12 @@
             </div>
 
             <div class="space-y-1">
-                <label for="nhapSoLuongChuyen" class="font-bold text-slate-700">Số Lượng Chuyển Tiếp (hộp) <span class="text-red-500">*</span></label>
-                <input type="number" id="nhapSoLuongChuyen" required min="1" placeholder="Nhập số lượng xuất..." class="w-full px-3 py-2.5 bg-nenChinh border border-emerald-900/15 rounded-xl font-semibold text-slate-900 focus:bg-white focus:border-blue-700 outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                <div class="flex items-center justify-between">
+                    <label for="nhapSoLuongChuyen" class="font-bold text-slate-700">Số Lượng Chuyển Tiếp (hộp) <span class="text-red-500">*</span></label>
+                    <span class="text-[11px] text-slate-400 font-medium flex items-center gap-1"><i class="fa-solid fa-lock text-[10px]"></i> Cố định (Không cho phép sửa)</span>
+                </div>
+                <input type="number" id="nhapSoLuongChuyen" required readonly min="1" placeholder="Số lượng xuất..." class="w-full px-3 py-2.5 bg-slate-100 border border-slate-200 rounded-xl font-bold text-slate-700 cursor-not-allowed select-none outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none">
+                <p class="text-[11px] text-slate-500 italic">Hệ thống chuyển giao toàn bộ số lượng khả dụng của lô sang nhà thuốc.</p>
                 <span id="loiSoLuongChuyen" class="text-[11px] text-red-600 hidden font-bold">Số lượng xuất không được vượt quá số khả dụng trong kho!</span>
             </div>
 
